@@ -10,11 +10,9 @@ import (
 
 // 总配文件
 type config struct {
-	Server        server        `yaml:"server"`
-	Db            db            `yaml:"db"`
-	Redis         redis         `yaml:"redis"`
-	ImageSettings imageSettings `yaml:"imageSettings"`
-	Log           log           `yaml:"log"`
+	Server server `yaml:"server"`
+	Db     db     `yaml:"db"`
+	Redis  redis  `yaml:"redis"`
 }
 
 // 项目端口配置
@@ -41,19 +39,6 @@ type db struct {
 type redis struct {
 	Address  string `yaml:"address"`
 	Password string `yaml:"password"`
-}
-
-// imageSettings图片上传配置
-type imageSettings struct {
-	UploadDir string `yaml:"uploadDir"`
-	ImageHost string `yaml:"imageHost"`
-}
-
-// log日志配置
-type log struct {
-	Path  string `yaml:"path"`
-	Name  string `yaml:"name"`
-	Model string `yaml:"model"`
 }
 
 var Config *config
