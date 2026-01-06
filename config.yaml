@@ -12,9 +12,9 @@ db:
   dialects: mysql
   host: 10.177.42.165
   port: 3306
-  db: gin-api
+  db: devops
   username: root
-  password: 1111111
+  password: rootpassword
   charset: utf8
   # 最大空闲数
   maxIdle: 10
@@ -24,4 +24,4 @@ db:
 # redis配置
 redis:
   address: 10.177.42.165:6379
-  password: "123456"
+  password: "admin"

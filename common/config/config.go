@@ -37,8 +37,11 @@ type db struct {
 
 // redis配置
 type redis struct {
-	Address  string `yaml:"address"`
-	Password string `yaml:"password"`
+	Address      string `yaml:"address"`
+	Password     string `yaml:"password"`
+	DB           int    `yaml:"db"`
+	PoolSize     int    `yaml:"poolSize"`
+	MinIdleConns int    `yaml:"minIdleConns"`
 }
 
 var Config *config
@@ -82,12 +85,4 @@ func GetRedisConfig() *redis {
 		panic("Config is not initialized")
 	}
 	return &Config.Redis
-}
-
-// Setup 初始化配置（为了兼容migrate.go的调用）
-func Setup() {
-	// 配置已经在init()方法中初始化了，这里只是提供一个兼容性方法
-	if Config == nil {
-		panic("Config initialization failed")
-	}
 }
