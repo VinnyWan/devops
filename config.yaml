@@ -1,8 +1,8 @@
 # 项目启动端口
 server:
   port: 8080
-  # debug模式
-  model: release
+  # debug 模式
+  model: debug
   # release 模式
   #model:release /true/false
   enableSwagger: true
@@ -25,3 +25,25 @@ db:
 redis:
   address: 10.177.42.165:6379
   password: "admin"
+
+# JWT配置
+jwt:
+  secret: "devops-secret-key-2026"
+  expire: 7200  # token过期时间(秒), 2小时
+
+# 验证码配置
+captcha:
+  enabled: false  # 是否启用验证码验证，默认启用
+
+# 日志配置
+log:
+  # 输出目标：console(终端) 或 file(文件) 或 both(两者)
+  output: console
+  # 日志文件路径（当 output 为 file 或 both 时生效）
+  filePath: ./logs/app.log
+  # 日志级别：debug, info, warn, error
+  level: debug
+  # 是否启用调用者信息
+  enableCaller: true
+  # 是否启用堆栈跟踪（error级别及以上）
+  enableStacktrace: true

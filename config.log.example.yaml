@@ -1,0 +1,38 @@
+# 日志配置示例文件
+
+## 配置1: 只输出到终端（开发环境推荐）
+log:
+  output: console
+  filePath: ./logs/app.log
+  level: debug
+  enableCaller: true
+  enableStacktrace: true
+
+## 配置2: 只输出到文件（生产环境推荐）
+# log:
+#   output: file
+#   filePath: ./logs/app.log
+#   level: info
+#   enableCaller: true
+#   enableStacktrace: true
+
+## 配置3: 同时输出到终端和文件（测试环境推荐）
+# log:
+#   output: both
+#   filePath: ./logs/app.log
+#   level: info
+#   enableCaller: true
+#   enableStacktrace: true
+
+## 日志级别说明：
+# debug - 调试级别，输出最详细的信息
+# info  - 信息级别，正常的操作信息（推荐生产环境）
+# warn  - 警告级别，潜在的问题
+# error - 错误级别，只输出错误信息
+
+## 配置项说明：
+# output           - 输出目标：console(终端), file(文件), both(两者)
+# filePath         - 日志文件路径（output为file或both时生效）
+# level            - 日志级别：debug, info, warn, error
+# enableCaller     - 是否启用调用者信息（显示文件名和行号）
+# enableStacktrace - 是否启用堆栈跟踪（error级别及以上）

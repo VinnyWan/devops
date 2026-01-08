@@ -1,0 +1,7 @@
+{"level":"INFO","time":"2026-01-08 14:36:25.237","caller":"runtime/proc.go:283","msg":"配置文件加载成功","config_path":"","server":{"Port":"8080","Model":"release","EnableSwagger":true},"db":{"Dialects":"mysql","Host":"10.177.42.165","Port":3306,"Db":"devops","Username":"root","Password":"rootpassword","Charset":"utf8","MaxIdle":10,"MaxOpen":150},"redis":{"Address":"10.177.42.165:6379","Password":"admin","DB":0,"PoolSize":0,"MinIdleConns":0}}
+{"level":"INFO","time":"2026-01-08 14:36:25.331","caller":"devops/main.go:73","msg":"开始数据库迁移..."}
+{"level":"INFO","time":"2026-01-08 14:36:28.981","caller":"devops/main.go:73","msg":"数据库迁移完成"}
+{"level":"INFO","time":"2026-01-08 14:36:28.981","caller":"devops/main.go:78","msg":"开始初始化基础数据..."}
+{"level":"INFO","time":"2026-01-08 14:36:28.998","caller":"devops/main.go:78","msg":"数据已存在，跳过初始化"}
+{"level":"INFO","time":"2026-01-08 14:36:29.089","caller":"devops/main.go:96","msg":"Gin 服务已启动","addr":":8080"}
+{"level":"FATAL","time":"2026-01-08 14:36:29.091","caller":"runtime/asm_arm64.s:1223","msg":"服务启动失败","error":"listen tcp :8080: bind: address already in use","stack":"runtime.goexit\n\t/Users/wangnan/.g/go/src/runtime/asm_arm64.s:1223"}

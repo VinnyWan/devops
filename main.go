@@ -13,12 +13,31 @@ import (
 	"devops/common/config"
 	"devops/internal/database"
 	"devops/internal/logger"
-	"devops/middleware"
 	"devops/routers"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 )
+
+// @title DevOps 系统管理平台 API
+// @version 1.0
+// @description 这是一个基于Gin框架的DevOps系统管理平台API文档
+// @termsOfService http://swagger.io/terms/
+
+// @contact.name API Support
+// @contact.url http://www.swagger.io/support
+// @contact.email support@swagger.io
+
+// @license.name Apache 2.0
+// @license.url http://www.apache.org/licenses/LICENSE-2.0.html
+
+// @host localhost:8080
+// @BasePath /
+
+// @securityDefinitions.apikey Bearer
+// @in header
+// @name Authorization
+// @description 输入Bearer Token，格式：Bearer {token}，注意中间有空格
 
 func main() {
 	// 1. 解析命令行参数
@@ -48,6 +67,17 @@ func main() {
 	if err := database.InitMysql(); err != nil {
 		logger.Log.Fatal("Mysql数据库初始化失败", zap.Error(err))
 	}
+
+	// 自动迁移数据库表结构
+	if err := database.AutoMigrate(); err != nil {
+		logger.Log.Fatal("数据库迁移失败", zap.Error(err))
+	}
+
+	// 初始化基础数据
+	if err := database.InitData(); err != nil {
+		logger.Log.Fatal("初始化数据失败", zap.Error(err))
+	}
+
 	// 5. 初始化Redis
 	if err := database.InitRedis(); err != nil {
 		logger.Log.Fatal("Redis数据库初始化失败", zap.Error(err))
@@ -68,17 +98,10 @@ func main() {
 	gracefulShutdown(srv)
 }
 
-// setupRouter 初始化路由和中间件
+// setupRouter 初始化路由
 func setupRouter() *gin.Engine {
-	router := routers.SetupRouter()
-
-	// 全局中间件：请求日志 + panic 恢复
-	router.Use(
-		middleware.GinZapLogger(logger.Log),
-		middleware.GinRecoveryWithZap(logger.Log),
-	)
-
-	return router
+	// 路由已在 routers.SetupRouter() 中应用了全局中间件
+	return routers.SetupRouter()
 }
 
 // startHTTPServer 启动 HTTP 服务

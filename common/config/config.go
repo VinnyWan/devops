@@ -10,9 +10,12 @@ import (
 
 // 总配文件
 type config struct {
-	Server server `yaml:"server"`
-	Db     db     `yaml:"db"`
-	Redis  redis  `yaml:"redis"`
+	Server  server  `yaml:"server"`
+	Db      db      `yaml:"db"`
+	Redis   redis   `yaml:"redis"`
+	Jwt     jwt     `yaml:"jwt"`
+	Captcha captcha `yaml:"captcha"`
+	Log     Log     `yaml:"log"`
 }
 
 // 项目端口配置
@@ -42,6 +45,26 @@ type redis struct {
 	DB           int    `yaml:"db"`
 	PoolSize     int    `yaml:"poolSize"`
 	MinIdleConns int    `yaml:"minIdleConns"`
+}
+
+// jwt配置
+type jwt struct {
+	Secret string `yaml:"secret"`
+	Expire int64  `yaml:"expire"`
+}
+
+// captcha配置
+type captcha struct {
+	Enabled bool `yaml:"enabled"`
+}
+
+// Log配置
+type Log struct {
+	Output           string `yaml:"output"` // console, file, both
+	FilePath         string `yaml:"filePath"`
+	Level            string `yaml:"level"` // debug, info, warn, error
+	EnableCaller     bool   `yaml:"enableCaller"`
+	EnableStacktrace bool   `yaml:"enableStacktrace"`
 }
 
 var Config *config
@@ -85,4 +108,28 @@ func GetRedisConfig() *redis {
 		panic("Config is not initialized")
 	}
 	return &Config.Redis
+}
+
+// GetJwtConfig 获取JWT配置
+func GetJwtConfig() *jwt {
+	if Config == nil {
+		panic("Config is not initialized")
+	}
+	return &Config.Jwt
+}
+
+// GetCaptchaConfig 获取验证码配置
+func GetCaptchaConfig() *captcha {
+	if Config == nil {
+		panic("Config is not initialized")
+	}
+	return &Config.Captcha
+}
+
+// GetLogConfig 获取日志配置
+func GetLogConfig() *Log {
+	if Config == nil {
+		panic("Config is not initialized")
+	}
+	return &Config.Log
 }

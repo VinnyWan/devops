@@ -1,0 +1,533 @@
+basePath: /
+definitions:
+  common.Response:
+    properties:
+      code:
+        type: integer
+      data: {}
+      msg:
+        type: string
+    type: object
+  controller.AssignRolesRequest:
+    properties:
+      roleIds:
+        items:
+          type: integer
+        type: array
+    required:
+    - roleIds
+    type: object
+  controller.CaptchaResponse:
+    properties:
+      captchaId:
+        example: xxxx
+        type: string
+      imageUrl:
+        example: /api/captcha/xxxx.png
+        type: string
+    type: object
+  controller.LoginRequest:
+    properties:
+      captchaCode:
+        example: "1234"
+        type: string
+      captchaId:
+        example: xxxx
+        type: string
+      password:
+        example: admin123
+        type: string
+      username:
+        example: admin
+        type: string
+    required:
+    - captchaCode
+    - captchaId
+    - password
+    - username
+    type: object
+  controller.LoginResponse:
+    properties:
+      token:
+        example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        type: string
+      user: {}
+    type: object
+  models.Department:
+    properties:
+      createdAt:
+        type: string
+      deptName:
+        type: string
+      email:
+        type: string
+      id:
+        type: integer
+      leader:
+        type: string
+      parentId:
+        type: integer
+      phone:
+        type: string
+      remark:
+        type: string
+      sort:
+        type: integer
+      status:
+        type: integer
+      updatedAt:
+        type: string
+    required:
+    - deptName
+    type: object
+  models.Menu:
+    properties:
+      component:
+        type: string
+      createdAt:
+        type: string
+      icon:
+        type: string
+      id:
+        type: integer
+      menuName:
+        type: string
+      menuType:
+        type: string
+      parentId:
+        type: integer
+      path:
+        type: string
+      perms:
+        type: string
+      remark:
+        type: string
+      sort:
+        type: integer
+      status:
+        type: integer
+      updatedAt:
+        type: string
+      visible:
+        type: integer
+    required:
+    - menuName
+    type: object
+  models.Post:
+    properties:
+      createdAt:
+        type: string
+      id:
+        type: integer
+      postCode:
+        type: string
+      postName:
+        type: string
+      remark:
+        type: string
+      sort:
+        type: integer
+      status:
+        type: integer
+      updatedAt:
+        type: string
+    required:
+    - postCode
+    - postName
+    type: object
+  models.Role:
+    properties:
+      createdAt:
+        type: string
+      id:
+        type: integer
+      menus:
+        description: 关联
+        items:
+          $ref: '#/definitions/models.Menu'
+        type: array
+      remark:
+        type: string
+      roleKey:
+        type: string
+      roleName:
+        type: string
+      sort:
+        type: integer
+      status:
+        type: integer
+      updatedAt:
+        type: string
+    required:
+    - roleKey
+    - roleName
+    type: object
+  models.User:
+    properties:
+      avatar:
+        type: string
+      createdAt:
+        type: string
+      dept:
+        allOf:
+        - $ref: '#/definitions/models.Department'
+        description: 关联
+      deptId:
+        type: integer
+      email:
+        type: string
+      gender:
+        type: integer
+      id:
+        type: integer
+      nickname:
+        type: string
+      phone:
+        type: string
+      post:
+        $ref: '#/definitions/models.Post'
+      postId:
+        type: integer
+      remark:
+        type: string
+      roles:
+        items:
+          $ref: '#/definitions/models.Role'
+        type: array
+      status:
+        type: integer
+      updatedAt:
+        type: string
+      username:
+        type: string
+    required:
+    - username
+    type: object
+host: localhost:8080
+info:
+  contact:
+    email: support@swagger.io
+    name: API Support
+    url: http://www.swagger.io/support
+  description: 这是一个基于Gin框架的DevOps系统管理平台API文档
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  termsOfService: http://swagger.io/terms/
+  title: DevOps 系统管理平台 API
+  version: "1.0"
+paths:
+  /api/auth/login:
+    post:
+      consumes:
+      - application/json
+      description: 用户登录接口，登录成功后返回JWT Token。在Swagger中登录后，点击右上角Authorize按钮，输入 "Bearer
+        <token>" 即可测试需要认证的接口
+      parameters:
+      - description: 登录信息
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/controller.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 登录成功，返回token和用户信息
+          schema:
+            allOf:
+            - $ref: '#/definitions/common.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/controller.LoginResponse'
+              type: object
+        "500":
+          description: 登录失败
+          schema:
+            $ref: '#/definitions/common.Response'
+      summary: 用户登录
+      tags:
+      - 认证管理
+  /api/captcha:
+    get:
+      consumes:
+      - application/json
+      description: 生成验证码ID和图片URL，验证码有效期5分钟，存储在Redis中
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功生成验证码
+          schema:
+            allOf:
+            - $ref: '#/definitions/common.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/controller.CaptchaResponse'
+              type: object
+      summary: 生成验证码
+      tags:
+      - 认证管理
+  /api/user/info:
+    get:
+      consumes:
+      - application/json
+      description: 获取当前登录用户的详细信息
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.Response'
+      security:
+      - Bearer: []
+      summary: 获取当前用户信息
+      tags:
+      - 用户管理
+  /api/users:
+    get:
+      consumes:
+      - application/json
+      description: 分页查询用户列表
+      parameters:
+      - default: 1
+        description: 页码
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: 每页数量
+        in: query
+        name: pageSize
+        type: integer
+      - description: 用户名
+        in: query
+        name: username
+        type: string
+      - description: 手机号
+        in: query
+        name: phone
+        type: string
+      - description: 状态
+        in: query
+        name: status
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.Response'
+      security:
+      - Bearer: []
+      summary: 获取用户列表
+      tags:
+      - 用户管理
+    post:
+      consumes:
+      - application/json
+      description: 创建新用户
+      parameters:
+      - description: 用户信息
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.User'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.Response'
+      security:
+      - Bearer: []
+      summary: 创建用户
+      tags:
+      - 用户管理
+  /api/users/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: 根据ID删除用户
+      parameters:
+      - description: 用户ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.Response'
+      security:
+      - Bearer: []
+      summary: 删除用户
+      tags:
+      - 用户管理
+    get:
+      consumes:
+      - application/json
+      description: 根据用户ID获取用户详细信息
+      parameters:
+      - description: 用户ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.Response'
+      security:
+      - Bearer: []
+      summary: 根据ID获取用户
+      tags:
+      - 用户管理
+    put:
+      consumes:
+      - application/json
+      description: 根据ID更新用户信息
+      parameters:
+      - description: 用户ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 用户信息
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.User'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.Response'
+      security:
+      - Bearer: []
+      summary: 更新用户
+      tags:
+      - 用户管理
+  /api/users/{id}/roles:
+    post:
+      consumes:
+      - application/json
+      description: 为用户分配角色
+      parameters:
+      - description: 用户ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 角色ID列表
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/controller.AssignRolesRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.Response'
+      security:
+      - Bearer: []
+      summary: 分配角色
+      tags:
+      - 用户管理
+  /api/users/username/{username}:
+    delete:
+      consumes:
+      - application/json
+      description: 根据用户名删除用户
+      parameters:
+      - description: 用户名
+        in: path
+        name: username
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.Response'
+      security:
+      - Bearer: []
+      summary: 根据用户名删除用户
+      tags:
+      - 用户管理
+    get:
+      consumes:
+      - application/json
+      description: 根据用户名获取用户详细信息
+      parameters:
+      - description: 用户名
+        in: path
+        name: username
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.Response'
+      security:
+      - Bearer: []
+      summary: 根据用户名获取用户
+      tags:
+      - 用户管理
+    put:
+      consumes:
+      - application/json
+      description: 根据用户名更新用户信息
+      parameters:
+      - description: 用户名
+        in: path
+        name: username
+        required: true
+        type: string
+      - description: 用户信息
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.User'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.Response'
+      security:
+      - Bearer: []
+      summary: 根据用户名更新用户
+      tags:
+      - 用户管理
+securityDefinitions:
+  Bearer:
+    description: 输入Bearer Token，格式：Bearer {token}，注意中间有空格
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

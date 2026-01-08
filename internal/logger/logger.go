@@ -2,7 +2,10 @@ package logger
 
 import (
 	"os"
+	"path/filepath"
 	"time"
+
+	"devops/common/config"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -10,21 +13,36 @@ import (
 
 var Log *zap.Logger
 
-// Init 自定义 zap 日志器（JSON + 东八区时间 + 自定义字段名）
+// Init 初始化日志器，根据配置输出到终端或文件
 func Init() {
+	logConfig := config.GetLogConfig()
+
+	// 获取日志级别
+	level := getLogLevel(logConfig.Level)
+
+	// 获取编码器
 	encoder := getEncoder()
+
+	// 获取输出目标
+	writeSyncer := getWriteSyncer(logConfig)
+
+	// 创建 core
 	core := zapcore.NewCore(
 		encoder,
-		zapcore.AddSync(os.Stdout), // 这里输出到控制台，如需输出到文件可以换成 file writer
-		zap.NewAtomicLevelAt(zap.InfoLevel),
+		writeSyncer,
+		zap.NewAtomicLevelAt(level),
 	)
 
-	// 添加 caller、stacktrace 等配置
-	Log = zap.New(core,
-		zap.AddCaller(),                   // 打印调用方信息 caller
-		zap.AddCallerSkip(1),              // 跳过一层封装，如有需要可调整
-		zap.AddStacktrace(zap.ErrorLevel), // error 级别及以上打印堆栈
-	)
+	// 添加配置选项
+	opts := []zap.Option{}
+	if logConfig.EnableCaller {
+		opts = append(opts, zap.AddCaller(), zap.AddCallerSkip(1))
+	}
+	if logConfig.EnableStacktrace {
+		opts = append(opts, zap.AddStacktrace(zap.ErrorLevel))
+	}
+
+	Log = zap.New(core, opts...)
 }
 
 // 日志编码器：JSON + 自定义时间/字段名/级别格式
@@ -49,4 +67,57 @@ func getEncoder() zapcore.Encoder {
 	}
 
 	return zapcore.NewJSONEncoder(encoderConfig)
+}
+
+// getLogLevel 获取日志级别
+func getLogLevel(level string) zapcore.Level {
+	switch level {
+	case "debug":
+		return zap.DebugLevel
+	case "info":
+		return zap.InfoLevel
+	case "warn":
+		return zap.WarnLevel
+	case "error":
+		return zap.ErrorLevel
+	default:
+		return zap.InfoLevel
+	}
+}
+
+// getWriteSyncer 获取输出目标
+func getWriteSyncer(logConfig *config.Log) zapcore.WriteSyncer {
+	switch logConfig.Output {
+	case "console":
+		// 输出到终端
+		return zapcore.AddSync(os.Stdout)
+	case "file":
+		// 输出到文件
+		return getFileWriter(logConfig.FilePath)
+	case "both":
+		// 同时输出到终端和文件
+		return zapcore.NewMultiWriteSyncer(
+			zapcore.AddSync(os.Stdout),
+			getFileWriter(logConfig.FilePath),
+		)
+	default:
+		return zapcore.AddSync(os.Stdout)
+	}
+}
+
+// getFileWriter 获取文件写入器
+func getFileWriter(filePath string) zapcore.WriteSyncer {
+	// 确保日志目录存在
+	dir := filepath.Dir(filePath)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		panic("Failed to create log directory: " + err.Error())
+	}
+
+	// 打开或创建日志文件
+	file, err := os.OpenFile(filePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		panic("Failed to open log file: " + err.Error())
+	}
+
+	return zapcore.AddSync(file)
 }
