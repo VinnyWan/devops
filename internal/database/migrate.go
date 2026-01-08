@@ -2,7 +2,8 @@ package database
 
 import (
 	"devops/internal/logger"
-	"devops/models"
+	k8smodels "devops/models/k8s"
+	usermodels "devops/models/user"
 
 	"go.uber.org/zap"
 )
@@ -12,13 +13,20 @@ func AutoMigrate() error {
 	logger.Log.Info("开始数据库迁移...")
 
 	err := Db.AutoMigrate(
-		&models.User{},
-		&models.Role{},
-		&models.Menu{},
-		&models.Department{},
-		&models.Post{},
-		&models.OperationLog{},
-		&models.LoginLog{},
+		// 用户相关表
+		&usermodels.User{},
+		&usermodels.Role{},
+		&usermodels.Menu{},
+		&usermodels.Department{},
+		&usermodels.Post{},
+		&usermodels.OperationLog{},
+		&usermodels.LoginLog{},
+
+		// K8s相关表
+		&k8smodels.Cluster{},
+		&k8smodels.ClusterAccess{},
+		&k8smodels.Namespace{},
+		&k8smodels.OperationLog{},
 	)
 
 	if err != nil {

@@ -4,6 +4,8 @@ import (
 	_ "devops/docs"
 	"devops/internal/logger"
 	"devops/middleware"
+	k8srouters "devops/routers/k8s"
+	userrouters "devops/routers/user"
 	"time"
 
 	"github.com/gin-contrib/cors"
@@ -38,26 +40,18 @@ func SetupRouter() *gin.Engine {
 	// API路由组
 	api := r.Group("/api")
 	{
-		// 认证相关路由（登录、验证码）
-		SetupAuthRoutes(api)
+		// 用户模块路由
+		userrouters.SetupAuthRoutes(api)
+		userrouters.SetupUserRoutes(api)
+		userrouters.SetupRoleRoutes(api)
+		userrouters.SetupMenuRoutes(api)
+		userrouters.SetupDepartmentRoutes(api)
+		userrouters.SetupPostRoutes(api)
+		userrouters.SetupLogRoutes(api)
 
-		// 用户管理路由
-		SetupUserRoutes(api)
-
-		// 角色管理路由
-		SetupRoleRoutes(api)
-
-		// 菜单管理路由
-		SetupMenuRoutes(api)
-
-		// 部门管理路由
-		SetupDepartmentRoutes(api)
-
-		// 岗位管理路由
-		SetupPostRoutes(api)
-
-		// 日志管理路由
-		SetupLogRoutes(api)
+		// K8s模块路由
+		k8srouters.SetupClusterRoutes(api)
+		k8srouters.SetupResourceRoutes(api)
 	}
 
 	return r

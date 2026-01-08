@@ -82,3 +82,19 @@ func PageSuccess(c *gin.Context, list interface{}, total int64, page, pageSize i
 		},
 	})
 }
+
+// BadRequest 请求参数错误响应
+func BadRequest(c *gin.Context, msg string) {
+	c.JSON(400, Response{
+		Code: 400,
+		Msg:  msg,
+	})
+}
+
+// ServerError 服务器错误响应
+func ServerError(c *gin.Context, msg string) {
+	c.JSON(500, Response{
+		Code: 500,
+		Msg:  msg,
+	})
+}

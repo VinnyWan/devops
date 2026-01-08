@@ -8,7 +8,48 @@ definitions:
       msg:
         type: string
     type: object
-  controller.AssignRolesRequest:
+  devops_models_user.User:
+    properties:
+      avatar:
+        type: string
+      createdAt:
+        type: string
+      dept:
+        allOf:
+        - $ref: '#/definitions/user.Department'
+        description: 关联
+      deptId:
+        type: integer
+      email:
+        type: string
+      gender:
+        type: integer
+      id:
+        type: integer
+      nickname:
+        type: string
+      phone:
+        type: string
+      post:
+        $ref: '#/definitions/user.Post'
+      postId:
+        type: integer
+      remark:
+        type: string
+      roles:
+        items:
+          $ref: '#/definitions/user.Role'
+        type: array
+      status:
+        type: integer
+      updatedAt:
+        type: string
+      username:
+        type: string
+    required:
+    - username
+    type: object
+  user.AssignRolesRequest:
     properties:
       roleIds:
         items:
@@ -17,7 +58,7 @@ definitions:
     required:
     - roleIds
     type: object
-  controller.CaptchaResponse:
+  user.CaptchaResponse:
     properties:
       captchaId:
         example: xxxx
@@ -26,34 +67,7 @@ definitions:
         example: /api/captcha/xxxx.png
         type: string
     type: object
-  controller.LoginRequest:
-    properties:
-      captchaCode:
-        example: "1234"
-        type: string
-      captchaId:
-        example: xxxx
-        type: string
-      password:
-        example: admin123
-        type: string
-      username:
-        example: admin
-        type: string
-    required:
-    - captchaCode
-    - captchaId
-    - password
-    - username
-    type: object
-  controller.LoginResponse:
-    properties:
-      token:
-        example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-        type: string
-      user: {}
-    type: object
-  models.Department:
+  user.Department:
     properties:
       createdAt:
         type: string
@@ -80,7 +94,34 @@ definitions:
     required:
     - deptName
     type: object
-  models.Menu:
+  user.LoginRequest:
+    properties:
+      captchaCode:
+        example: "1234"
+        type: string
+      captchaId:
+        example: xxxx
+        type: string
+      password:
+        example: admin123
+        type: string
+      username:
+        example: admin
+        type: string
+    required:
+    - captchaCode
+    - captchaId
+    - password
+    - username
+    type: object
+  user.LoginResponse:
+    properties:
+      token:
+        example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        type: string
+      user: {}
+    type: object
+  user.Menu:
     properties:
       component:
         type: string
@@ -113,7 +154,7 @@ definitions:
     required:
     - menuName
     type: object
-  models.Post:
+  user.Post:
     properties:
       createdAt:
         type: string
@@ -135,7 +176,7 @@ definitions:
     - postCode
     - postName
     type: object
-  models.Role:
+  user.Role:
     properties:
       createdAt:
         type: string
@@ -144,7 +185,7 @@ definitions:
       menus:
         description: 关联
         items:
-          $ref: '#/definitions/models.Menu'
+          $ref: '#/definitions/user.Menu'
         type: array
       remark:
         type: string
@@ -161,47 +202,6 @@ definitions:
     required:
     - roleKey
     - roleName
-    type: object
-  models.User:
-    properties:
-      avatar:
-        type: string
-      createdAt:
-        type: string
-      dept:
-        allOf:
-        - $ref: '#/definitions/models.Department'
-        description: 关联
-      deptId:
-        type: integer
-      email:
-        type: string
-      gender:
-        type: integer
-      id:
-        type: integer
-      nickname:
-        type: string
-      phone:
-        type: string
-      post:
-        $ref: '#/definitions/models.Post'
-      postId:
-        type: integer
-      remark:
-        type: string
-      roles:
-        items:
-          $ref: '#/definitions/models.Role'
-        type: array
-      status:
-        type: integer
-      updatedAt:
-        type: string
-      username:
-        type: string
-    required:
-    - username
     type: object
 host: localhost:8080
 info:
@@ -229,7 +229,7 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/controller.LoginRequest'
+          $ref: '#/definitions/user.LoginRequest'
       produces:
       - application/json
       responses:
@@ -240,7 +240,7 @@ paths:
             - $ref: '#/definitions/common.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/controller.LoginResponse'
+                  $ref: '#/definitions/user.LoginResponse'
               type: object
         "500":
           description: 登录失败
@@ -264,11 +264,1550 @@ paths:
             - $ref: '#/definitions/common.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/controller.CaptchaResponse'
+                  $ref: '#/definitions/user.CaptchaResponse'
               type: object
       summary: 生成验证码
       tags:
       - 认证管理
+  /api/k8s/clusters:
+    get:
+      consumes:
+      - application/json
+      parameters:
+      - default: 1
+        description: 页码
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: 每页数量
+        in: query
+        name: pageSize
+        type: integer
+      - description: 集群名称
+        in: query
+        name: name
+        type: string
+      - description: 部门ID
+        in: query
+        name: deptId
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.Response'
+      security:
+      - Bearer: []
+      summary: 获取K8s集群列表
+      tags:
+      - K8s-Cluster
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 集群信息
+        in: body
+        name: data
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.Response'
+      security:
+      - Bearer: []
+      summary: 创建K8s集群
+      tags:
+      - K8s-Cluster
+  /api/k8s/clusters/{clusterId}:
+    delete:
+      consumes:
+      - application/json
+      parameters:
+      - description: 集群ID
+        in: path
+        name: clusterId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.Response'
+      security:
+      - Bearer: []
+      summary: 删除K8s集群
+      tags:
+      - K8s-Cluster
+    get:
+      consumes:
+      - application/json
+      parameters:
+      - description: 集群ID
+        in: path
+        name: clusterId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.Response'
+      security:
+      - Bearer: []
+      summary: 获取K8s集群详情
+      tags:
+      - K8s-Cluster
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: 集群ID
+        in: path
+        name: clusterId
+        required: true
+        type: integer
+      - description: 集群信息
+        in: body
+        name: data
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.Response'
+      security:
+      - Bearer: []
+      summary: 更新K8s集群
+      tags:
+      - K8s-Cluster
+  /api/k8s/clusters/{clusterId}/access:
+    get:
+      consumes:
+      - application/json
+      parameters:
+      - description: 集群ID
+        in: path
+        name: clusterId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.Response'
+      security:
+      - Bearer: []
+      summary: 获取集群访问权限列表
+      tags:
+      - K8s-Cluster
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 集群ID
+        in: path
+        name: clusterId
+        required: true
+        type: integer
+      - description: 权限信息
+        in: body
+        name: data
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.Response'
+      security:
+      - Bearer: []
+      summary: 创建集群访问权限
+      tags:
+      - K8s-Cluster
+  /api/k8s/clusters/{clusterId}/access/{accessId}:
+    delete:
+      consumes:
+      - application/json
+      parameters:
+      - description: 集群ID
+        in: path
+        name: clusterId
+        required: true
+        type: integer
+      - description: 权限ID
+        in: path
+        name: accessId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.Response'
+      security:
+      - Bearer: []
+      summary: 删除集群访问权限
+      tags:
+      - K8s-Cluster
+  /api/k8s/clusters/{clusterId}/configmaps:
+    get:
+      consumes:
+      - application/json
+      parameters:
+      - description: 集群ID
+        in: path
+        name: clusterId
+        required: true
+        type: integer
+      - description: 命名空间
+        in: query
+        name: namespace
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.Response'
+      summary: 获取ConfigMap列表
+      tags:
+      - K8s-Config
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 集群ID
+        in: path
+        name: clusterId
+        required: true
+        type: integer
+      - description: 命名空间
+        in: query
+        name: namespace
+        required: true
+        type: string
+      - description: ConfigMap信息
+        in: body
+        name: data
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.Response'
+      summary: 创建ConfigMap
+      tags:
+      - K8s-Config
+  /api/k8s/clusters/{clusterId}/configmaps/{name}:
+    delete:
+      consumes:
+      - application/json
+      parameters:
+      - description: 集群ID
+        in: path
+        name: clusterId
+        required: true
+        type: integer
+      - description: 命名空间
+        in: query
+        name: namespace
+        required: true
+        type: string
+      - description: ConfigMap名称
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.Response'
+      summary: 删除ConfigMap
+      tags:
+      - K8s-Config
+    get:
+      consumes:
+      - application/json
+      parameters:
+      - description: 集群ID
+        in: path
+        name: clusterId
+        required: true
+        type: integer
+      - description: 命名空间
+        in: query
+        name: namespace
+        required: true
+        type: string
+      - description: ConfigMap名称
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.Response'
+      summary: 获取ConfigMap详情
+      tags:
+      - K8s-Config
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: 集群ID
+        in: path
+        name: clusterId
+        required: true
+        type: integer
+      - description: 命名空间
+        in: query
+        name: namespace
+        required: true
+        type: string
+      - description: ConfigMap名称
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: ConfigMap信息
+        in: body
+        name: data
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.Response'
+      summary: 更新ConfigMap
+      tags:
+      - K8s-Config
+  /api/k8s/clusters/{clusterId}/daemonsets:
+    get:
+      consumes:
+      - application/json
+      parameters:
+      - description: 集群ID
+        in: path
+        name: clusterId
+        required: true
+        type: integer
+      - description: 命名空间
+        in: query
+        name: namespace
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.Response'
+      summary: 获取DaemonSet列表
+      tags:
+      - K8s-Workload
+  /api/k8s/clusters/{clusterId}/deployments:
+    get:
+      consumes:
+      - application/json
+      parameters:
+      - description: 集群ID
+        in: path
+        name: clusterId
+        required: true
+        type: integer
+      - description: 命名空间
+        in: query
+        name: namespace
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.Response'
+      summary: 获取Deployment列表
+      tags:
+      - K8s-Workload
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 集群ID
+        in: path
+        name: clusterId
+        required: true
+        type: integer
+      - description: 命名空间
+        in: query
+        name: namespace
+        required: true
+        type: string
+      - description: Deployment信息
+        in: body
+        name: data
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.Response'
+      summary: 创建Deployment
+      tags:
+      - K8s-Workload
+  /api/k8s/clusters/{clusterId}/deployments/{name}:
+    delete:
+      consumes:
+      - application/json
+      parameters:
+      - description: 集群ID
+        in: path
+        name: clusterId
+        required: true
+        type: integer
+      - description: 命名空间
+        in: query
+        name: namespace
+        required: true
+        type: string
+      - description: Deployment名称
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.Response'
+      summary: 删除Deployment
+      tags:
+      - K8s-Workload
+    get:
+      consumes:
+      - application/json
+      parameters:
+      - description: 集群ID
+        in: path
+        name: clusterId
+        required: true
+        type: integer
+      - description: 命名空间
+        in: query
+        name: namespace
+        required: true
+        type: string
+      - description: Deployment名称
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.Response'
+      summary: 获取Deployment详情
+      tags:
+      - K8s-Workload
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: 集群ID
+        in: path
+        name: clusterId
+        required: true
+        type: integer
+      - description: 命名空间
+        in: query
+        name: namespace
+        required: true
+        type: string
+      - description: Deployment名称
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: Deployment信息
+        in: body
+        name: data
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.Response'
+      summary: 更新Deployment
+      tags:
+      - K8s-Workload
+  /api/k8s/clusters/{clusterId}/deployments/{name}/restart:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 集群ID
+        in: path
+        name: clusterId
+        required: true
+        type: integer
+      - description: 命名空间
+        in: query
+        name: namespace
+        required: true
+        type: string
+      - description: Deployment名称
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.Response'
+      summary: 重启Deployment
+      tags:
+      - K8s-Workload
+  /api/k8s/clusters/{clusterId}/deployments/{name}/scale:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 集群ID
+        in: path
+        name: clusterId
+        required: true
+        type: integer
+      - description: 命名空间
+        in: query
+        name: namespace
+        required: true
+        type: string
+      - description: Deployment名称
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: 副本数
+        in: query
+        name: replicas
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.Response'
+      summary: 扩缩容Deployment
+      tags:
+      - K8s-Workload
+  /api/k8s/clusters/{clusterId}/events:
+    get:
+      consumes:
+      - application/json
+      parameters:
+      - description: 集群ID
+        in: path
+        name: clusterId
+        required: true
+        type: integer
+      - description: 命名空间
+        in: query
+        name: namespace
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.Response'
+      summary: 获取事件列表
+      tags:
+      - K8s-Event
+  /api/k8s/clusters/{clusterId}/events/object:
+    get:
+      consumes:
+      - application/json
+      parameters:
+      - description: 集群ID
+        in: path
+        name: clusterId
+        required: true
+        type: integer
+      - description: 命名空间
+        in: query
+        name: namespace
+        required: true
+        type: string
+      - description: 资源类型
+        in: query
+        name: kind
+        required: true
+        type: string
+      - description: 资源名称
+        in: query
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.Response'
+      summary: 获取指定资源的事件
+      tags:
+      - K8s-Event
+  /api/k8s/clusters/{clusterId}/health:
+    get:
+      consumes:
+      - application/json
+      parameters:
+      - description: 集群ID
+        in: path
+        name: clusterId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.Response'
+      security:
+      - Bearer: []
+      summary: K8s集群健康检查
+      tags:
+      - K8s-Cluster
+  /api/k8s/clusters/{clusterId}/ingresses:
+    get:
+      consumes:
+      - application/json
+      parameters:
+      - description: 集群ID
+        in: path
+        name: clusterId
+        required: true
+        type: integer
+      - description: 命名空间
+        in: query
+        name: namespace
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.Response'
+      summary: 获取Ingress列表
+      tags:
+      - K8s-Service
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 集群ID
+        in: path
+        name: clusterId
+        required: true
+        type: integer
+      - description: 命名空间
+        in: query
+        name: namespace
+        required: true
+        type: string
+      - description: Ingress信息
+        in: body
+        name: data
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.Response'
+      summary: 创建Ingress
+      tags:
+      - K8s-Service
+  /api/k8s/clusters/{clusterId}/ingresses/{name}:
+    delete:
+      consumes:
+      - application/json
+      parameters:
+      - description: 集群ID
+        in: path
+        name: clusterId
+        required: true
+        type: integer
+      - description: 命名空间
+        in: query
+        name: namespace
+        required: true
+        type: string
+      - description: Ingress名称
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.Response'
+      summary: 删除Ingress
+      tags:
+      - K8s-Service
+    get:
+      consumes:
+      - application/json
+      parameters:
+      - description: 集群ID
+        in: path
+        name: clusterId
+        required: true
+        type: integer
+      - description: 命名空间
+        in: query
+        name: namespace
+        required: true
+        type: string
+      - description: Ingress名称
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.Response'
+      summary: 获取Ingress详情
+      tags:
+      - K8s-Service
+  /api/k8s/clusters/{clusterId}/namespaces:
+    get:
+      consumes:
+      - application/json
+      parameters:
+      - description: 集群ID
+        in: path
+        name: clusterId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.Response'
+      summary: 获取命名空间列表
+      tags:
+      - K8s-Namespace
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 集群ID
+        in: path
+        name: clusterId
+        required: true
+        type: integer
+      - description: 命名空间信息
+        in: body
+        name: data
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.Response'
+      summary: 创建命名空间
+      tags:
+      - K8s-Namespace
+  /api/k8s/clusters/{clusterId}/namespaces/{name}:
+    delete:
+      consumes:
+      - application/json
+      parameters:
+      - description: 集群ID
+        in: path
+        name: clusterId
+        required: true
+        type: integer
+      - description: 命名空间名称
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.Response'
+      summary: 删除命名空间
+      tags:
+      - K8s-Namespace
+    get:
+      consumes:
+      - application/json
+      parameters:
+      - description: 集群ID
+        in: path
+        name: clusterId
+        required: true
+        type: integer
+      - description: 命名空间名称
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.Response'
+      summary: 获取命名空间详情
+      tags:
+      - K8s-Namespace
+  /api/k8s/clusters/{clusterId}/nodes:
+    get:
+      consumes:
+      - application/json
+      parameters:
+      - description: 集群ID
+        in: path
+        name: clusterId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.Response'
+      summary: 获取节点列表
+      tags:
+      - K8s-Node
+  /api/k8s/clusters/{clusterId}/nodes/{name}:
+    get:
+      consumes:
+      - application/json
+      parameters:
+      - description: 集群ID
+        in: path
+        name: clusterId
+        required: true
+        type: integer
+      - description: 节点名称
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.Response'
+      summary: 获取节点详情
+      tags:
+      - K8s-Node
+  /api/k8s/clusters/{clusterId}/pods:
+    get:
+      consumes:
+      - application/json
+      parameters:
+      - description: 集群ID
+        in: path
+        name: clusterId
+        required: true
+        type: integer
+      - description: 命名空间
+        in: query
+        name: namespace
+        required: true
+        type: string
+      - description: 标签选择器
+        in: query
+        name: labelSelector
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.Response'
+      summary: 获取Pod列表
+      tags:
+      - K8s-Workload
+  /api/k8s/clusters/{clusterId}/pods/{name}:
+    delete:
+      consumes:
+      - application/json
+      parameters:
+      - description: 集群ID
+        in: path
+        name: clusterId
+        required: true
+        type: integer
+      - description: 命名空间
+        in: query
+        name: namespace
+        required: true
+        type: string
+      - description: Pod名称
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.Response'
+      summary: 删除Pod
+      tags:
+      - K8s-Workload
+    get:
+      consumes:
+      - application/json
+      parameters:
+      - description: 集群ID
+        in: path
+        name: clusterId
+        required: true
+        type: integer
+      - description: 命名空间
+        in: query
+        name: namespace
+        required: true
+        type: string
+      - description: Pod名称
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.Response'
+      summary: 获取Pod详情
+      tags:
+      - K8s-Workload
+  /api/k8s/clusters/{clusterId}/pods/{name}/logs:
+    get:
+      consumes:
+      - application/json
+      parameters:
+      - description: 集群ID
+        in: path
+        name: clusterId
+        required: true
+        type: integer
+      - description: 命名空间
+        in: query
+        name: namespace
+        required: true
+        type: string
+      - description: Pod名称
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: 容器名称
+        in: query
+        name: container
+        type: string
+      - default: 100
+        description: 尾部行数
+        in: query
+        name: tailLines
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.Response'
+      summary: 获取Pod日志
+      tags:
+      - K8s-Workload
+  /api/k8s/clusters/{clusterId}/pvcs:
+    get:
+      consumes:
+      - application/json
+      parameters:
+      - description: 集群ID
+        in: path
+        name: clusterId
+        required: true
+        type: integer
+      - description: 命名空间
+        in: query
+        name: namespace
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.Response'
+      summary: 获取PVC列表
+      tags:
+      - K8s-Storage
+  /api/k8s/clusters/{clusterId}/pvcs/{name}:
+    delete:
+      consumes:
+      - application/json
+      parameters:
+      - description: 集群ID
+        in: path
+        name: clusterId
+        required: true
+        type: integer
+      - description: 命名空间
+        in: query
+        name: namespace
+        required: true
+        type: string
+      - description: PVC名称
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.Response'
+      summary: 删除PVC
+      tags:
+      - K8s-Storage
+    get:
+      consumes:
+      - application/json
+      parameters:
+      - description: 集群ID
+        in: path
+        name: clusterId
+        required: true
+        type: integer
+      - description: 命名空间
+        in: query
+        name: namespace
+        required: true
+        type: string
+      - description: PVC名称
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.Response'
+      summary: 获取PVC详情
+      tags:
+      - K8s-Storage
+  /api/k8s/clusters/{clusterId}/pvs:
+    get:
+      consumes:
+      - application/json
+      parameters:
+      - description: 集群ID
+        in: path
+        name: clusterId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.Response'
+      summary: 获取PV列表
+      tags:
+      - K8s-Storage
+  /api/k8s/clusters/{clusterId}/pvs/{name}:
+    delete:
+      consumes:
+      - application/json
+      parameters:
+      - description: 集群ID
+        in: path
+        name: clusterId
+        required: true
+        type: integer
+      - description: PV名称
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.Response'
+      summary: 删除PV
+      tags:
+      - K8s-Storage
+    get:
+      consumes:
+      - application/json
+      parameters:
+      - description: 集群ID
+        in: path
+        name: clusterId
+        required: true
+        type: integer
+      - description: PV名称
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.Response'
+      summary: 获取PV详情
+      tags:
+      - K8s-Storage
+  /api/k8s/clusters/{clusterId}/secrets:
+    get:
+      consumes:
+      - application/json
+      parameters:
+      - description: 集群ID
+        in: path
+        name: clusterId
+        required: true
+        type: integer
+      - description: 命名空间
+        in: query
+        name: namespace
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.Response'
+      summary: 获取Secret列表
+      tags:
+      - K8s-Config
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 集群ID
+        in: path
+        name: clusterId
+        required: true
+        type: integer
+      - description: 命名空间
+        in: query
+        name: namespace
+        required: true
+        type: string
+      - description: Secret信息
+        in: body
+        name: data
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.Response'
+      summary: 创建Secret
+      tags:
+      - K8s-Config
+  /api/k8s/clusters/{clusterId}/secrets/{name}:
+    delete:
+      consumes:
+      - application/json
+      parameters:
+      - description: 集群ID
+        in: path
+        name: clusterId
+        required: true
+        type: integer
+      - description: 命名空间
+        in: query
+        name: namespace
+        required: true
+        type: string
+      - description: Secret名称
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.Response'
+      summary: 删除Secret
+      tags:
+      - K8s-Config
+    get:
+      consumes:
+      - application/json
+      parameters:
+      - description: 集群ID
+        in: path
+        name: clusterId
+        required: true
+        type: integer
+      - description: 命名空间
+        in: query
+        name: namespace
+        required: true
+        type: string
+      - description: Secret名称
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.Response'
+      summary: 获取Secret详情
+      tags:
+      - K8s-Config
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: 集群ID
+        in: path
+        name: clusterId
+        required: true
+        type: integer
+      - description: 命名空间
+        in: query
+        name: namespace
+        required: true
+        type: string
+      - description: Secret名称
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: Secret信息
+        in: body
+        name: data
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.Response'
+      summary: 更新Secret
+      tags:
+      - K8s-Config
+  /api/k8s/clusters/{clusterId}/services:
+    get:
+      consumes:
+      - application/json
+      parameters:
+      - description: 集群ID
+        in: path
+        name: clusterId
+        required: true
+        type: integer
+      - description: 命名空间
+        in: query
+        name: namespace
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.Response'
+      summary: 获取Service列表
+      tags:
+      - K8s-Service
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 集群ID
+        in: path
+        name: clusterId
+        required: true
+        type: integer
+      - description: 命名空间
+        in: query
+        name: namespace
+        required: true
+        type: string
+      - description: Service信息
+        in: body
+        name: data
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.Response'
+      summary: 创建Service
+      tags:
+      - K8s-Service
+  /api/k8s/clusters/{clusterId}/services/{name}:
+    delete:
+      consumes:
+      - application/json
+      parameters:
+      - description: 集群ID
+        in: path
+        name: clusterId
+        required: true
+        type: integer
+      - description: 命名空间
+        in: query
+        name: namespace
+        required: true
+        type: string
+      - description: Service名称
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.Response'
+      summary: 删除Service
+      tags:
+      - K8s-Service
+    get:
+      consumes:
+      - application/json
+      parameters:
+      - description: 集群ID
+        in: path
+        name: clusterId
+        required: true
+        type: integer
+      - description: 命名空间
+        in: query
+        name: namespace
+        required: true
+        type: string
+      - description: Service名称
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.Response'
+      summary: 获取Service详情
+      tags:
+      - K8s-Service
+  /api/k8s/clusters/{clusterId}/statefulsets:
+    get:
+      consumes:
+      - application/json
+      parameters:
+      - description: 集群ID
+        in: path
+        name: clusterId
+        required: true
+        type: integer
+      - description: 命名空间
+        in: query
+        name: namespace
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.Response'
+      summary: 获取StatefulSet列表
+      tags:
+      - K8s-Workload
+  /api/k8s/clusters/{clusterId}/storageclasses:
+    get:
+      consumes:
+      - application/json
+      parameters:
+      - description: 集群ID
+        in: path
+        name: clusterId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.Response'
+      summary: 获取StorageClass列表
+      tags:
+      - K8s-Storage
+  /api/k8s/clusters/{clusterId}/storageclasses/{name}:
+    get:
+      consumes:
+      - application/json
+      parameters:
+      - description: 集群ID
+        in: path
+        name: clusterId
+        required: true
+        type: integer
+      - description: StorageClass名称
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.Response'
+      summary: 获取StorageClass详情
+      tags:
+      - K8s-Storage
   /api/user/info:
     get:
       consumes:
@@ -336,7 +1875,7 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/models.User'
+          $ref: '#/definitions/devops_models_user.User'
       produces:
       - application/json
       responses:
@@ -409,7 +1948,7 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/models.User'
+          $ref: '#/definitions/devops_models_user.User'
       produces:
       - application/json
       responses:
@@ -438,7 +1977,7 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/controller.AssignRolesRequest'
+          $ref: '#/definitions/user.AssignRolesRequest'
       produces:
       - application/json
       responses:
@@ -511,7 +2050,7 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/models.User'
+          $ref: '#/definitions/devops_models_user.User'
       produces:
       - application/json
       responses:

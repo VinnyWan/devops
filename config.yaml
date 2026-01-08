@@ -1,10 +1,8 @@
 # 项目启动端口
 server:
   port: 8080
-  # debug 模式
+  # debug / release 模式
   model: debug
-  # release 模式
-  #model:release /true/false
   enableSwagger: true
 
 # 数据库配置

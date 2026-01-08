@@ -2,7 +2,7 @@ package database
 
 import (
 	"devops/internal/logger"
-	"devops/models"
+	usermodels "devops/models/user"
 	"devops/utils"
 
 	"go.uber.org/zap"
@@ -14,14 +14,14 @@ func InitData() error {
 
 	// 检查是否已有管理员用户
 	var count int64
-	Db.Model(&models.User{}).Count(&count)
+	Db.Model(&usermodels.User{}).Count(&count)
 	if count > 0 {
 		logger.Log.Info("数据已存在，跳过初始化")
 		return nil
 	}
 
 	// 创建默认管理员角色
-	adminRole := models.Role{
+	adminRole := usermodels.Role{
 		RoleName: "超级管理员",
 		RoleKey:  "admin",
 		Sort:     1,
@@ -35,7 +35,7 @@ func InitData() error {
 
 	// 创建默认管理员用户
 	hashedPassword, _ := utils.HashPassword("admin123")
-	adminUser := models.User{
+	adminUser := usermodels.User{
 		Username: "admin",
 		Password: hashedPassword,
 		Nickname: "超级管理员",
@@ -57,7 +57,7 @@ func InitData() error {
 	}
 
 	// 创建默认部门
-	dept := models.Department{
+	dept := usermodels.Department{
 		DeptName: "总公司",
 		ParentID: 0,
 		Sort:     0,
@@ -73,7 +73,7 @@ func InitData() error {
 	}
 
 	// 创建默认岗位
-	post := models.Post{
+	post := usermodels.Post{
 		PostName: "董事长",
 		PostCode: "ceo",
 		Sort:     1,
@@ -86,7 +86,7 @@ func InitData() error {
 	}
 
 	// 创建系统菜单
-	menus := []models.Menu{
+	menus := []usermodels.Menu{
 		{
 			MenuName:  "系统管理",
 			ParentID:  0,
