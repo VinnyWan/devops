@@ -13,7 +13,7 @@ import (
 	"devops/common/config"
 	"devops/internal/database"
 	"devops/internal/logger"
-	"devops/internal/middleware"
+	"devops/middleware"
 	"devops/routers"
 
 	"github.com/gin-gonic/gin"
