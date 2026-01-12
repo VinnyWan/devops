@@ -2,6 +2,9 @@ package k8s
 
 import (
 	"context"
+	"strings"
+
+	k8smodels "devops/models/k8s"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -13,10 +16,37 @@ type WorkloadService struct {
 	clusterService *ClusterService
 }
 
+// extractImageVersion 从镜像地址中提取版本号（冒号后的部分）
+// 例如：nginx:1.21 -> 1.21
+//
+//	registry.cn-hangzhou.aliyuncs.com/my-app:v2.0.1 -> v2.0.1
+//	redis -> latest（如果没有冒号，返回 latest）
+func extractImageVersion(image string) string {
+	// 查找最后一个冒号的位置
+	lastColonIndex := strings.LastIndex(image, ":")
+
+	// 如果没有冒号，说明没有指定版本，返回 latest
+	if lastColonIndex == -1 {
+		return "latest"
+	}
+
+	// 提取冒号后的部分作为版本号
+	version := image[lastColonIndex+1:]
+
+	// 如果版本号为空，返回 latest
+	if version == "" {
+		return "latest"
+	}
+
+	return version
+}
+
 // Deployment相关方法
 
-// ListDeployments 获取Deployment列表
-func (s *WorkloadService) ListDeployments(clusterID uint, namespace string) ([]appsv1.Deployment, error) {
+// ListDeployments 获取Deployment列表（简化版）
+// 返回字段：名称、命名空间、副本数、镜像、标签、创建时间、更新时间
+// 如需完整信息，使用 GetDeployment() 方法获取单个详情
+func (s *WorkloadService) ListDeployments(clusterID uint, namespace string) ([]k8smodels.DeploymentDTO, error) {
 	if s.clusterService == nil {
 		s.clusterService = &ClusterService{}
 	}
@@ -31,7 +61,40 @@ func (s *WorkloadService) ListDeployments(clusterID uint, namespace string) ([]a
 		return nil, err
 	}
 
-	return deployments.Items, nil
+	// 转换为 DTO
+	result := make([]k8smodels.DeploymentDTO, 0, len(deployments.Items))
+	for _, deploy := range deployments.Items {
+		// 提取所有容器的镜像版本号（冒号后的部分）
+		versions := make([]string, 0)
+		for _, container := range deploy.Spec.Template.Spec.Containers {
+			version := extractImageVersion(container.Image)
+			versions = append(versions, version)
+		}
+
+		// 获取副本数
+		replicas := int32(0)
+		if deploy.Spec.Replicas != nil {
+			replicas = *deploy.Spec.Replicas
+		}
+
+		// 获取更新时间（如果没有 conditions，使用创建时间）
+		updateTime := deploy.CreationTimestamp.Time
+		if len(deploy.Status.Conditions) > 0 {
+			updateTime = deploy.Status.Conditions[len(deploy.Status.Conditions)-1].LastUpdateTime.Time
+		}
+
+		result = append(result, k8smodels.DeploymentDTO{
+			Name:       deploy.Name,
+			Namespace:  deploy.Namespace,
+			Replicas:   replicas,
+			Versions:   versions,
+			Labels:     deploy.Labels,
+			CreateTime: deploy.CreationTimestamp.Time,
+			UpdateTime: updateTime,
+		})
+	}
+
+	return result, nil
 }
 
 // GetDeployment 获取Deployment详情

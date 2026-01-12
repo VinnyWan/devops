@@ -41,10 +41,10 @@ DELETE /api/k8s/clusters/:id/access/:accessId # 删除权限
 
 ```bash
 # 1. 获取验证码
-curl http://localhost:8080/api/captcha
+curl http://localhost:8000/api/captcha
 
 # 2. 登录（如果验证码已关闭，随便填）
-curl -X POST http://localhost:8080/api/auth/login \
+curl -X POST http://localhost:8000/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{
     "username": "admin",
@@ -60,7 +60,7 @@ export TOKEN="你的token"
 ### 步骤2：创建K8s集群
 
 ```bash
-curl -X POST http://localhost:8080/api/k8s/clusters \
+curl -X POST http://localhost:8000/api/k8s/clusters \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -80,7 +80,7 @@ curl -X POST http://localhost:8080/api/k8s/clusters \
 ### 步骤3：获取集群列表
 
 ```bash
-curl -X GET "http://localhost:8080/api/k8s/clusters?page=1&pageSize=10" \
+curl -X GET "http://localhost:8000/api/k8s/clusters?page=1&pageSize=10" \
   -H "Authorization: Bearer $TOKEN"
 ```
 
@@ -88,7 +88,7 @@ curl -X GET "http://localhost:8080/api/k8s/clusters?page=1&pageSize=10" \
 
 ```bash
 # 为角色ID=2配置只读权限
-curl -X POST http://localhost:8080/api/k8s/clusters/1/access \
+curl -X POST http://localhost:8000/api/k8s/clusters/1/access \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -98,7 +98,7 @@ curl -X POST http://localhost:8080/api/k8s/clusters/1/access \
   }'
 
 # 为角色ID=1配置管理员权限
-curl -X POST http://localhost:8080/api/k8s/clusters/1/access \
+curl -X POST http://localhost:8000/api/k8s/clusters/1/access \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -111,7 +111,7 @@ curl -X POST http://localhost:8080/api/k8s/clusters/1/access \
 ### 步骤5：健康检查
 
 ```bash
-curl -X GET http://localhost:8080/api/k8s/clusters/1/health \
+curl -X GET http://localhost:8000/api/k8s/clusters/1/health \
   -H "Authorization: Bearer $TOKEN"
 ```
 
@@ -119,7 +119,7 @@ curl -X GET http://localhost:8080/api/k8s/clusters/1/health \
 
 ```bash
 # 1. 使用只读角色的用户Token尝试删除集群（应该被拒绝）
-curl -X DELETE http://localhost:8080/api/k8s/clusters/1 \
+curl -X DELETE http://localhost:8000/api/k8s/clusters/1 \
   -H "Authorization: Bearer $READONLY_TOKEN"
 
 # 预期响应：
@@ -129,7 +129,7 @@ curl -X DELETE http://localhost:8080/api/k8s/clusters/1 \
 # }
 
 # 2. 使用admin角色的用户Token删除集群（应该成功）
-curl -X DELETE http://localhost:8080/api/k8s/clusters/1 \
+curl -X DELETE http://localhost:8000/api/k8s/clusters/1 \
   -H "Authorization: Bearer $ADMIN_TOKEN"
 ```
 
@@ -174,7 +174,7 @@ curl -X DELETE http://localhost:8080/api/k8s/clusters/1 \
 
 ## 📝 在Swagger中测试
 
-1. 访问：http://localhost:8080/swagger/index.html
+1. 访问：http://localhost:8000/swagger/index.html
 2. 找到"K8s集群管理"标签
 3. 先登录获取Token
 4. 点击右上角🔒 Authorize，输入：`Bearer YOUR_TOKEN`
@@ -250,4 +250,4 @@ curl -X DELETE http://localhost:8080/api/k8s/clusters/1 \
 
 - [K8S_IMPLEMENTATION_PLAN.md](./K8S_IMPLEMENTATION_PLAN.md) - 完整实现方案
 - [Kubernetes Client-Go文档](https://kubernetes.io/docs/reference/using-api/client-libraries/)
-- [Swagger API文档](http://localhost:8080/swagger/index.html)
+- [Swagger API文档](http://localhost:8000/swagger/index.html)

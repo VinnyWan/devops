@@ -1,6 +1,6 @@
 # 项目启动端口
 server:
-  port: 8080
+  port: 8000
   # debug / release 模式
   model: debug
   enableSwagger: true

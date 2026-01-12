@@ -22,6 +22,7 @@ func SetupClusterRoutes(r *gin.RouterGroup) {
 		k8s.PUT("/clusters/:clusterId", middleware.K8sPermission("update"), clusterCtrl.Update)
 		k8s.DELETE("/clusters/:clusterId", middleware.K8sPermission("delete"), clusterCtrl.Delete)
 		k8s.GET("/clusters/:clusterId/health", middleware.K8sPermission("get"), clusterCtrl.HealthCheck)
+		k8s.POST("/clusters/:clusterId/reimport", middleware.K8sPermission("update"), clusterCtrl.ReimportKubeConfig)
 
 		// 集群权限管理
 		k8s.POST("/clusters/:clusterId/access", clusterCtrl.CreateAccess)

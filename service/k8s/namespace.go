@@ -1,14 +1,14 @@
 package k8s
 
 import (
-"context"
-"encoding/json"
+	"context"
+	"encoding/json"
 
-"devops/internal/database"
-k8smodels "devops/models/k8s"
+	"devops/internal/database"
+	k8smodels "devops/models/k8s"
 
-corev1 "k8s.io/api/core/v1"
-metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // NamespaceService Namespace服务
@@ -16,8 +16,9 @@ type NamespaceService struct {
 	clusterService *ClusterService
 }
 
-// List 获取命名空间列表
-func (s *NamespaceService) List(clusterID uint) ([]corev1.Namespace, error) {
+// List 获取命名空间列表（简化版，仅返回名称）
+// 如需完整信息，使用 Get() 方法获取单个命名空间详情
+func (s *NamespaceService) List(clusterID uint) ([]k8smodels.NamespaceDTO, error) {
 	if s.clusterService == nil {
 		s.clusterService = &ClusterService{}
 	}
@@ -35,7 +36,15 @@ func (s *NamespaceService) List(clusterID uint) ([]corev1.Namespace, error) {
 	// 同步到数据库
 	go s.syncToDatabase(clusterID, namespaces.Items)
 
-	return namespaces.Items, nil
+	// 转换为 DTO
+	result := make([]k8smodels.NamespaceDTO, 0, len(namespaces.Items))
+	for _, ns := range namespaces.Items {
+		result = append(result, k8smodels.NamespaceDTO{
+			Name: ns.Name,
+		})
+	}
+
+	return result, nil
 }
 
 // Get 获取命名空间详情

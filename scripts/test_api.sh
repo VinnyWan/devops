@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # API测试脚本
-BASE_URL="http://localhost:8080/api"
+BASE_URL="http://localhost:8000/api"
 
 echo "========================================"
 echo "DevOps系统管理平台 API 测试"
@@ -13,7 +13,7 @@ echo "1. 获取验证码..."
 CAPTCHA_RESPONSE=$(curl -s "$BASE_URL/captcha")
 CAPTCHA_ID=$(echo $CAPTCHA_RESPONSE | grep -o '"captchaId":"[^"]*"' | cut -d'"' -f4)
 echo "验证码ID: $CAPTCHA_ID"
-echo "验证码URL: http://localhost:8080$BASE_URL/captcha/$CAPTCHA_ID"
+echo "验证码URL: http://localhost:8000$BASE_URL/captcha/$CAPTCHA_ID"
 echo ""
 
 # 2. 登录（需要手动输入验证码）
@@ -74,4 +74,4 @@ echo "测试完成！"
 echo "========================================"
 echo ""
 echo "更多接口请访问 Swagger 文档："
-echo "http://localhost:8080/swagger/index.html"
+echo "http://localhost:8000/swagger/index.html"

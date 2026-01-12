@@ -6,7 +6,7 @@
 
 **请求：**
 ```bash
-curl -X GET http://localhost:8080/api/captcha
+curl -X GET http://localhost:8000/api/captcha
 ```
 
 **响应示例：**
@@ -25,14 +25,14 @@ curl -X GET http://localhost:8080/api/captcha
 
 在浏览器中访问：
 ```
-http://localhost:8080/api/captcha/xyz123.png
+http://localhost:8000/api/captcha/xyz123.png
 ```
 
 ### 步骤3：使用验证码登录获取Token
 
 **请求：**
 ```bash
-curl -X POST http://localhost:8080/api/auth/login \
+curl -X POST http://localhost:8000/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{
     "username": "admin",
@@ -71,7 +71,7 @@ curl -X POST http://localhost:8080/api/auth/login \
 
 ### 步骤1：访问Swagger文档
 ```
-http://localhost:8080/swagger/index.html
+http://localhost:8000/swagger/index.html
 ```
 
 ### 步骤2：测试登录接口
@@ -108,7 +108,7 @@ http://localhost:8080/swagger/index.html
 ## 方式三：使用Postman
 
 ### 步骤1：获取Token
-1. 创建 POST 请求：`http://localhost:8080/api/auth/login`
+1. 创建 POST 请求：`http://localhost:8000/api/auth/login`
 2. 设置 Headers：
    - `Content-Type: application/json`
 3. 在 Body 中选择 `raw` 和 `JSON`，填入：
@@ -154,13 +154,13 @@ captcha:
 ### curl 命令示例
 ```bash
 # 使用 Token 访问需要认证的接口
-curl -X GET http://localhost:8080/api/user/info \
+curl -X GET http://localhost:8000/api/user/info \
   -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
 ```
 
 ### JavaScript/Axios 示例
 ```javascript
-axios.get('http://localhost:8080/api/user/info', {
+axios.get('http://localhost:8000/api/user/info', {
   headers: {
     'Authorization': 'Bearer ' + token
   }
@@ -174,7 +174,7 @@ import requests
 headers = {
     'Authorization': f'Bearer {token}'
 }
-response = requests.get('http://localhost:8080/api/user/info', headers=headers)
+response = requests.get('http://localhost:8000/api/user/info', headers=headers)
 ```
 
 ---

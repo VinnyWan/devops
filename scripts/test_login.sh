@@ -21,13 +21,13 @@ echo ""
 
 # 测试登录（URL参数方式）
 echo "测试1: 使用URL参数登录（关闭验证码）"
-curl -s --location --request POST 'http://127.0.0.1:8080/api/auth/login?username=admin&password=admin123&captchaId=test&captchaCode=1234'
+curl -s --location --request POST 'http://127.0.0.1:8000/api/auth/login?username=admin&password=admin123&captchaId=test&captchaCode=1234'
 echo ""
 echo ""
 
 # 测试登录（JSON方式）
 echo "测试2: 使用JSON方式登录（关闭验证码）"
-curl -s -X POST http://127.0.0.1:8080/api/auth/login \
+curl -s -X POST http://127.0.0.1:8000/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{
     "username": "admin",

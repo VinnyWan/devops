@@ -8,18 +8,21 @@ import (
 
 // Cluster K8s集群模型
 type Cluster struct {
-	ID          uint           `gorm:"primarykey" json:"id"`
-	CreatedAt   time.Time      `json:"createdAt"`
-	UpdatedAt   time.Time      `json:"updatedAt"`
-	DeletedAt   gorm.DeletedAt `gorm:"index" json:"-"`
-	Name        string         `gorm:"type:varchar(100);uniqueIndex;not null" json:"name" binding:"required"` // 集群名称
-	Description string         `gorm:"type:varchar(500)" json:"description"`                                  // 集群描述
-	ApiServer   string         `gorm:"type:varchar(500);not null" json:"apiServer" binding:"required"`        // API Server地址
-	KubeConfig  string         `gorm:"type:text;not null" json:"kubeConfig,omitempty" binding:"required"`     // KubeConfig配置
-	Version     string         `gorm:"type:varchar(50)" json:"version"`                                       // K8s版本
-	Status      int            `gorm:"type:tinyint;default:1" json:"status"`                                  // 状态：1-正常 0-禁用
-	DeptID      uint           `gorm:"index" json:"deptId"`                                                   // 所属部门ID
-	Remark      string         `gorm:"type:varchar(500)" json:"remark"`                                       // 备注
+	ID            uint           `gorm:"primarykey" json:"id"`
+	CreatedAt     time.Time      `json:"createdAt"`
+	UpdatedAt     time.Time      `json:"updatedAt"`
+	DeletedAt     gorm.DeletedAt `gorm:"index" json:"-"`
+	Name          string         `gorm:"type:varchar(100);uniqueIndex;not null" json:"name" binding:"required"` // 集群名称
+	Description   string         `gorm:"type:varchar(500)" json:"description"`                                  // 集群描述
+	ApiServer     string         `gorm:"type:varchar(500);not null" json:"apiServer" binding:"required"`        // API Server地址
+	KubeConfig    string         `gorm:"type:text;not null" json:"kubeConfig,omitempty" binding:"required"`     // KubeConfig配置
+	Version       string         `gorm:"type:varchar(50)" json:"version"`                                       // K8s版本
+	ImportMethod  string         `gorm:"type:varchar(50);default:'kubeconfig'" json:"importMethod"`             // 导入方式：kubeconfig-配置文件导入
+	ImportStatus  string         `gorm:"type:varchar(20);default:'pending'" json:"importStatus"`                // 导入状态：pending-待导入，importing-导入中，success-成功，failed-失败
+	ClusterStatus string         `gorm:"type:varchar(20);default:'unknown'" json:"clusterStatus"`               // 集群状态：healthy-健康，unhealthy-不健康，unknown-未知
+	Status        int            `gorm:"type:tinyint;default:1" json:"status"`                                  // 启用状态：1-启用 0-禁用
+	DeptID        uint           `gorm:"index" json:"deptId"`                                                   // 所属部门ID
+	Remark        string         `gorm:"type:varchar(500)" json:"remark"`                                       // 备注
 }
 
 // TableName 指定表名

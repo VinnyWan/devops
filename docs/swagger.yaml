@@ -203,7 +203,7 @@ definitions:
     - roleKey
     - roleName
     type: object
-host: localhost:8080
+host: localhost:8000
 info:
   contact:
     email: support@swagger.io
@@ -1475,6 +1475,34 @@ paths:
       summary: 获取PV详情
       tags:
       - K8s-Storage
+  /api/k8s/clusters/{clusterId}/reimport:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 集群ID
+        in: path
+        name: clusterId
+        required: true
+        type: integer
+      - description: KubeConfig配置
+        in: body
+        name: data
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.Response'
+      security:
+      - Bearer: []
+      summary: 重新导入K8s集群配置
+      tags:
+      - K8s-Cluster
   /api/k8s/clusters/{clusterId}/secrets:
     get:
       consumes:

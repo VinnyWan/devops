@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # 简单的Token获取示例脚本
-BASE_URL="http://localhost:8080/api"
+BASE_URL="http://localhost:8000/api"
 
 echo "=========================================="
 echo "获取 Bearer Token 示例"
@@ -29,12 +29,12 @@ if [ -z "$CAPTCHA_ID" ]; then
 fi
 
 echo "验证码ID: $CAPTCHA_ID"
-echo "验证码图片: http://localhost:8080$IMAGE_URL"
+echo "验证码图片: http://localhost:8000$IMAGE_URL"
 echo ""
 
 # 2. 提示用户查看验证码
 echo "步骤2: 请在浏览器中打开以下链接查看验证码："
-echo "http://localhost:8080$IMAGE_URL"
+echo "http://localhost:8000$IMAGE_URL"
 echo ""
 read -p "请输入您看到的验证码: " CAPTCHA_CODE
 
@@ -75,10 +75,10 @@ echo ""
 echo "使用方式："
 echo "----------------------------------------"
 echo "1. curl 命令："
-echo "   curl -H \"Authorization: Bearer $TOKEN\" http://localhost:8080/api/user/info"
+echo "   curl -H \"Authorization: Bearer $TOKEN\" http://localhost:8000/api/user/info"
 echo ""
 echo "2. Swagger授权："
-echo "   在 http://localhost:8080/swagger/index.html 点击 Authorize"
+echo "   在 http://localhost:8000/swagger/index.html 点击 Authorize"
 echo "   输入: Bearer $TOKEN"
 echo ""
 echo "3. Postman："

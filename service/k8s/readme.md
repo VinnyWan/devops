@@ -433,7 +433,7 @@ k8s:
 
 ### 创建集群
 ```bash
-curl -X POST http://localhost:8080/api/k8s/clusters \
+curl -X POST http://localhost:8000/api/k8s/clusters \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -447,7 +447,7 @@ curl -X POST http://localhost:8080/api/k8s/clusters \
 
 ### 配置集群权限
 ```bash
-curl -X POST http://localhost:8080/api/k8s/clusters/1/access \
+curl -X POST http://localhost:8000/api/k8s/clusters/1/access \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -459,7 +459,7 @@ curl -X POST http://localhost:8080/api/k8s/clusters/1/access \
 
 ### 获取Deployment列表
 ```bash
-curl -X GET "http://localhost:8080/api/k8s/clusters/1/namespaces/default/deployments" \
+curl -X GET "http://localhost:8000/api/k8s/clusters/1/namespaces/default/deployments" \
   -H "Authorization: Bearer YOUR_TOKEN"
 ```
 

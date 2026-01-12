@@ -2,6 +2,7 @@ package database
 
 import (
 	"devops/internal/logger"
+	k8smodels "devops/models/k8s"
 	usermodels "devops/models/user"
 	"devops/utils"
 
@@ -199,7 +200,149 @@ func InitData() error {
 		}
 	}
 
+	// 创建 K8s 测试集群数据（使用默认部门ID）
+	if err := initK8sTestClusters(dept.ID); err != nil {
+		logger.Log.Error("创建 K8s 测试集群失败", zap.Error(err))
+		// 不影响主流程，继续执行
+	}
+
 	logger.Log.Info("基础数据初始化完成")
 	logger.Log.Info("默认管理员账号: admin, 密码: admin123")
+	return nil
+}
+
+// InitK8sTestData 独立初始化K8s测试数据（可多次调用）
+func InitK8sTestData() error {
+	logger.Log.Info("检查K8s测试数据...")
+
+	// 检查是否已有K8s集群数据
+	var count int64
+	Db.Model(&k8smodels.Cluster{}).Count(&count)
+	if count > 0 {
+		logger.Log.Info("K8s集群数据已存在，跳过初始化", zap.Int64("集群数量", count))
+		return nil
+	}
+
+	// 获取默认部门ID（如果存在）
+	var dept usermodels.Department
+	if err := Db.First(&dept).Error; err != nil {
+		logger.Log.Warn("未找到默认部门，使用部门ID=1", zap.Error(err))
+		return initK8sTestClusters(1) // 使用默认ID
+	}
+
+	return initK8sTestClusters(dept.ID)
+}
+
+// initK8sTestClusters 初始化K8s测试集群数据
+func initK8sTestClusters(deptID uint) error {
+	logger.Log.Info("检查 K8s 测试集群数据...")
+
+	// 先检查是否已有K8s集群数据
+	var existingCount int64
+	Db.Model(&k8smodels.Cluster{}).Count(&existingCount)
+	if existingCount > 0 {
+		logger.Log.Info("K8s 集群数据已存在，取消初始化",
+			zap.Int64("已有集群数量", existingCount))
+		return nil
+	}
+
+	logger.Log.Info("开始初始化 K8s 测试集群数据...")
+
+	// 模拟KubeConfig（示例格式）
+	testKubeConfig := `apiVersion: v1
+kind: Config
+clusters:
+- cluster:
+    certificate-authority-data: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUJkakNDQVIyZ0F3SUJBZ0lCQURBS0JnZ3Foa2pPUFFRREFqQWpNU0V3SHdZRFZRUUREQmhyTTNNdGMyVnkKZG1WeUxXTmhRREUzTXpZMU5EQTRNemN3SGhjTk1qWXdNVEF4TURFd05qRTNXaGNOTXpZd01EQTVNREV3TmpFMwpXakFqTVNFd0h3WURWUVFEREJock0zTXRjMlZ5ZG1WeUxXTmhRREUzTXpZMU5EQTRNemN3V1RBVEJnY3Foa2pPClBRSUJCZ2dxaGtqT1BRTUJCd05DQUFUTmVHbGtKZ3RXbVJOUlVycHU3M3lrcko4RlhVMlZFTGo2cS9TMHVBbkoKbFpDa1dXOVJJcTVMMXh2TktLV0lGUGprcW54UVRCZHRybWl1UE1DQzdXSU5vMEl3UURBT0JnTlZIUThCQWY4RQpCQU1DQXFRd0R3WURWUjBUQVFIL0JBVXdBd0VCL3pBZEJnTlZIUTRFRmdRVVo4SXRNTlRVT25qZ3M2MnFBdmhrCnFxcW5uRXd3Q2dZSUtvWkl6ajBFQXdJRFJ3QXdSQUlnV3pTQmRYUzJnVm1hZlZKSjRnRkJBZkNWOXphRFVzYkoKOUVhWDcwL0NsQkVDSUY4dVo2TWRLSjBQcFppbzE5VFpFU3VSYXNBV1FiSDRKZVdCZmh5L2ZzMgotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0t
+    server: https://127.0.0.1:6443
+  name: k3s-default
+contexts:
+- context:
+    cluster: k3s-default
+    user: k3s-default
+  name: k3s-default
+current-context: k3s-default
+users:
+- name: k3s-default
+  user:
+    client-certificate-data: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUJrakNDQVRlZ0F3SUJBZ0lJZFNHc1Q0RzFMclF3Q2dZSUtvWkl6ajBFQXdJd0l6RWhNQjhHQTFVRUF3d1kKYXpOekxXTnNhV1Z1ZEMxallVQXhOek0yTlRRd09ETTNNQTR4RGpBTUJnTlZCQU1NQldGa2JXbHVNQjRYRFRJMgpNREV3TVRBeE1EWTVOME1YRFRJM01ERXdNVEF4TURZNU4xb3dNREVYTUJVR0ExVUVDaE1PYzNsemRHVnRPbTFoCmMzUmxjbk14RlRBVEJnTlZCQU1UREhONWMzUmxiVHBoWkdsdGFUQlpNQk1HQnlxR1NNNDlBZ0VHQ0NxR1NNNDkKQXdFSEEwSUFCRmxpc1hNbVRqbFFZV29FNTBFUTloR09LZnJMRFFPMFlmYWZHZ3Uyd080cWNsNnM1cXBJWUhaYgpYdnBmcGdIcjVGOUhOOWRMS0FWelduZnErbU9mS0JxalNEQkdNQTRHQTFVZER3RUIvd1FFQXdJRm9EQVRCZ05WCkhTVUVEREFLQmdnckJnRUZCUWNEQWpBZkJnTlZIU01FR0RBV2dCUnFuVk5QV1FkQUxYb25HbDZYa3RldUlwNGIKU1RBS0JnZ3Foa2pPUFFRREFnTkpBREJHQWlFQXhoV2Y5NjBPRHhQWlpIUHI5dkdFa0FYQldzWmUrVGRWL29NNApSeElNZ0FJRFFVWHRTY0VVTUg5NUNmU3YycUoxRzNiQ1Z4Y3UwRHI1cUUrcWc4UkRjQkU9Ci0tLS0tRU5EIENFUlRJRklDQVRFLS0tLS0KLS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUJkVENDQVJ5Z0F3SUJBZ0lCQURBS0JnZ3Foa2pPUFFRREFqQWpNU0V3SHdZRFZRUUREQmhyTTNNdFkyeHAKWlc1MExXTmhRREUzTXpZMU5EQTRNemN3SGhjTk1qWXdNVEF4TURFd05qRTNXaGNOTXpZd01EQTVNREV3TmpFMwpXakFqTVNFd0h3WURWUVFEREJock0zTXRZMnhwWlc1MExXTmhRREUzTXpZMU5EQTRNemN3V1RBVEJnY3Foa2pPClBRSUJCZ2dxaGtqT1BRTUJCd05DQUFTNlhOdERjUStNUlZsZ0lVY1piZEw3UkJOckJVMEpTT3pTZjdFd1p0bnUKYktQYmV4QWEyaFEvL1FoeE56cit4S2pUWFd0Yk5xU2xIL1JIT1dKRjNyS1hvMEl3UURBT0JnTlZIUThCQWY4RQpCQU1DQXFRd0R3WURWUjBUQVFIL0JBVXdBd0VCL3pBZEJnTlZIUTRFRmdRVWFwMVRUMWtIUUMxNkp4cGVsNUxYCnJpS2VHMGt3Q2dZSUtvWkl6ajBFQXdJRFJ3QXdSQUlnZXhWNU5tSU9YS3k4aU5rUWZsWHlXaHdVRCtxVU1Dc2oKaUg5aG9GRnZQMGdDSUNsMFdBMHZBK01XQ3U1MEs1cDFKQ2poaVFvczVqYlBqdEFLM2EvWnJ2YXMKLS0tLS1FTkQgQ0VSVElGSUNBVEUtLS0tLQo=
+    client-key-data: LS0tLS1CRUdJTiBFQyBQUklWQVRFIEtFWS0tLS0tCk1IY0NBUUVFSUdJOW5xNThWaFF3UUQ5MXBkOUZlOEkzU2VsQmFVWXhEZ21BdC9BL2J4YU5vQW9HQ0NxR1NNNDkKQXdFSG9VUURRZ0FFV1dLeGN5Wk9PVkJoYWdUblFSRDJFWTRwK3NzTkE3Umg5cDhhQzdiWTdpcHlYcXptcWtoZwpkbHRlK2wrbUFldmtYMGMzMTBzb0JYTmFkK3I2WTU4b0dnPT0KLS0tLS1FTkQgRUMgUFJJVkFURSBLRVktLS0tLQo=`
+
+	// 创建测试集群数据
+	testClusters := []k8smodels.Cluster{
+		{
+			Name:          "本地开发集群",
+			Description:   "本地K3s开发测试集群，用于功能测试和开发",
+			ApiServer:     "https://127.0.0.1:6443",
+			KubeConfig:    testKubeConfig,
+			Version:       "v1.28.5+k3s1",
+			ImportMethod:  "kubeconfig",
+			ImportStatus:  "success",
+			ClusterStatus: "unknown", // 初始状态为未知，需要实际健康检查
+			Status:        1,
+			DeptID:        deptID,
+			Remark:        "系统自动初始化的测试集群，可直接用于API测试",
+		},
+		{
+			Name:          "测试集群-1.27",
+			Description:   "Kubernetes 1.27版本测试集群",
+			ApiServer:     "https://test-k8s-1-27.example.com:6443",
+			KubeConfig:    testKubeConfig, // 使用相同的示例配置
+			Version:       "v1.27.8",
+			ImportMethod:  "kubeconfig",
+			ImportStatus:  "failed", // 模拟失败状态
+			ClusterStatus: "unhealthy",
+			Status:        0, // 禁用状态
+			DeptID:        deptID,
+			Remark:        "模拟不可访问的集群，用于测试失败场景",
+		},
+		{
+			Name:          "生产集群-示例",
+			Description:   "生产环境K8s集群示例（仅供展示）",
+			ApiServer:     "https://prod-k8s.example.com:6443",
+			KubeConfig:    testKubeConfig,
+			Version:       "v1.29.0",
+			ImportMethod:  "kubeconfig",
+			ImportStatus:  "success",
+			ClusterStatus: "healthy",
+			Status:        1,
+			DeptID:        deptID,
+			Remark:        "示例集群，展示完整的字段信息",
+		},
+		{
+			Name:          "待导入集群",
+			Description:   "正在导入中的集群",
+			ApiServer:     "https://pending-k8s.example.com:6443",
+			KubeConfig:    testKubeConfig,
+			Version:       "",
+			ImportMethod:  "kubeconfig",
+			ImportStatus:  "importing", // 模拟导入中状态
+			ClusterStatus: "unknown",
+			Status:        1,
+			DeptID:        deptID,
+			Remark:        "模拟导入过程中的集群状态",
+		},
+	}
+
+	// 批量创建集群
+	for i, cluster := range testClusters {
+		if err := Db.Create(&cluster).Error; err != nil {
+			logger.Log.Warn("创建测试集群失败",
+				zap.Int("索引", i),
+				zap.String("集群名称", cluster.Name),
+				zap.Error(err))
+			continue
+		}
+		logger.Log.Info("创建测试集群成功",
+			zap.Uint("ID", cluster.ID),
+			zap.String("名称", cluster.Name),
+			zap.String("版本", cluster.Version),
+			zap.String("导入状态", cluster.ImportStatus),
+			zap.String("集群状态", cluster.ClusterStatus))
+	}
+
+	logger.Log.Info("K8s 测试集群初始化完成",
+		zap.Int("集群数量", len(testClusters)))
+
 	return nil
 }
