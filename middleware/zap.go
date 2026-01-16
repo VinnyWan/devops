@@ -1,11 +1,29 @@
 package middleware
 
 import (
+	"bytes"
+	"encoding/json"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 )
+
+// responseWriter 自定义响应写入器，用于捕获响应内容
+type responseWriter struct {
+	gin.ResponseWriter
+	body *bytes.Buffer
+}
+
+func (w *responseWriter) Write(b []byte) (int, error) {
+	w.body.Write(b)
+	return w.ResponseWriter.Write(b)
+}
+
+func (w *responseWriter) WriteString(s string) (int, error) {
+	w.body.WriteString(s)
+	return w.ResponseWriter.WriteString(s)
+}
 
 // GinZapLogger 中间件：记录所有 HTTP 请求日志（JSON）
 func GinZapLogger(logger *zap.Logger) gin.HandlerFunc {
@@ -17,14 +35,37 @@ func GinZapLogger(logger *zap.Logger) gin.HandlerFunc {
 		method := c.Request.Method
 		clientIP := c.ClientIP()
 
+		// 使用自定义的responseWriter来捕获响应内容
+		blw := &responseWriter{
+			ResponseWriter: c.Writer,
+			body:           bytes.NewBufferString(""),
+		}
+		c.Writer = blw
+
 		c.Next() // 处理请求
 
 		latency := time.Since(start)
 		statusCode := c.Writer.Status()
 		errs := c.Errors.ByType(gin.ErrorTypePrivate).String()
 
+		// 尝试从响应体中提取业务code
+		businessCode := statusCode
+		if blw.body.Len() > 0 {
+			var response map[string]interface{}
+			if err := json.Unmarshal(blw.body.Bytes(), &response); err == nil {
+				if code, ok := response["code"]; ok {
+					switch v := code.(type) {
+					case float64:
+						businessCode = int(v)
+					case int:
+						businessCode = v
+					}
+				}
+			}
+		}
+
 		logger.Info("HTTP Request",
-			zap.Int("status", statusCode),
+			zap.Int("status", businessCode), // 记录业务code而不是HTTP状态码
 			zap.String("method", method),
 			zap.String("path", path),
 			zap.String("query", query),

@@ -10,12 +10,11 @@ import (
 
 // 总配文件
 type config struct {
-	Server  server  `yaml:"server"`
-	Db      db      `yaml:"db"`
-	Redis   redis   `yaml:"redis"`
-	Jwt     jwt     `yaml:"jwt"`
-	Captcha captcha `yaml:"captcha"`
-	Log     Log     `yaml:"log"`
+	Server server `yaml:"server"`
+	Db     db     `yaml:"db"`
+	Redis  redis  `yaml:"redis"`
+	Jwt    jwt    `yaml:"jwt"`
+	Log    Log    `yaml:"log"`
 }
 
 // 项目端口配置
@@ -53,11 +52,6 @@ type jwt struct {
 	Expire int64  `yaml:"expire"`
 }
 
-// captcha配置
-type captcha struct {
-	Enabled bool `yaml:"enabled"`
-}
-
 // Log配置
 type Log struct {
 	Output           string `yaml:"output"` // console, file, both
@@ -85,12 +79,12 @@ func LoadConfig(configPath string) error {
 		return err
 	}
 
-	// 绑定值
-	err = yaml.Unmarshal(yamlFile, &Config)
-	if err != nil {
+	var cfg config
+	if err := yaml.Unmarshal(yamlFile, &cfg); err != nil {
 		return err
 	}
 
+	Config = &cfg
 	return nil
 }
 
@@ -116,14 +110,6 @@ func GetJwtConfig() *jwt {
 		panic("Config is not initialized")
 	}
 	return &Config.Jwt
-}
-
-// GetCaptchaConfig 获取验证码配置
-func GetCaptchaConfig() *captcha {
-	if Config == nil {
-		panic("Config is not initialized")
-	}
-	return &Config.Captcha
 }
 
 // GetLogConfig 获取日志配置

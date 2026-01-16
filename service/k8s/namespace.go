@@ -3,10 +3,14 @@ package k8s
 import (
 	"context"
 	"encoding/json"
+	"errors"
 
 	"devops/internal/database"
+	"devops/internal/logger"
 	k8smodels "devops/models/k8s"
 
+	"go.uber.org/zap"
+	"gorm.io/gorm"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -119,8 +123,14 @@ func (s *NamespaceService) syncToDatabase(clusterID uint, namespaces []corev1.Na
 
 // syncOneToDatabase 同步单个命名空间到数据库
 func (s *NamespaceService) syncOneToDatabase(clusterID uint, ns *corev1.Namespace) {
-	labels, _ := json.Marshal(ns.Labels)
-	annotations, _ := json.Marshal(ns.Annotations)
+	labels, err := json.Marshal(ns.Labels)
+	if err != nil {
+		logger.Log.Warn("序列化Namespace Labels失败", zap.String("name", ns.Name), zap.Error(err))
+	}
+	annotations, err := json.Marshal(ns.Annotations)
+	if err != nil {
+		logger.Log.Warn("序列化Namespace Annotations失败", zap.String("name", ns.Name), zap.Error(err))
+	}
 
 	dbNs := k8smodels.Namespace{
 		ClusterID:   clusterID,
@@ -132,14 +142,26 @@ func (s *NamespaceService) syncOneToDatabase(clusterID uint, ns *corev1.Namespac
 
 	// 先尝试更新，如果不存在则创建
 	var existing k8smodels.Namespace
-	if err := database.Db.Where("cluster_id = ? AND name = ?", clusterID, ns.Name).First(&existing).Error; err == nil {
-		database.Db.Model(&existing).Updates(&dbNs)
-	} else {
-		database.Db.Create(&dbNs)
+	result := database.Db.Where("cluster_id = ? AND name = ?", clusterID, ns.Name).First(&existing)
+	if result.Error == nil {
+		if err := database.Db.Model(&existing).Updates(&dbNs).Error; err != nil {
+			logger.Log.Warn("更新Namespace记录失败", zap.String("name", ns.Name), zap.Error(err))
+		}
+		return
+	}
+	if !errors.Is(result.Error, gorm.ErrRecordNotFound) {
+		logger.Log.Warn("查询Namespace记录失败", zap.String("name", ns.Name), zap.Error(result.Error))
+		return
+	}
+	if err := database.Db.Create(&dbNs).Error; err != nil {
+		logger.Log.Warn("创建Namespace记录失败", zap.String("name", ns.Name), zap.Error(err))
 	}
 }
 
 // deleteFromDatabase 从数据库删除命名空间记录
 func (s *NamespaceService) deleteFromDatabase(clusterID uint, name string) {
-	database.Db.Where("cluster_id = ? AND name = ?", clusterID, name).Delete(&k8smodels.Namespace{})
+	if err := database.Db.Where("cluster_id = ? AND name = ?", clusterID, name).
+		Delete(&k8smodels.Namespace{}).Error; err != nil {
+		logger.Log.Warn("删除Namespace记录失败", zap.String("name", name), zap.Error(err))
+	}
 }

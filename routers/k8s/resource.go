@@ -15,78 +15,78 @@ func SetupResourceRoutes(r *gin.RouterGroup) {
 	k8s.Use(middleware.JWTAuth())
 	{
 		// Namespace管理
-		k8s.GET("/clusters/:clusterId/namespaces", middleware.K8sPermission("get"), resourceCtrl.ListNamespaces)
-		k8s.GET("/clusters/:clusterId/namespaces/:name", middleware.K8sPermission("get"), resourceCtrl.GetNamespace)
-		k8s.POST("/clusters/:clusterId/namespaces", middleware.K8sPermission("create"), resourceCtrl.CreateNamespace)
-		k8s.DELETE("/clusters/:clusterId/namespaces/:name", middleware.K8sPermission("delete"), resourceCtrl.DeleteNamespace)
+		k8s.GET("/namespaces", middleware.K8sPermission("get"), resourceCtrl.ListNamespaces)
+		k8s.GET("/namespace/detail", middleware.K8sPermission("get"), resourceCtrl.GetNamespace)
+		k8s.POST("/namespace/create", middleware.K8sPermission("create"), resourceCtrl.CreateNamespace)
+		k8s.POST("/namespace/delete", middleware.K8sPermission("delete"), resourceCtrl.DeleteNamespace)  // 改为POST
 
 		// Deployment管理
-		k8s.GET("/clusters/:clusterId/deployments", middleware.K8sPermission("get"), resourceCtrl.ListDeployments)
-		k8s.GET("/clusters/:clusterId/deployments/:name", middleware.K8sPermission("get"), resourceCtrl.GetDeployment)
-		k8s.POST("/clusters/:clusterId/deployments", middleware.K8sPermission("create"), resourceCtrl.CreateDeployment)
-		k8s.PUT("/clusters/:clusterId/deployments/:name", middleware.K8sPermission("update"), resourceCtrl.UpdateDeployment)
-		k8s.DELETE("/clusters/:clusterId/deployments/:name", middleware.K8sPermission("delete"), resourceCtrl.DeleteDeployment)
-		k8s.POST("/clusters/:clusterId/deployments/:name/scale", middleware.K8sPermission("update"), resourceCtrl.ScaleDeployment)
-		k8s.POST("/clusters/:clusterId/deployments/:name/restart", middleware.K8sPermission("update"), resourceCtrl.RestartDeployment)
+		k8s.GET("/deployments", middleware.K8sPermission("get"), resourceCtrl.ListDeployments)
+		k8s.GET("/deployment/detail", middleware.K8sPermission("get"), resourceCtrl.GetDeployment)
+		k8s.POST("/deployment/create", middleware.K8sPermission("create"), resourceCtrl.CreateDeployment)
+		k8s.POST("/deployment/update", middleware.K8sPermission("update"), resourceCtrl.UpdateDeployment)  // 改为POST
+		k8s.POST("/deployment/delete", middleware.K8sPermission("delete"), resourceCtrl.DeleteDeployment)  // 改为POST
+		k8s.POST("/deployment/scale", middleware.K8sPermission("update"), resourceCtrl.ScaleDeployment)
+		k8s.POST("/deployment/restart", middleware.K8sPermission("update"), resourceCtrl.RestartDeployment)
 
 		// Pod管理
-		k8s.GET("/clusters/:clusterId/pods", middleware.K8sPermission("get"), resourceCtrl.ListPods)
-		k8s.GET("/clusters/:clusterId/pods/:name", middleware.K8sPermission("get"), resourceCtrl.GetPod)
-		k8s.DELETE("/clusters/:clusterId/pods/:name", middleware.K8sPermission("delete"), resourceCtrl.DeletePod)
-		k8s.GET("/clusters/:clusterId/pods/:name/logs", middleware.K8sPermission("get"), resourceCtrl.GetPodLogs)
+		k8s.GET("/pods", middleware.K8sPermission("get"), resourceCtrl.ListPods)
+		k8s.GET("/pod/detail", middleware.K8sPermission("get"), resourceCtrl.GetPod)
+		k8s.POST("/pod/delete", middleware.K8sPermission("delete"), resourceCtrl.DeletePod)  // 改为POST
+		k8s.GET("/pod/logs", middleware.K8sPermission("get"), resourceCtrl.GetPodLogs)
 
 		// StatefulSet管理
-		k8s.GET("/clusters/:clusterId/statefulsets", middleware.K8sPermission("get"), resourceCtrl.ListStatefulSets)
+		k8s.GET("/statefulsets", middleware.K8sPermission("get"), resourceCtrl.ListStatefulSets)
 
 		// DaemonSet管理
-		k8s.GET("/clusters/:clusterId/daemonsets", middleware.K8sPermission("get"), resourceCtrl.ListDaemonSets)
+		k8s.GET("/daemonsets", middleware.K8sPermission("get"), resourceCtrl.ListDaemonSets)
 
 		// Service管理
-		k8s.GET("/clusters/:clusterId/services", middleware.K8sPermission("get"), resourceCtrl.ListServices)
-		k8s.GET("/clusters/:clusterId/services/:name", middleware.K8sPermission("get"), resourceCtrl.GetService)
-		k8s.POST("/clusters/:clusterId/services", middleware.K8sPermission("create"), resourceCtrl.CreateService)
-		k8s.DELETE("/clusters/:clusterId/services/:name", middleware.K8sPermission("delete"), resourceCtrl.DeleteService)
+		k8s.GET("/services", middleware.K8sPermission("get"), resourceCtrl.ListServices)
+		k8s.GET("/service/detail", middleware.K8sPermission("get"), resourceCtrl.GetService)
+		k8s.POST("/service/create", middleware.K8sPermission("create"), resourceCtrl.CreateService)
+		k8s.POST("/service/delete", middleware.K8sPermission("delete"), resourceCtrl.DeleteService)  // 改为POST
 
 		// Ingress管理
-		k8s.GET("/clusters/:clusterId/ingresses", middleware.K8sPermission("get"), resourceCtrl.ListIngresses)
-		k8s.GET("/clusters/:clusterId/ingresses/:name", middleware.K8sPermission("get"), resourceCtrl.GetIngress)
-		k8s.POST("/clusters/:clusterId/ingresses", middleware.K8sPermission("create"), resourceCtrl.CreateIngress)
-		k8s.DELETE("/clusters/:clusterId/ingresses/:name", middleware.K8sPermission("delete"), resourceCtrl.DeleteIngress)
+		k8s.GET("/ingresses", middleware.K8sPermission("get"), resourceCtrl.ListIngresses)
+		k8s.GET("/ingress/detail", middleware.K8sPermission("get"), resourceCtrl.GetIngress)
+		k8s.POST("/ingress/create", middleware.K8sPermission("create"), resourceCtrl.CreateIngress)
+		k8s.POST("/ingress/delete", middleware.K8sPermission("delete"), resourceCtrl.DeleteIngress)  // 改为POST
 
 		// ConfigMap管理
-		k8s.GET("/clusters/:clusterId/configmaps", middleware.K8sPermission("get"), resourceCtrl.ListConfigMaps)
-		k8s.GET("/clusters/:clusterId/configmaps/:name", middleware.K8sPermission("get"), resourceCtrl.GetConfigMap)
-		k8s.POST("/clusters/:clusterId/configmaps", middleware.K8sPermission("create"), resourceCtrl.CreateConfigMap)
-		k8s.PUT("/clusters/:clusterId/configmaps/:name", middleware.K8sPermission("update"), resourceCtrl.UpdateConfigMap)
-		k8s.DELETE("/clusters/:clusterId/configmaps/:name", middleware.K8sPermission("delete"), resourceCtrl.DeleteConfigMap)
+		k8s.GET("/configmaps", middleware.K8sPermission("get"), resourceCtrl.ListConfigMaps)
+		k8s.GET("/configmap/detail", middleware.K8sPermission("get"), resourceCtrl.GetConfigMap)
+		k8s.POST("/configmap/create", middleware.K8sPermission("create"), resourceCtrl.CreateConfigMap)
+		k8s.POST("/configmap/update", middleware.K8sPermission("update"), resourceCtrl.UpdateConfigMap)  // 改为POST
+		k8s.POST("/configmap/delete", middleware.K8sPermission("delete"), resourceCtrl.DeleteConfigMap)  // 改为POST
 
 		// Secret管理
-		k8s.GET("/clusters/:clusterId/secrets", middleware.K8sPermission("get"), resourceCtrl.ListSecrets)
-		k8s.GET("/clusters/:clusterId/secrets/:name", middleware.K8sPermission("get"), resourceCtrl.GetSecret)
-		k8s.POST("/clusters/:clusterId/secrets", middleware.K8sPermission("create"), resourceCtrl.CreateSecret)
-		k8s.PUT("/clusters/:clusterId/secrets/:name", middleware.K8sPermission("update"), resourceCtrl.UpdateSecret)
-		k8s.DELETE("/clusters/:clusterId/secrets/:name", middleware.K8sPermission("delete"), resourceCtrl.DeleteSecret)
+		k8s.GET("/secrets", middleware.K8sPermission("get"), resourceCtrl.ListSecrets)
+		k8s.GET("/secret/detail", middleware.K8sPermission("get"), resourceCtrl.GetSecret)
+		k8s.POST("/secret/create", middleware.K8sPermission("create"), resourceCtrl.CreateSecret)
+		k8s.POST("/secret/update", middleware.K8sPermission("update"), resourceCtrl.UpdateSecret)  // 改为POST
+		k8s.POST("/secret/delete", middleware.K8sPermission("delete"), resourceCtrl.DeleteSecret)  // 改为POST
 
 		// PV管理
-		k8s.GET("/clusters/:clusterId/pvs", middleware.K8sPermission("get"), resourceCtrl.ListPVs)
-		k8s.GET("/clusters/:clusterId/pvs/:name", middleware.K8sPermission("get"), resourceCtrl.GetPV)
-		k8s.DELETE("/clusters/:clusterId/pvs/:name", middleware.K8sPermission("delete"), resourceCtrl.DeletePV)
+		k8s.GET("/pvs", middleware.K8sPermission("get"), resourceCtrl.ListPVs)
+		k8s.GET("/pv/detail", middleware.K8sPermission("get"), resourceCtrl.GetPV)
+		k8s.POST("/pv/delete", middleware.K8sPermission("delete"), resourceCtrl.DeletePV)  // 改为POST
 
 		// PVC管理
-		k8s.GET("/clusters/:clusterId/pvcs", middleware.K8sPermission("get"), resourceCtrl.ListPVCs)
-		k8s.GET("/clusters/:clusterId/pvcs/:name", middleware.K8sPermission("get"), resourceCtrl.GetPVC)
-		k8s.DELETE("/clusters/:clusterId/pvcs/:name", middleware.K8sPermission("delete"), resourceCtrl.DeletePVC)
+		k8s.GET("/pvcs", middleware.K8sPermission("get"), resourceCtrl.ListPVCs)
+		k8s.GET("/pvc/detail", middleware.K8sPermission("get"), resourceCtrl.GetPVC)
+		k8s.POST("/pvc/delete", middleware.K8sPermission("delete"), resourceCtrl.DeletePVC)  // 改为POST
 
 		// StorageClass管理
-		k8s.GET("/clusters/:clusterId/storageclasses", middleware.K8sPermission("get"), resourceCtrl.ListStorageClasses)
-		k8s.GET("/clusters/:clusterId/storageclasses/:name", middleware.K8sPermission("get"), resourceCtrl.GetStorageClass)
+		k8s.GET("/storageclasses", middleware.K8sPermission("get"), resourceCtrl.ListStorageClasses)
+		k8s.GET("/storageclass/detail", middleware.K8sPermission("get"), resourceCtrl.GetStorageClass)
 
 		// 节点管理
-		k8s.GET("/clusters/:clusterId/nodes", middleware.K8sPermission("get"), resourceCtrl.ListNodes)
-		k8s.GET("/clusters/:clusterId/nodes/:name", middleware.K8sPermission("get"), resourceCtrl.GetNode)
+		k8s.GET("/nodes", middleware.K8sPermission("get"), resourceCtrl.ListNodes)
+		k8s.GET("/node/detail", middleware.K8sPermission("get"), resourceCtrl.GetNode)
 
 		// 事件查看
-		k8s.GET("/clusters/:clusterId/events", middleware.K8sPermission("get"), resourceCtrl.ListEvents)
-		k8s.GET("/clusters/:clusterId/events/object", middleware.K8sPermission("get"), resourceCtrl.GetEventsByObject)
+		k8s.GET("/events", middleware.K8sPermission("get"), resourceCtrl.ListEvents)
+		k8s.GET("/events/object", middleware.K8sPermission("get"), resourceCtrl.GetEventsByObject)
 	}
 }

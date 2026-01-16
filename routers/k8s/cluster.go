@@ -16,17 +16,18 @@ func SetupClusterRoutes(r *gin.RouterGroup) {
 	k8s.Use(middleware.JWTAuth())
 	{
 		// 集群基础管理
-		k8s.POST("/clusters", clusterCtrl.Create)
+		k8s.POST("/cluster/create", clusterCtrl.Create)
+		k8s.GET("/cluster/list", clusterCtrl.GetList)
 		k8s.GET("/clusters", clusterCtrl.GetList)
-		k8s.GET("/clusters/:clusterId", clusterCtrl.GetByID)
-		k8s.PUT("/clusters/:clusterId", middleware.K8sPermission("update"), clusterCtrl.Update)
-		k8s.DELETE("/clusters/:clusterId", middleware.K8sPermission("delete"), clusterCtrl.Delete)
-		k8s.GET("/clusters/:clusterId/health", middleware.K8sPermission("get"), clusterCtrl.HealthCheck)
-		k8s.POST("/clusters/:clusterId/reimport", middleware.K8sPermission("update"), clusterCtrl.ReimportKubeConfig)
+		k8s.GET("/cluster/detail", clusterCtrl.GetByID)
+		k8s.POST("/cluster/update", middleware.K8sPermission("update"), clusterCtrl.Update)  // 改为POST
+		k8s.POST("/cluster/delete", middleware.K8sPermission("delete"), clusterCtrl.Delete)  // 改为POST
+		k8s.GET("/cluster/health", middleware.K8sPermission("get"), clusterCtrl.HealthCheck)
+		k8s.POST("/cluster/reimport", middleware.K8sPermission("update"), clusterCtrl.ReimportKubeConfig)
 
 		// 集群权限管理
-		k8s.POST("/clusters/:clusterId/access", clusterCtrl.CreateAccess)
-		k8s.GET("/clusters/:clusterId/access", clusterCtrl.GetAccessList)
-		k8s.DELETE("/clusters/:clusterId/access/:accessId", clusterCtrl.DeleteAccess)
+		k8s.POST("/cluster/access", clusterCtrl.CreateAccess)
+		k8s.GET("/cluster/access", clusterCtrl.GetAccessList)
+		k8s.POST("/cluster/access/delete", clusterCtrl.DeleteAccess)  // 改为POST
 	}
 }

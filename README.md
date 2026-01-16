@@ -37,7 +37,6 @@
 - **日志**: [Zap](https://github.com/uber-go/zap) v1.27.1
 - **API文档**: [Swag](https://github.com/swaggo/swag) v1.16.6
 - **K8s客户端**: [client-go](https://github.com/kubernetes/client-go) v0.28.4
-- **验证码**: [captcha](https://github.com/dchest/captcha) v1.1.0
 
 ### 项目结构
 
@@ -51,7 +50,6 @@ devops/
 │   │   ├── cluster.go      # 集群管理 (6.4KB)
 │   │   └── resource.go     # 资源管理 (36.2KB, 56个接口)
 │   └── user/               # 用户控制器
-│       ├── captcha.go      # 验证码
 │       └── user.go         # 用户管理
 ├── docs/                    # Swagger文档
 │   ├── docs.go
@@ -109,8 +107,7 @@ devops/
 │       ├── department.go   # 部门服务
 │       ├── post.go         # 岗位服务
 │       ├── login_log.go    # 登录日志服务
-│       ├── operation_log.go # 操作日志服务
-│       └── captcha.go      # 验证码服务
+│       └── operation_log.go # 操作日志服务
 ├── utils/                   # 工具类
 │   ├── jwt.go              # JWT工具
 │   └── password.go         # 密码加密
@@ -186,10 +183,6 @@ redis:
 jwt:
   secret: "your-secret-key"
   expire: 7200           # Token过期时间(秒), 2小时
-
-# 验证码配置
-captcha:
-  enabled: false         # 是否启用验证码
 
 # 日志配置
 log:
@@ -392,7 +385,7 @@ POST   /api/k8s/clusters/:clusterId/namespaces/:ns/deployments        # 创建
 GET    /api/k8s/clusters/:clusterId/namespaces/:ns/deployments/:name  # 详情
 PUT    /api/k8s/clusters/:clusterId/namespaces/:ns/deployments/:name  # 更新
 DELETE /api/k8s/clusters/:clusterId/namespaces/:ns/deployments/:name  # 删除
-PUT    /api/k8s/clusters/:clusterId/namespaces/:ns/deployments/:name/scale   # 扩缩容
+PUT    /api/k8s/clusters/:clusterId/namespaces/:ns/deployments/:name/scale   # 扩缩容 
 POST   /api/k8s/clusters/:clusterId/namespaces/:ns/deployments/:name/restart # 重启
 
 # Pod

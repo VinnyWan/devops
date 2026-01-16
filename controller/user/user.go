@@ -2,11 +2,9 @@ package user
 
 import (
 	"devops/common"
-	"devops/common/config"
 	"devops/middleware"
 	usermodels "devops/models/user"
 	userservice "devops/service/user"
-	"strconv"
 
 	"github.com/gin-gonic/gin"
 )
@@ -30,23 +28,13 @@ func NewUserController() *UserController {
 // @Param body body LoginRequest true "登录信息"
 // @Success 200 {object} common.Response{data=LoginResponse} "登录成功，返回token和用户信息"
 // @Failure 500 {object} common.Response "登录失败"
-// @Router /api/auth/login [post]
+// @Router /api/v1/auth/login [post]
 func (ctrl *UserController) Login(c *gin.Context) {
 	var req LoginRequest
 	// 支持JSON和URL参数两种方式
 	if err := c.ShouldBind(&req); err != nil {
 		common.Fail(c, "参数错误: "+err.Error())
 		return
-	}
-
-	// 验证码校验（如果启用）
-	captchaConfig := config.GetCaptchaConfig()
-	if captchaConfig.Enabled {
-		captchaService := &userservice.CaptchaService{}
-		if !captchaService.Verify(req.CaptchaID, req.CaptchaCode) {
-			common.Fail(c, "验证码错误")
-			return
-		}
 	}
 
 	user, token, err := ctrl.userService.Login(req.Username, req.Password)
@@ -69,7 +57,7 @@ func (ctrl *UserController) Login(c *gin.Context) {
 // @Produce json
 // @Security Bearer
 // @Success 200 {object} common.Response
-// @Router /api/user/info [get]
+// @Router /api/v1/user/info [get]
 func (ctrl *UserController) GetInfo(c *gin.Context) {
 	userID := middleware.GetUserID(c)
 	user, err := ctrl.userService.GetByID(userID)
@@ -113,19 +101,22 @@ func (ctrl *UserController) Create(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Security Bearer
-// @Param id path int true "用户ID"
+// @Param id query int true "用户ID"
 // @Param body body usermodels.User true "用户信息"
 // @Success 200 {object} common.Response
-// @Router /api/users/{id} [put]
+// @Router /api/v1/user/update [post]
 func (ctrl *UserController) Update(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 32)
+	id, ok := common.RequireUintQuery(c, "id")
+	if !ok {
+		return
+	}
 	var user usermodels.User
 	if err := c.ShouldBindJSON(&user); err != nil {
 		common.Fail(c, "参数错误")
 		return
 	}
 
-	if err := ctrl.userService.Update(uint(id), &user); err != nil {
+	if err := ctrl.userService.Update(id, &user); err != nil {
 		common.Fail(c, "更新用户失败:"+err.Error())
 		return
 	}
@@ -140,12 +131,12 @@ func (ctrl *UserController) Update(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Security Bearer
-// @Param username path string true "用户名"
+// @Param username query string true "用户名"
 // @Param body body usermodels.User true "用户信息"
 // @Success 200 {object} common.Response
-// @Router /api/users/username/{username} [put]
+// @Router /api/v1/user/update-by-username [post]
 func (ctrl *UserController) UpdateByUsername(c *gin.Context) {
-	username := c.Param("username")
+	username := c.Query("username")
 	var user usermodels.User
 	if err := c.ShouldBindJSON(&user); err != nil {
 		common.Fail(c, "参数错误")
@@ -167,12 +158,15 @@ func (ctrl *UserController) UpdateByUsername(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Security Bearer
-// @Param id path int true "用户ID"
+// @Param id query int true "用户ID"
 // @Success 200 {object} common.Response
-// @Router /api/users/{id} [delete]
+// @Router /api/v1/user/delete [post]
 func (ctrl *UserController) Delete(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 32)
-	if err := ctrl.userService.Delete(uint(id)); err != nil {
+	id, ok := common.RequireUintQuery(c, "id")
+	if !ok {
+		return
+	}
+	if err := ctrl.userService.Delete(id); err != nil {
 		common.Fail(c, "删除用户失败")
 		return
 	}
@@ -187,11 +181,11 @@ func (ctrl *UserController) Delete(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Security Bearer
-// @Param username path string true "用户名"
+// @Param username query string true "用户名"
 // @Success 200 {object} common.Response
-// @Router /api/users/username/{username} [delete]
+// @Router /api/v1/user/delete-by-username [post]
 func (ctrl *UserController) DeleteByUsername(c *gin.Context) {
-	username := c.Param("username")
+	username := c.Query("username")
 	if err := ctrl.userService.DeleteByUsername(username); err != nil {
 		common.Fail(c, "删除用户失败")
 		return
@@ -207,12 +201,15 @@ func (ctrl *UserController) DeleteByUsername(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Security Bearer
-// @Param id path int true "用户ID"
+// @Param id query int true "用户ID"
 // @Success 200 {object} common.Response
-// @Router /api/users/{id} [get]
+// @Router /api/v1/user/detail [get]
 func (ctrl *UserController) GetByID(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 32)
-	user, err := ctrl.userService.GetByID(uint(id))
+	id, ok := common.RequireUintQuery(c, "id")
+	if !ok {
+		return
+	}
+	user, err := ctrl.userService.GetByID(id)
 	if err != nil {
 		common.Fail(c, "用户不存在")
 		return
@@ -228,11 +225,11 @@ func (ctrl *UserController) GetByID(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Security Bearer
-// @Param username path string true "用户名"
+// @Param username query string true "用户名"
 // @Success 200 {object} common.Response
-// @Router /api/users/username/{username} [get]
+// @Router /api/v1/user/by-username [get]
 func (ctrl *UserController) GetByUsername(c *gin.Context) {
-	username := c.Param("username")
+	username := c.Query("username")
 	user, err := ctrl.userService.GetByUsername(username)
 	if err != nil {
 		common.Fail(c, "用户不存在")
@@ -257,8 +254,11 @@ func (ctrl *UserController) GetByUsername(c *gin.Context) {
 // @Success 200 {object} common.Response
 // @Router /api/users [get]
 func (ctrl *UserController) GetList(c *gin.Context) {
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	pageSize, _ := strconv.Atoi(c.DefaultQuery("pageSize", "10"))
+	page, pageSize, err := common.ParsePageParams(c, 1, 10, 100)
+	if err != nil {
+		common.BadRequest(c, err.Error())
+		return
+	}
 	username := c.Query("username")
 	phone := c.Query("phone")
 	status := c.Query("status")
@@ -279,19 +279,22 @@ func (ctrl *UserController) GetList(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Security Bearer
-// @Param id path int true "用户ID"
+// @Param id query int true "用户ID"
 // @Param body body AssignRolesRequest true "角色ID列表"
 // @Success 200 {object} common.Response
-// @Router /api/users/{id}/roles [post]
+// @Router /api/v1/user/roles [post]
 func (ctrl *UserController) AssignRoles(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 32)
+	id, ok := common.RequireUintQuery(c, "id")
+	if !ok {
+		return
+	}
 	var req AssignRolesRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		common.Fail(c, "参数错误")
 		return
 	}
 
-	if err := ctrl.userService.AssignRoles(uint(id), req.RoleIDs); err != nil {
+	if err := ctrl.userService.AssignRoles(id, req.RoleIDs); err != nil {
 		common.Fail(c, "分配角色失败")
 		return
 	}
@@ -301,10 +304,8 @@ func (ctrl *UserController) AssignRoles(c *gin.Context) {
 
 // LoginRequest 登录请求
 type LoginRequest struct {
-	Username    string `json:"username" form:"username" binding:"required" example:"admin"`
-	Password    string `json:"password" form:"password" binding:"required" example:"admin123"`
-	CaptchaID   string `json:"captchaId" form:"captchaId" binding:"required" example:"xxxx"`
-	CaptchaCode string `json:"captchaCode" form:"captchaCode" binding:"required" example:"1234"`
+	Username string `json:"username" form:"username" binding:"required" example:"admin"`
+	Password string `json:"password" form:"password" binding:"required" example:"admin123"`
 }
 
 // LoginResponse 登录响应

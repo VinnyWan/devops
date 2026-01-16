@@ -21,15 +21,24 @@ func K8sPermission(operation string) gin.HandlerFunc {
 			return
 		}
 
-		// 获取集群ID
-		clusterIDStr := c.Param("clusterId")
+		// 获取集群ID - 优先从query参数获取，其次从路径参数获取
+		clusterIDStr := c.Query("clusterId")
+		if clusterIDStr == "" {
+			clusterIDStr = c.Param("clusterId")
+		}
 		if clusterIDStr == "" {
 			clusterIDStr = c.Param("id")
 		}
 
+		if clusterIDStr == "" {
+			common.Fail(c, "集群ID不能为空")
+			c.Abort()
+			return
+		}
+
 		clusterID, err := strconv.ParseUint(clusterIDStr, 10, 32)
 		if err != nil {
-			common.Fail(c, "集群ID无效")
+			common.Fail(c, "集群ID格式错误")
 			c.Abort()
 			return
 		}

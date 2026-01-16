@@ -9,11 +9,6 @@ import (
 // SetupAuthRoutes 设置认证相关路由
 func SetupAuthRoutes(r *gin.RouterGroup) {
 	userCtrl := userctrl.NewUserController()
-	captchaCtrl := userctrl.NewCaptchaController()
-
-	// 验证码
-	r.GET("/captcha", captchaCtrl.Generate)
-	r.GET("/captcha/:id", captchaCtrl.Serve)
 
 	// 认证
 	auth := r.Group("/auth")

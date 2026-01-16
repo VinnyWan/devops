@@ -46,21 +46,34 @@ func main() {
 	flag.Parse()
 
 	// 2. 加载配置文件
-	// 加载配置文件
+	resolvedConfigPath := configPath
+	if resolvedConfigPath == "" {
+		resolvedConfigPath = "./config.yaml"
+	}
 	if err := config.LoadConfig(configPath); err != nil {
-		panic("Failed to load config: " + err.Error())
+		fmt.Fprintf(os.Stderr, "加载配置失败: %v\n", err)
+		os.Exit(1)
 	}
 
 	// 3. 初始化日志
-	logger.Init()
-	defer logger.Log.Sync()
+	if err := logger.Init(); err != nil {
+		fmt.Fprintf(os.Stderr, "初始化日志失败: %v\n", err)
+		os.Exit(1)
+	}
+	defer func() {
+		_ = logger.Log.Sync()
+	}()
 
 	// 记录配置信息
 	logger.Log.Info("配置文件加载成功",
-		zap.String("config_path", configPath),
-		zap.Any("server", config.Config.Server),
-		zap.Any("db", config.Config.Db),
-		zap.Any("redis", config.Config.Redis),
+		zap.String("config_path", resolvedConfigPath),
+		zap.String("server_port", config.Config.Server.Port),
+		zap.String("server_mode", config.Config.Server.Model),
+		zap.Bool("swagger_enabled", config.Config.Server.EnableSwagger),
+		zap.String("db_host", config.Config.Db.Host),
+		zap.Int("db_port", config.Config.Db.Port),
+		zap.String("db_name", config.Config.Db.Db),
+		zap.String("redis_address", config.Config.Redis.Address),
 	)
 
 	// 4. 初始化DB

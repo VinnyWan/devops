@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"strconv"
 	"strings"
 
 	"devops/common"
@@ -44,7 +45,33 @@ func JWTAuth() gin.HandlerFunc {
 // GetUserID 从上下文获取用户ID
 func GetUserID(c *gin.Context) uint {
 	if userId, exists := c.Get("userId"); exists {
-		return userId.(uint)
+		switch v := userId.(type) {
+		case uint:
+			return v
+		case int:
+			if v < 0 {
+				return 0
+			}
+			return uint(v)
+		case int64:
+			if v < 0 {
+				return 0
+			}
+			return uint(v)
+		case float64:
+			if v < 0 {
+				return 0
+			}
+			return uint(v)
+		case string:
+			parsed, err := strconv.ParseUint(v, 10, 64)
+			if err != nil {
+				return 0
+			}
+			return uint(parsed)
+		default:
+			return 0
+		}
 	}
 	return 0
 }
@@ -52,7 +79,9 @@ func GetUserID(c *gin.Context) uint {
 // GetUsername 从上下文获取用户名
 func GetUsername(c *gin.Context) string {
 	if username, exists := c.Get("username"); exists {
-		return username.(string)
+		if name, ok := username.(string); ok {
+			return name
+		}
 	}
 	return ""
 }

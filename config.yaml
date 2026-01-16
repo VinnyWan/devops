@@ -29,10 +29,6 @@ jwt:
   secret: "devops-secret-key-2026"
   expire: 7200  # token过期时间(秒), 2小时
 
-# 验证码配置
-captcha:
-  enabled: false  # 是否启用验证码验证，默认启用
-
 # 日志配置
 log:
   # 输出目标：console(终端) 或 file(文件) 或 both(两者)

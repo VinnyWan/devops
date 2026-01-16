@@ -14,7 +14,7 @@ import (
 var Log *zap.Logger
 
 // Init 初始化日志器，根据配置输出到终端或文件
-func Init() {
+func Init() error {
 	logConfig := config.GetLogConfig()
 
 	// 获取日志级别
@@ -24,7 +24,10 @@ func Init() {
 	encoder := getEncoder()
 
 	// 获取输出目标
-	writeSyncer := getWriteSyncer(logConfig)
+	writeSyncer, err := getWriteSyncer(logConfig)
+	if err != nil {
+		return err
+	}
 
 	// 创建 core
 	core := zapcore.NewCore(
@@ -43,6 +46,7 @@ func Init() {
 	}
 
 	Log = zap.New(core, opts...)
+	return nil
 }
 
 // 日志编码器：JSON + 自定义时间/字段名/级别格式
@@ -86,38 +90,42 @@ func getLogLevel(level string) zapcore.Level {
 }
 
 // getWriteSyncer 获取输出目标
-func getWriteSyncer(logConfig *config.Log) zapcore.WriteSyncer {
+func getWriteSyncer(logConfig *config.Log) (zapcore.WriteSyncer, error) {
 	switch logConfig.Output {
 	case "console":
 		// 输出到终端
-		return zapcore.AddSync(os.Stdout)
+		return zapcore.AddSync(os.Stdout), nil
 	case "file":
 		// 输出到文件
 		return getFileWriter(logConfig.FilePath)
 	case "both":
 		// 同时输出到终端和文件
+		fileWriter, err := getFileWriter(logConfig.FilePath)
+		if err != nil {
+			return nil, err
+		}
 		return zapcore.NewMultiWriteSyncer(
 			zapcore.AddSync(os.Stdout),
-			getFileWriter(logConfig.FilePath),
-		)
+			fileWriter,
+		), nil
 	default:
-		return zapcore.AddSync(os.Stdout)
+		return zapcore.AddSync(os.Stdout), nil
 	}
 }
 
 // getFileWriter 获取文件写入器
-func getFileWriter(filePath string) zapcore.WriteSyncer {
+func getFileWriter(filePath string) (zapcore.WriteSyncer, error) {
 	// 确保日志目录存在
 	dir := filepath.Dir(filePath)
 	if err := os.MkdirAll(dir, 0755); err != nil {
-		panic("Failed to create log directory: " + err.Error())
+		return nil, err
 	}
 
 	// 打开或创建日志文件
 	file, err := os.OpenFile(filePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
-		panic("Failed to open log file: " + err.Error())
+		return nil, err
 	}
 
-	return zapcore.AddSync(file)
+	return zapcore.AddSync(file), nil
 }

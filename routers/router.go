@@ -1,12 +1,14 @@
 package routers
 
 import (
+	"time"
+
+	"devops/common/config"
 	_ "devops/docs"
 	"devops/internal/logger"
 	"devops/middleware"
 	k8srouters "devops/routers/k8s"
 	userrouters "devops/routers/user"
-	"time"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -24,7 +26,7 @@ func SetupRouter() *gin.Engine {
 		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization"},
 		ExposeHeaders:    []string{"Content-Length"},
-		AllowCredentials: true,
+		AllowCredentials: false,
 		MaxAge:           12 * time.Hour,
 	}))
 
@@ -35,10 +37,12 @@ func SetupRouter() *gin.Engine {
 	)
 
 	// Swagger文档
-	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+	if config.Config != nil && config.Config.Server.EnableSwagger {
+		r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+	}
 
-	// API路由组
-	api := r.Group("/api")
+	// API路由组 v1
+	api := r.Group("/api/v1")
 	{
 		// 用户模块路由
 		userrouters.SetupAuthRoutes(api)

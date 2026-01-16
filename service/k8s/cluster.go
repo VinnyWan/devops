@@ -5,19 +5,27 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"devops/internal/database"
+	"devops/internal/logger"
 	k8smodels "devops/models/k8s"
 	usermodels "devops/models/user"
 
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+
+	"go.uber.org/zap"
 )
 
 // ClusterService K8s集群服务
 type ClusterService struct{}
+
+const defaultK8sRequestTimeout = 10 * time.Second
 
 // Create 创建集群
 func (s *ClusterService) Create(cluster *k8smodels.Cluster) error {
@@ -178,24 +186,17 @@ func (s *ClusterService) GetListByUser(userID uint, page, pageSize int, name str
 	}
 
 	// 2.3 查询有权限访问的集群ID
-	var accesses []k8smodels.ClusterAccess
-	if err := database.Db.Where("role_id IN ?", roleIDs).Find(&accesses).Error; err != nil {
+	var clusterIDs []uint
+	if err := database.Db.Model(&k8smodels.ClusterAccess{}).
+		Distinct("cluster_id").
+		Where("role_id IN ?", roleIDs).
+		Pluck("cluster_id", &clusterIDs).Error; err != nil {
 		return nil, 0, err
 	}
 
-	if len(accesses) == 0 {
+	if len(clusterIDs) == 0 {
 		// 没有任何集群访问权限，返回空列表
 		return []k8smodels.Cluster{}, 0, nil
-	}
-
-	// 2.4 提取可访问的集群ID
-	clusterIDs := make([]uint, 0)
-	clusterIDMap := make(map[uint]bool)
-	for _, access := range accesses {
-		if !clusterIDMap[access.ClusterID] {
-			clusterIDs = append(clusterIDs, access.ClusterID)
-			clusterIDMap[access.ClusterID] = true
-		}
 	}
 
 	// 2.5 查询集群列表
@@ -231,16 +232,24 @@ func (s *ClusterService) GetListByUser(userID uint, page, pageSize int, name str
 // GetClient 获取K8s客户端
 func (s *ClusterService) GetClient(clusterID uint) (*kubernetes.Clientset, error) {
 	var cluster k8smodels.Cluster
-	if err := database.Db.First(&cluster, clusterID).Error; err != nil {
+	if err := database.Db.Select("id", "kube_config", "status").First(&cluster, clusterID).Error; err != nil {
 		return nil, errors.New("集群不存在")
 	}
 
 	if cluster.Status != 1 {
 		return nil, errors.New("集群已禁用")
 	}
+	if strings.TrimSpace(cluster.KubeConfig) == "" {
+		return nil, errors.New("集群KubeConfig为空")
+	}
+
+	configHash := hashKubeConfig(cluster.KubeConfig)
+	if clientset, ok := getCachedClient(clusterID, configHash); ok {
+		return clientset, nil
+	}
 
 	// TODO: 解密KubeConfig
-	config, err := clientcmd.RESTConfigFromKubeConfig([]byte(cluster.KubeConfig))
+	config, err := restConfigFromKubeConfig(cluster.KubeConfig)
 	if err != nil {
 		return nil, fmt.Errorf("解析KubeConfig失败: %w", err)
 	}
@@ -250,6 +259,7 @@ func (s *ClusterService) GetClient(clusterID uint) (*kubernetes.Clientset, error
 		return nil, fmt.Errorf("创建K8s客户端失败: %w", err)
 	}
 
+	setCachedClient(clusterID, configHash, clientset)
 	return clientset, nil
 }
 
@@ -330,15 +340,26 @@ func (s *ClusterService) ReimportKubeConfig(id uint, kubeconfig string) error {
 	}).Error
 }
 
+func restConfigFromKubeConfig(kubeconfig string) (*rest.Config, error) {
+	cfg, err := clientcmd.RESTConfigFromKubeConfig([]byte(kubeconfig))
+	if err != nil {
+		return nil, err
+	}
+	if cfg.Timeout <= 0 {
+		cfg.Timeout = defaultK8sRequestTimeout
+	}
+	return cfg, nil
+}
+
 // validateKubeConfig 验证KubeConfig格式
 func (s *ClusterService) validateKubeConfig(kubeconfig string) error {
-	_, err := clientcmd.RESTConfigFromKubeConfig([]byte(kubeconfig))
+	_, err := restConfigFromKubeConfig(kubeconfig)
 	return err
 }
 
 // getClusterVersion 获取集群版本和状态
 func (s *ClusterService) getClusterVersion(kubeconfig string) (string, string, error) {
-	config, err := clientcmd.RESTConfigFromKubeConfig([]byte(kubeconfig))
+	config, err := restConfigFromKubeConfig(kubeconfig)
 	if err != nil {
 		return "", "unhealthy", fmt.Errorf("解析KubeConfig失败: %w", err)
 	}
@@ -435,13 +456,12 @@ func (s *PermissionService) CheckAccess(userID, clusterID uint, operation string
 
 	// 5. 确定最高权限
 	accessType := "readonly"
-	var namespaces []string
+	namespaceSet := make(map[string]struct{})
 
 	for _, access := range accesses {
 		if access.AccessType == "admin" {
 			accessType = "admin"
 			// admin权限可以访问所有namespace
-			namespaces = nil
 			break
 		}
 
@@ -449,7 +469,12 @@ func (s *PermissionService) CheckAccess(userID, clusterID uint, operation string
 		if access.Namespaces != "" {
 			var ns []string
 			if err := json.Unmarshal([]byte(access.Namespaces), &ns); err == nil {
-				namespaces = append(namespaces, ns...)
+				for _, name := range ns {
+					name = strings.TrimSpace(name)
+					if name != "" {
+						namespaceSet[name] = struct{}{}
+					}
+				}
 			}
 		}
 	}
@@ -457,6 +482,15 @@ func (s *PermissionService) CheckAccess(userID, clusterID uint, operation string
 	// 6. 检查操作权限
 	if accessType == "readonly" && isWriteOperation(operation) {
 		return "", nil, errors.New("只读权限，无法执行写操作")
+	}
+
+	var namespaces []string
+	if accessType == "readonly" && len(namespaceSet) > 0 {
+		namespaces = make([]string, 0, len(namespaceSet))
+		for name := range namespaceSet {
+			namespaces = append(namespaces, name)
+		}
+		sort.Strings(namespaces)
 	}
 
 	return accessType, namespaces, nil
@@ -507,5 +541,11 @@ func (s *PermissionService) DeleteAccess(id uint) error {
 
 // LogOperation 记录操作日志
 func LogOperation(ctx context.Context, log *k8smodels.OperationLog) {
-	database.Db.Create(log)
+	db := database.Db
+	if ctx != nil {
+		db = db.WithContext(ctx)
+	}
+	if err := db.Create(log).Error; err != nil {
+		logger.Log.Warn("记录K8s操作日志失败", zap.Error(err))
+	}
 }

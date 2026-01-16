@@ -15,7 +15,10 @@ func InitData() error {
 
 	// 检查是否已有管理员用户
 	var count int64
-	Db.Model(&usermodels.User{}).Count(&count)
+	if err := Db.Model(&usermodels.User{}).Count(&count).Error; err != nil {
+		logger.Log.Error("检查管理员用户失败", zap.Error(err))
+		return err
+	}
 	if count > 0 {
 		logger.Log.Info("数据已存在，跳过初始化")
 		return nil
@@ -35,7 +38,11 @@ func InitData() error {
 	}
 
 	// 创建默认管理员用户
-	hashedPassword, _ := utils.HashPassword("admin123")
+	hashedPassword, err := utils.HashPassword("admin123")
+	if err != nil {
+		logger.Log.Error("管理员密码加密失败", zap.Error(err))
+		return err
+	}
 	adminUser := usermodels.User{
 		Username: "admin",
 		Password: hashedPassword,
@@ -217,7 +224,10 @@ func InitK8sTestData() error {
 
 	// 检查是否已有K8s集群数据
 	var count int64
-	Db.Model(&k8smodels.Cluster{}).Count(&count)
+	if err := Db.Model(&k8smodels.Cluster{}).Count(&count).Error; err != nil {
+		logger.Log.Error("检查K8s集群数据失败", zap.Error(err))
+		return err
+	}
 	if count > 0 {
 		logger.Log.Info("K8s集群数据已存在，跳过初始化", zap.Int64("集群数量", count))
 		return nil
@@ -239,7 +249,10 @@ func initK8sTestClusters(deptID uint) error {
 
 	// 先检查是否已有K8s集群数据
 	var existingCount int64
-	Db.Model(&k8smodels.Cluster{}).Count(&existingCount)
+	if err := Db.Model(&k8smodels.Cluster{}).Count(&existingCount).Error; err != nil {
+		logger.Log.Error("检查K8s集群数据失败", zap.Error(err))
+		return err
+	}
 	if existingCount > 0 {
 		logger.Log.Info("K8s 集群数据已存在，取消初始化",
 			zap.Int64("已有集群数量", existingCount))

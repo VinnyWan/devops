@@ -24,11 +24,14 @@ func NewResourceController() *ResourceController {
 // @Tags K8s-Namespace
 // @Accept json
 // @Produce json
-// @Param clusterId path int true "集群ID"
+// @Param clusterId query int true "集群ID"
 // @Success 200 {object} common.Response
-// @Router /api/k8s/clusters/{clusterId}/namespaces [get]
+// @Router /api/v1/k8s/namespaces [get]
 func (ctrl *ResourceController) ListNamespaces(c *gin.Context) {
-	clusterID, _ := strconv.ParseUint(c.Param("clusterId"), 10, 32)
+	clusterID, ok := common.RequireUintQuery(c, "clusterId")
+	if !ok {
+		return
+	}
 
 	service := &k8sservice.NamespaceService{}
 	namespaces, err := service.List(uint(clusterID))
@@ -45,13 +48,16 @@ func (ctrl *ResourceController) ListNamespaces(c *gin.Context) {
 // @Tags K8s-Namespace
 // @Accept json
 // @Produce json
-// @Param clusterId path int true "集群ID"
-// @Param name path string true "命名空间名称"
+// @Param clusterId query int true "集群ID"
+// @Param name query string true "命名空间名称"
 // @Success 200 {object} common.Response
-// @Router /api/k8s/clusters/{clusterId}/namespaces/{name} [get]
+// @Router /api/v1/k8s/namespace/detail [get]
 func (ctrl *ResourceController) GetNamespace(c *gin.Context) {
-	clusterID, _ := strconv.ParseUint(c.Param("clusterId"), 10, 32)
-	name := c.Param("name")
+	clusterID, ok := common.RequireUintQuery(c, "clusterId")
+	if !ok {
+		return
+	}
+	name := c.Query("name")
 
 	service := &k8sservice.NamespaceService{}
 	namespace, err := service.Get(uint(clusterID), name)
@@ -68,12 +74,15 @@ func (ctrl *ResourceController) GetNamespace(c *gin.Context) {
 // @Tags K8s-Namespace
 // @Accept json
 // @Produce json
-// @Param clusterId path int true "集群ID"
+// @Param clusterId query int true "集群ID"
 // @Param data body object true "命名空间信息"
 // @Success 200 {object} common.Response
-// @Router /api/k8s/clusters/{clusterId}/namespaces [post]
+// @Router /api/v1/k8s/namespaces [post]
 func (ctrl *ResourceController) CreateNamespace(c *gin.Context) {
-	clusterID, _ := strconv.ParseUint(c.Param("clusterId"), 10, 32)
+	clusterID, ok := common.RequireUintQuery(c, "clusterId")
+	if !ok {
+		return
+	}
 
 	var namespace corev1.Namespace
 	if err := c.ShouldBindJSON(&namespace); err != nil {
@@ -96,13 +105,16 @@ func (ctrl *ResourceController) CreateNamespace(c *gin.Context) {
 // @Tags K8s-Namespace
 // @Accept json
 // @Produce json
-// @Param clusterId path int true "集群ID"
-// @Param name path string true "命名空间名称"
+// @Param clusterId query int true "集群ID"
+// @Param name query string true "命名空间名称"
 // @Success 200 {object} common.Response
-// @Router /api/k8s/clusters/{clusterId}/namespaces/{name} [delete]
+// @Router /api/v1/k8s/namespace/detail [post]
 func (ctrl *ResourceController) DeleteNamespace(c *gin.Context) {
-	clusterID, _ := strconv.ParseUint(c.Param("clusterId"), 10, 32)
-	name := c.Param("name")
+	clusterID, ok := common.RequireUintQuery(c, "clusterId")
+	if !ok {
+		return
+	}
+	name := c.Query("name")
 
 	service := &k8sservice.NamespaceService{}
 	if err := service.Delete(uint(clusterID), name); err != nil {
@@ -120,12 +132,15 @@ func (ctrl *ResourceController) DeleteNamespace(c *gin.Context) {
 // @Tags K8s-Workload
 // @Accept json
 // @Produce json
-// @Param clusterId path int true "集群ID"
+// @Param clusterId query int true "集群ID"
 // @Param namespace query string true "命名空间"
 // @Success 200 {object} common.Response
-// @Router /api/k8s/clusters/{clusterId}/deployments [get]
+// @Router /api/v1/k8s/deployments [get]
 func (ctrl *ResourceController) ListDeployments(c *gin.Context) {
-	clusterID, _ := strconv.ParseUint(c.Param("clusterId"), 10, 32)
+	clusterID, ok := common.RequireUintQuery(c, "clusterId")
+	if !ok {
+		return
+	}
 	namespace := c.Query("namespace")
 
 	service := &k8sservice.WorkloadService{}
@@ -143,15 +158,18 @@ func (ctrl *ResourceController) ListDeployments(c *gin.Context) {
 // @Tags K8s-Workload
 // @Accept json
 // @Produce json
-// @Param clusterId path int true "集群ID"
+// @Param clusterId query int true "集群ID"
 // @Param namespace query string true "命名空间"
-// @Param name path string true "Deployment名称"
+// @Param name query string true "Deployment名称"
 // @Success 200 {object} common.Response
-// @Router /api/k8s/clusters/{clusterId}/deployments/{name} [get]
+// @Router /api/v1/k8s/deployment/detail [get]
 func (ctrl *ResourceController) GetDeployment(c *gin.Context) {
-	clusterID, _ := strconv.ParseUint(c.Param("clusterId"), 10, 32)
+	clusterID, ok := common.RequireUintQuery(c, "clusterId")
+	if !ok {
+		return
+	}
 	namespace := c.Query("namespace")
-	name := c.Param("name")
+	name := c.Query("name")
 
 	service := &k8sservice.WorkloadService{}
 	deployment, err := service.GetDeployment(uint(clusterID), namespace, name)
@@ -168,13 +186,16 @@ func (ctrl *ResourceController) GetDeployment(c *gin.Context) {
 // @Tags K8s-Workload
 // @Accept json
 // @Produce json
-// @Param clusterId path int true "集群ID"
+// @Param clusterId query int true "集群ID"
 // @Param namespace query string true "命名空间"
 // @Param data body object true "Deployment信息"
 // @Success 200 {object} common.Response
-// @Router /api/k8s/clusters/{clusterId}/deployments [post]
+// @Router /api/v1/k8s/deployment/create [post]
 func (ctrl *ResourceController) CreateDeployment(c *gin.Context) {
-	clusterID, _ := strconv.ParseUint(c.Param("clusterId"), 10, 32)
+	clusterID, ok := common.RequireUintQuery(c, "clusterId")
+	if !ok {
+		return
+	}
 	namespace := c.Query("namespace")
 
 	var deployment appsv1.Deployment
@@ -198,14 +219,17 @@ func (ctrl *ResourceController) CreateDeployment(c *gin.Context) {
 // @Tags K8s-Workload
 // @Accept json
 // @Produce json
-// @Param clusterId path int true "集群ID"
+// @Param clusterId query int true "集群ID"
 // @Param namespace query string true "命名空间"
-// @Param name path string true "Deployment名称"
+// @Param name query string true "Deployment名称"
 // @Param data body object true "Deployment信息"
 // @Success 200 {object} common.Response
-// @Router /api/k8s/clusters/{clusterId}/deployments/{name} [put]
+// @Router /api/v1/k8s/deployment/update [post]
 func (ctrl *ResourceController) UpdateDeployment(c *gin.Context) {
-	clusterID, _ := strconv.ParseUint(c.Param("clusterId"), 10, 32)
+	clusterID, ok := common.RequireUintQuery(c, "clusterId")
+	if !ok {
+		return
+	}
 	namespace := c.Query("namespace")
 
 	var deployment appsv1.Deployment
@@ -229,15 +253,18 @@ func (ctrl *ResourceController) UpdateDeployment(c *gin.Context) {
 // @Tags K8s-Workload
 // @Accept json
 // @Produce json
-// @Param clusterId path int true "集群ID"
+// @Param clusterId query int true "集群ID"
 // @Param namespace query string true "命名空间"
-// @Param name path string true "Deployment名称"
+// @Param name query string true "Deployment名称"
 // @Success 200 {object} common.Response
-// @Router /api/k8s/clusters/{clusterId}/deployments/{name} [delete]
+// @Router /api/v1/k8s/deployment/delete [post]
 func (ctrl *ResourceController) DeleteDeployment(c *gin.Context) {
-	clusterID, _ := strconv.ParseUint(c.Param("clusterId"), 10, 32)
+	clusterID, ok := common.RequireUintQuery(c, "clusterId")
+	if !ok {
+		return
+	}
 	namespace := c.Query("namespace")
-	name := c.Param("name")
+	name := c.Query("name")
 
 	service := &k8sservice.WorkloadService{}
 	if err := service.DeleteDeployment(uint(clusterID), namespace, name); err != nil {
@@ -253,17 +280,25 @@ func (ctrl *ResourceController) DeleteDeployment(c *gin.Context) {
 // @Tags K8s-Workload
 // @Accept json
 // @Produce json
-// @Param clusterId path int true "集群ID"
+// @Param clusterId query int true "集群ID"
 // @Param namespace query string true "命名空间"
-// @Param name path string true "Deployment名称"
+// @Param name query string true "Deployment名称"
 // @Param replicas query int true "副本数"
 // @Success 200 {object} common.Response
-// @Router /api/k8s/clusters/{clusterId}/deployments/{name}/scale [post]
+// @Router /api/v1/k8s/deployment/scale [post]
 func (ctrl *ResourceController) ScaleDeployment(c *gin.Context) {
-	clusterID, _ := strconv.ParseUint(c.Param("clusterId"), 10, 32)
+	clusterID, ok := common.RequireUintQuery(c, "clusterId")
+	if !ok {
+		return
+	}
 	namespace := c.Query("namespace")
-	name := c.Param("name")
-	replicas, _ := strconv.ParseInt(c.Query("replicas"), 10, 32)
+	name := c.Query("name")
+	replicasStr := c.Query("replicas")
+	replicas, err := strconv.ParseInt(replicasStr, 10, 32)
+	if err != nil {
+		common.BadRequest(c, "replicas格式错误")
+		return
+	}
 
 	service := &k8sservice.WorkloadService{}
 	if err := service.ScaleDeployment(uint(clusterID), namespace, name, int32(replicas)); err != nil {
@@ -279,15 +314,18 @@ func (ctrl *ResourceController) ScaleDeployment(c *gin.Context) {
 // @Tags K8s-Workload
 // @Accept json
 // @Produce json
-// @Param clusterId path int true "集群ID"
+// @Param clusterId query int true "集群ID"
 // @Param namespace query string true "命名空间"
-// @Param name path string true "Deployment名称"
+// @Param name query string true "Deployment名称"
 // @Success 200 {object} common.Response
-// @Router /api/k8s/clusters/{clusterId}/deployments/{name}/restart [post]
+// @Router /api/v1/k8s/deployment/restart [post]
 func (ctrl *ResourceController) RestartDeployment(c *gin.Context) {
-	clusterID, _ := strconv.ParseUint(c.Param("clusterId"), 10, 32)
+	clusterID, ok := common.RequireUintQuery(c, "clusterId")
+	if !ok {
+		return
+	}
 	namespace := c.Query("namespace")
-	name := c.Param("name")
+	name := c.Query("name")
 
 	service := &k8sservice.WorkloadService{}
 	if err := service.RestartDeployment(uint(clusterID), namespace, name); err != nil {
@@ -305,13 +343,16 @@ func (ctrl *ResourceController) RestartDeployment(c *gin.Context) {
 // @Tags K8s-Workload
 // @Accept json
 // @Produce json
-// @Param clusterId path int true "集群ID"
+// @Param clusterId query int true "集群ID"
 // @Param namespace query string true "命名空间"
 // @Param labelSelector query string false "标签选择器"
 // @Success 200 {object} common.Response
-// @Router /api/k8s/clusters/{clusterId}/pods [get]
+// @Router /api/v1/k8s/pods [get]
 func (ctrl *ResourceController) ListPods(c *gin.Context) {
-	clusterID, _ := strconv.ParseUint(c.Param("clusterId"), 10, 32)
+	clusterID, ok := common.RequireUintQuery(c, "clusterId")
+	if !ok {
+		return
+	}
 	namespace := c.Query("namespace")
 	labelSelector := c.Query("labelSelector")
 
@@ -330,15 +371,18 @@ func (ctrl *ResourceController) ListPods(c *gin.Context) {
 // @Tags K8s-Workload
 // @Accept json
 // @Produce json
-// @Param clusterId path int true "集群ID"
+// @Param clusterId query int true "集群ID"
 // @Param namespace query string true "命名空间"
-// @Param name path string true "Pod名称"
+// @Param name query string true "Pod名称"
 // @Success 200 {object} common.Response
-// @Router /api/k8s/clusters/{clusterId}/pods/{name} [get]
+// @Router /api/v1/k8s/pod/detail [get]
 func (ctrl *ResourceController) GetPod(c *gin.Context) {
-	clusterID, _ := strconv.ParseUint(c.Param("clusterId"), 10, 32)
+	clusterID, ok := common.RequireUintQuery(c, "clusterId")
+	if !ok {
+		return
+	}
 	namespace := c.Query("namespace")
-	name := c.Param("name")
+	name := c.Query("name")
 
 	service := &k8sservice.WorkloadService{}
 	pod, err := service.GetPod(uint(clusterID), namespace, name)
@@ -355,15 +399,18 @@ func (ctrl *ResourceController) GetPod(c *gin.Context) {
 // @Tags K8s-Workload
 // @Accept json
 // @Produce json
-// @Param clusterId path int true "集群ID"
+// @Param clusterId query int true "集群ID"
 // @Param namespace query string true "命名空间"
-// @Param name path string true "Pod名称"
+// @Param name query string true "Pod名称"
 // @Success 200 {object} common.Response
-// @Router /api/k8s/clusters/{clusterId}/pods/{name} [delete]
+// @Router /api/v1/k8s/pod/delete [post]
 func (ctrl *ResourceController) DeletePod(c *gin.Context) {
-	clusterID, _ := strconv.ParseUint(c.Param("clusterId"), 10, 32)
+	clusterID, ok := common.RequireUintQuery(c, "clusterId")
+	if !ok {
+		return
+	}
 	namespace := c.Query("namespace")
-	name := c.Param("name")
+	name := c.Query("name")
 
 	service := &k8sservice.WorkloadService{}
 	if err := service.DeletePod(uint(clusterID), namespace, name); err != nil {
@@ -379,19 +426,27 @@ func (ctrl *ResourceController) DeletePod(c *gin.Context) {
 // @Tags K8s-Workload
 // @Accept json
 // @Produce json
-// @Param clusterId path int true "集群ID"
+// @Param clusterId query int true "集群ID"
 // @Param namespace query string true "命名空间"
-// @Param name path string true "Pod名称"
+// @Param name query string true "Pod名称"
 // @Param container query string false "容器名称"
 // @Param tailLines query int false "尾部行数" default(100)
 // @Success 200 {object} common.Response
-// @Router /api/k8s/clusters/{clusterId}/pods/{name}/logs [get]
+// @Router /api/v1/k8s/pod/logs [get]
 func (ctrl *ResourceController) GetPodLogs(c *gin.Context) {
-	clusterID, _ := strconv.ParseUint(c.Param("clusterId"), 10, 32)
+	clusterID, ok := common.RequireUintQuery(c, "clusterId")
+	if !ok {
+		return
+	}
 	namespace := c.Query("namespace")
-	name := c.Param("name")
+	name := c.Query("name")
 	container := c.Query("container")
-	tailLines, _ := strconv.ParseInt(c.DefaultQuery("tailLines", "100"), 10, 64)
+	tailLinesStr := c.DefaultQuery("tailLines", "100")
+	tailLines, err := strconv.ParseInt(tailLinesStr, 10, 64)
+	if err != nil {
+		common.BadRequest(c, "tailLines格式错误")
+		return
+	}
 
 	service := &k8sservice.WorkloadService{}
 	logs, err := service.GetPodLogs(uint(clusterID), namespace, name, container, tailLines)
@@ -410,12 +465,15 @@ func (ctrl *ResourceController) GetPodLogs(c *gin.Context) {
 // @Tags K8s-Workload
 // @Accept json
 // @Produce json
-// @Param clusterId path int true "集群ID"
+// @Param clusterId query int true "集群ID"
 // @Param namespace query string true "命名空间"
 // @Success 200 {object} common.Response
-// @Router /api/k8s/clusters/{clusterId}/statefulsets [get]
+// @Router /api/v1/k8s/statefulsets [get]
 func (ctrl *ResourceController) ListStatefulSets(c *gin.Context) {
-	clusterID, _ := strconv.ParseUint(c.Param("clusterId"), 10, 32)
+	clusterID, ok := common.RequireUintQuery(c, "clusterId")
+	if !ok {
+		return
+	}
 	namespace := c.Query("namespace")
 
 	service := &k8sservice.WorkloadService{}
@@ -435,12 +493,15 @@ func (ctrl *ResourceController) ListStatefulSets(c *gin.Context) {
 // @Tags K8s-Workload
 // @Accept json
 // @Produce json
-// @Param clusterId path int true "集群ID"
+// @Param clusterId query int true "集群ID"
 // @Param namespace query string true "命名空间"
 // @Success 200 {object} common.Response
-// @Router /api/k8s/clusters/{clusterId}/daemonsets [get]
+// @Router /api/v1/k8s/daemonsets [get]
 func (ctrl *ResourceController) ListDaemonSets(c *gin.Context) {
-	clusterID, _ := strconv.ParseUint(c.Param("clusterId"), 10, 32)
+	clusterID, ok := common.RequireUintQuery(c, "clusterId")
+	if !ok {
+		return
+	}
 	namespace := c.Query("namespace")
 
 	service := &k8sservice.WorkloadService{}
@@ -460,12 +521,15 @@ func (ctrl *ResourceController) ListDaemonSets(c *gin.Context) {
 // @Tags K8s-Service
 // @Accept json
 // @Produce json
-// @Param clusterId path int true "集群ID"
+// @Param clusterId query int true "集群ID"
 // @Param namespace query string true "命名空间"
 // @Success 200 {object} common.Response
-// @Router /api/k8s/clusters/{clusterId}/services [get]
+// @Router /api/v1/k8s/services [get]
 func (ctrl *ResourceController) ListServices(c *gin.Context) {
-	clusterID, _ := strconv.ParseUint(c.Param("clusterId"), 10, 32)
+	clusterID, ok := common.RequireUintQuery(c, "clusterId")
+	if !ok {
+		return
+	}
 	namespace := c.Query("namespace")
 
 	service := &k8sservice.K8sServiceService{}
@@ -483,15 +547,18 @@ func (ctrl *ResourceController) ListServices(c *gin.Context) {
 // @Tags K8s-Service
 // @Accept json
 // @Produce json
-// @Param clusterId path int true "集群ID"
+// @Param clusterId query int true "集群ID"
 // @Param namespace query string true "命名空间"
-// @Param name path string true "Service名称"
+// @Param name query string true "Service名称"
 // @Success 200 {object} common.Response
-// @Router /api/k8s/clusters/{clusterId}/services/{name} [get]
+// @Router /api/v1/k8s/service/detail [get]
 func (ctrl *ResourceController) GetService(c *gin.Context) {
-	clusterID, _ := strconv.ParseUint(c.Param("clusterId"), 10, 32)
+	clusterID, ok := common.RequireUintQuery(c, "clusterId")
+	if !ok {
+		return
+	}
 	namespace := c.Query("namespace")
-	name := c.Param("name")
+	name := c.Query("name")
 
 	service := &k8sservice.K8sServiceService{}
 	svc, err := service.GetService(uint(clusterID), namespace, name)
@@ -508,13 +575,16 @@ func (ctrl *ResourceController) GetService(c *gin.Context) {
 // @Tags K8s-Service
 // @Accept json
 // @Produce json
-// @Param clusterId path int true "集群ID"
+// @Param clusterId query int true "集群ID"
 // @Param namespace query string true "命名空间"
 // @Param data body object true "Service信息"
 // @Success 200 {object} common.Response
-// @Router /api/k8s/clusters/{clusterId}/services [post]
+// @Router /api/v1/k8s/services [post]
 func (ctrl *ResourceController) CreateService(c *gin.Context) {
-	clusterID, _ := strconv.ParseUint(c.Param("clusterId"), 10, 32)
+	clusterID, ok := common.RequireUintQuery(c, "clusterId")
+	if !ok {
+		return
+	}
 	namespace := c.Query("namespace")
 
 	var svc corev1.Service
@@ -538,15 +608,18 @@ func (ctrl *ResourceController) CreateService(c *gin.Context) {
 // @Tags K8s-Service
 // @Accept json
 // @Produce json
-// @Param clusterId path int true "集群ID"
+// @Param clusterId query int true "集群ID"
 // @Param namespace query string true "命名空间"
-// @Param name path string true "Service名称"
+// @Param name query string true "Service名称"
 // @Success 200 {object} common.Response
-// @Router /api/k8s/clusters/{clusterId}/services/{name} [delete]
+// @Router /api/v1/k8s/service/detail [post]
 func (ctrl *ResourceController) DeleteService(c *gin.Context) {
-	clusterID, _ := strconv.ParseUint(c.Param("clusterId"), 10, 32)
+	clusterID, ok := common.RequireUintQuery(c, "clusterId")
+	if !ok {
+		return
+	}
 	namespace := c.Query("namespace")
-	name := c.Param("name")
+	name := c.Query("name")
 
 	service := &k8sservice.K8sServiceService{}
 	if err := service.DeleteService(uint(clusterID), namespace, name); err != nil {
@@ -564,12 +637,15 @@ func (ctrl *ResourceController) DeleteService(c *gin.Context) {
 // @Tags K8s-Service
 // @Accept json
 // @Produce json
-// @Param clusterId path int true "集群ID"
+// @Param clusterId query int true "集群ID"
 // @Param namespace query string true "命名空间"
 // @Success 200 {object} common.Response
-// @Router /api/k8s/clusters/{clusterId}/ingresses [get]
+// @Router /api/v1/k8s/ingresses [get]
 func (ctrl *ResourceController) ListIngresses(c *gin.Context) {
-	clusterID, _ := strconv.ParseUint(c.Param("clusterId"), 10, 32)
+	clusterID, ok := common.RequireUintQuery(c, "clusterId")
+	if !ok {
+		return
+	}
 	namespace := c.Query("namespace")
 
 	service := &k8sservice.K8sServiceService{}
@@ -587,15 +663,18 @@ func (ctrl *ResourceController) ListIngresses(c *gin.Context) {
 // @Tags K8s-Service
 // @Accept json
 // @Produce json
-// @Param clusterId path int true "集群ID"
+// @Param clusterId query int true "集群ID"
 // @Param namespace query string true "命名空间"
-// @Param name path string true "Ingress名称"
+// @Param name query string true "Ingress名称"
 // @Success 200 {object} common.Response
-// @Router /api/k8s/clusters/{clusterId}/ingresses/{name} [get]
+// @Router /api/v1/k8s/ingress/detail [get]
 func (ctrl *ResourceController) GetIngress(c *gin.Context) {
-	clusterID, _ := strconv.ParseUint(c.Param("clusterId"), 10, 32)
+	clusterID, ok := common.RequireUintQuery(c, "clusterId")
+	if !ok {
+		return
+	}
 	namespace := c.Query("namespace")
-	name := c.Param("name")
+	name := c.Query("name")
 
 	service := &k8sservice.K8sServiceService{}
 	ingress, err := service.GetIngress(uint(clusterID), namespace, name)
@@ -612,13 +691,16 @@ func (ctrl *ResourceController) GetIngress(c *gin.Context) {
 // @Tags K8s-Service
 // @Accept json
 // @Produce json
-// @Param clusterId path int true "集群ID"
+// @Param clusterId query int true "集群ID"
 // @Param namespace query string true "命名空间"
 // @Param data body object true "Ingress信息"
 // @Success 200 {object} common.Response
-// @Router /api/k8s/clusters/{clusterId}/ingresses [post]
+// @Router /api/v1/k8s/ingresses [post]
 func (ctrl *ResourceController) CreateIngress(c *gin.Context) {
-	clusterID, _ := strconv.ParseUint(c.Param("clusterId"), 10, 32)
+	clusterID, ok := common.RequireUintQuery(c, "clusterId")
+	if !ok {
+		return
+	}
 	namespace := c.Query("namespace")
 
 	var ingress networkingv1.Ingress
@@ -642,15 +724,18 @@ func (ctrl *ResourceController) CreateIngress(c *gin.Context) {
 // @Tags K8s-Service
 // @Accept json
 // @Produce json
-// @Param clusterId path int true "集群ID"
+// @Param clusterId query int true "集群ID"
 // @Param namespace query string true "命名空间"
-// @Param name path string true "Ingress名称"
+// @Param name query string true "Ingress名称"
 // @Success 200 {object} common.Response
-// @Router /api/k8s/clusters/{clusterId}/ingresses/{name} [delete]
+// @Router /api/v1/k8s/ingress/detail [post]
 func (ctrl *ResourceController) DeleteIngress(c *gin.Context) {
-	clusterID, _ := strconv.ParseUint(c.Param("clusterId"), 10, 32)
+	clusterID, ok := common.RequireUintQuery(c, "clusterId")
+	if !ok {
+		return
+	}
 	namespace := c.Query("namespace")
-	name := c.Param("name")
+	name := c.Query("name")
 
 	service := &k8sservice.K8sServiceService{}
 	if err := service.DeleteIngress(uint(clusterID), namespace, name); err != nil {
@@ -668,12 +753,15 @@ func (ctrl *ResourceController) DeleteIngress(c *gin.Context) {
 // @Tags K8s-Config
 // @Accept json
 // @Produce json
-// @Param clusterId path int true "集群ID"
+// @Param clusterId query int true "集群ID"
 // @Param namespace query string true "命名空间"
 // @Success 200 {object} common.Response
-// @Router /api/k8s/clusters/{clusterId}/configmaps [get]
+// @Router /api/v1/k8s/configmaps [get]
 func (ctrl *ResourceController) ListConfigMaps(c *gin.Context) {
-	clusterID, _ := strconv.ParseUint(c.Param("clusterId"), 10, 32)
+	clusterID, ok := common.RequireUintQuery(c, "clusterId")
+	if !ok {
+		return
+	}
 	namespace := c.Query("namespace")
 
 	service := &k8sservice.ConfigService{}
@@ -691,15 +779,18 @@ func (ctrl *ResourceController) ListConfigMaps(c *gin.Context) {
 // @Tags K8s-Config
 // @Accept json
 // @Produce json
-// @Param clusterId path int true "集群ID"
+// @Param clusterId query int true "集群ID"
 // @Param namespace query string true "命名空间"
-// @Param name path string true "ConfigMap名称"
+// @Param name query string true "ConfigMap名称"
 // @Success 200 {object} common.Response
-// @Router /api/k8s/clusters/{clusterId}/configmaps/{name} [get]
+// @Router /api/v1/k8s/configmap/detail [get]
 func (ctrl *ResourceController) GetConfigMap(c *gin.Context) {
-	clusterID, _ := strconv.ParseUint(c.Param("clusterId"), 10, 32)
+	clusterID, ok := common.RequireUintQuery(c, "clusterId")
+	if !ok {
+		return
+	}
 	namespace := c.Query("namespace")
-	name := c.Param("name")
+	name := c.Query("name")
 
 	service := &k8sservice.ConfigService{}
 	configMap, err := service.GetConfigMap(uint(clusterID), namespace, name)
@@ -716,13 +807,16 @@ func (ctrl *ResourceController) GetConfigMap(c *gin.Context) {
 // @Tags K8s-Config
 // @Accept json
 // @Produce json
-// @Param clusterId path int true "集群ID"
+// @Param clusterId query int true "集群ID"
 // @Param namespace query string true "命名空间"
 // @Param data body object true "ConfigMap信息"
 // @Success 200 {object} common.Response
-// @Router /api/k8s/clusters/{clusterId}/configmaps [post]
+// @Router /api/v1/k8s/configmaps [post]
 func (ctrl *ResourceController) CreateConfigMap(c *gin.Context) {
-	clusterID, _ := strconv.ParseUint(c.Param("clusterId"), 10, 32)
+	clusterID, ok := common.RequireUintQuery(c, "clusterId")
+	if !ok {
+		return
+	}
 	namespace := c.Query("namespace")
 
 	var configMap corev1.ConfigMap
@@ -746,14 +840,17 @@ func (ctrl *ResourceController) CreateConfigMap(c *gin.Context) {
 // @Tags K8s-Config
 // @Accept json
 // @Produce json
-// @Param clusterId path int true "集群ID"
+// @Param clusterId query int true "集群ID"
 // @Param namespace query string true "命名空间"
-// @Param name path string true "ConfigMap名称"
+// @Param name query string true "ConfigMap名称"
 // @Param data body object true "ConfigMap信息"
 // @Success 200 {object} common.Response
-// @Router /api/k8s/clusters/{clusterId}/configmaps/{name} [put]
+// @Router /api/v1/k8s/configmap/update [post]
 func (ctrl *ResourceController) UpdateConfigMap(c *gin.Context) {
-	clusterID, _ := strconv.ParseUint(c.Param("clusterId"), 10, 32)
+	clusterID, ok := common.RequireUintQuery(c, "clusterId")
+	if !ok {
+		return
+	}
 	namespace := c.Query("namespace")
 
 	var configMap corev1.ConfigMap
@@ -777,15 +874,18 @@ func (ctrl *ResourceController) UpdateConfigMap(c *gin.Context) {
 // @Tags K8s-Config
 // @Accept json
 // @Produce json
-// @Param clusterId path int true "集群ID"
+// @Param clusterId query int true "集群ID"
 // @Param namespace query string true "命名空间"
-// @Param name path string true "ConfigMap名称"
+// @Param name query string true "ConfigMap名称"
 // @Success 200 {object} common.Response
-// @Router /api/k8s/clusters/{clusterId}/configmaps/{name} [delete]
+// @Router /api/v1/k8s/configmap/delete [post]
 func (ctrl *ResourceController) DeleteConfigMap(c *gin.Context) {
-	clusterID, _ := strconv.ParseUint(c.Param("clusterId"), 10, 32)
+	clusterID, ok := common.RequireUintQuery(c, "clusterId")
+	if !ok {
+		return
+	}
 	namespace := c.Query("namespace")
-	name := c.Param("name")
+	name := c.Query("name")
 
 	service := &k8sservice.ConfigService{}
 	if err := service.DeleteConfigMap(uint(clusterID), namespace, name); err != nil {
@@ -803,12 +903,15 @@ func (ctrl *ResourceController) DeleteConfigMap(c *gin.Context) {
 // @Tags K8s-Config
 // @Accept json
 // @Produce json
-// @Param clusterId path int true "集群ID"
+// @Param clusterId query int true "集群ID"
 // @Param namespace query string true "命名空间"
 // @Success 200 {object} common.Response
-// @Router /api/k8s/clusters/{clusterId}/secrets [get]
+// @Router /api/v1/k8s/secrets [get]
 func (ctrl *ResourceController) ListSecrets(c *gin.Context) {
-	clusterID, _ := strconv.ParseUint(c.Param("clusterId"), 10, 32)
+	clusterID, ok := common.RequireUintQuery(c, "clusterId")
+	if !ok {
+		return
+	}
 	namespace := c.Query("namespace")
 
 	service := &k8sservice.ConfigService{}
@@ -826,15 +929,18 @@ func (ctrl *ResourceController) ListSecrets(c *gin.Context) {
 // @Tags K8s-Config
 // @Accept json
 // @Produce json
-// @Param clusterId path int true "集群ID"
+// @Param clusterId query int true "集群ID"
 // @Param namespace query string true "命名空间"
-// @Param name path string true "Secret名称"
+// @Param name query string true "Secret名称"
 // @Success 200 {object} common.Response
-// @Router /api/k8s/clusters/{clusterId}/secrets/{name} [get]
+// @Router /api/v1/k8s/secret/detail [get]
 func (ctrl *ResourceController) GetSecret(c *gin.Context) {
-	clusterID, _ := strconv.ParseUint(c.Param("clusterId"), 10, 32)
+	clusterID, ok := common.RequireUintQuery(c, "clusterId")
+	if !ok {
+		return
+	}
 	namespace := c.Query("namespace")
-	name := c.Param("name")
+	name := c.Query("name")
 
 	service := &k8sservice.ConfigService{}
 	secret, err := service.GetSecret(uint(clusterID), namespace, name)
@@ -851,13 +957,16 @@ func (ctrl *ResourceController) GetSecret(c *gin.Context) {
 // @Tags K8s-Config
 // @Accept json
 // @Produce json
-// @Param clusterId path int true "集群ID"
+// @Param clusterId query int true "集群ID"
 // @Param namespace query string true "命名空间"
 // @Param data body object true "Secret信息"
 // @Success 200 {object} common.Response
-// @Router /api/k8s/clusters/{clusterId}/secrets [post]
+// @Router /api/v1/k8s/secrets [post]
 func (ctrl *ResourceController) CreateSecret(c *gin.Context) {
-	clusterID, _ := strconv.ParseUint(c.Param("clusterId"), 10, 32)
+	clusterID, ok := common.RequireUintQuery(c, "clusterId")
+	if !ok {
+		return
+	}
 	namespace := c.Query("namespace")
 
 	var secret corev1.Secret
@@ -881,14 +990,17 @@ func (ctrl *ResourceController) CreateSecret(c *gin.Context) {
 // @Tags K8s-Config
 // @Accept json
 // @Produce json
-// @Param clusterId path int true "集群ID"
+// @Param clusterId query int true "集群ID"
 // @Param namespace query string true "命名空间"
-// @Param name path string true "Secret名称"
+// @Param name query string true "Secret名称"
 // @Param data body object true "Secret信息"
 // @Success 200 {object} common.Response
-// @Router /api/k8s/clusters/{clusterId}/secrets/{name} [put]
+// @Router /api/v1/k8s/secret/update [post]
 func (ctrl *ResourceController) UpdateSecret(c *gin.Context) {
-	clusterID, _ := strconv.ParseUint(c.Param("clusterId"), 10, 32)
+	clusterID, ok := common.RequireUintQuery(c, "clusterId")
+	if !ok {
+		return
+	}
 	namespace := c.Query("namespace")
 
 	var secret corev1.Secret
@@ -912,15 +1024,18 @@ func (ctrl *ResourceController) UpdateSecret(c *gin.Context) {
 // @Tags K8s-Config
 // @Accept json
 // @Produce json
-// @Param clusterId path int true "集群ID"
+// @Param clusterId query int true "集群ID"
 // @Param namespace query string true "命名空间"
-// @Param name path string true "Secret名称"
+// @Param name query string true "Secret名称"
 // @Success 200 {object} common.Response
-// @Router /api/k8s/clusters/{clusterId}/secrets/{name} [delete]
+// @Router /api/v1/k8s/secret/delete [post]
 func (ctrl *ResourceController) DeleteSecret(c *gin.Context) {
-	clusterID, _ := strconv.ParseUint(c.Param("clusterId"), 10, 32)
+	clusterID, ok := common.RequireUintQuery(c, "clusterId")
+	if !ok {
+		return
+	}
 	namespace := c.Query("namespace")
-	name := c.Param("name")
+	name := c.Query("name")
 
 	service := &k8sservice.ConfigService{}
 	if err := service.DeleteSecret(uint(clusterID), namespace, name); err != nil {
@@ -938,11 +1053,14 @@ func (ctrl *ResourceController) DeleteSecret(c *gin.Context) {
 // @Tags K8s-Storage
 // @Accept json
 // @Produce json
-// @Param clusterId path int true "集群ID"
+// @Param clusterId query int true "集群ID"
 // @Success 200 {object} common.Response
-// @Router /api/k8s/clusters/{clusterId}/pvs [get]
+// @Router /api/v1/k8s/pvs [get]
 func (ctrl *ResourceController) ListPVs(c *gin.Context) {
-	clusterID, _ := strconv.ParseUint(c.Param("clusterId"), 10, 32)
+	clusterID, ok := common.RequireUintQuery(c, "clusterId")
+	if !ok {
+		return
+	}
 
 	service := &k8sservice.StorageService{}
 	pvs, err := service.ListPVs(uint(clusterID))
@@ -959,13 +1077,16 @@ func (ctrl *ResourceController) ListPVs(c *gin.Context) {
 // @Tags K8s-Storage
 // @Accept json
 // @Produce json
-// @Param clusterId path int true "集群ID"
-// @Param name path string true "PV名称"
+// @Param clusterId query int true "集群ID"
+// @Param name query string true "PV名称"
 // @Success 200 {object} common.Response
-// @Router /api/k8s/clusters/{clusterId}/pvs/{name} [get]
+// @Router /api/v1/k8s/pv/detail [get]
 func (ctrl *ResourceController) GetPV(c *gin.Context) {
-	clusterID, _ := strconv.ParseUint(c.Param("clusterId"), 10, 32)
-	name := c.Param("name")
+	clusterID, ok := common.RequireUintQuery(c, "clusterId")
+	if !ok {
+		return
+	}
+	name := c.Query("name")
 
 	service := &k8sservice.StorageService{}
 	pv, err := service.GetPV(uint(clusterID), name)
@@ -982,13 +1103,16 @@ func (ctrl *ResourceController) GetPV(c *gin.Context) {
 // @Tags K8s-Storage
 // @Accept json
 // @Produce json
-// @Param clusterId path int true "集群ID"
-// @Param name path string true "PV名称"
+// @Param clusterId query int true "集群ID"
+// @Param name query string true "PV名称"
 // @Success 200 {object} common.Response
-// @Router /api/k8s/clusters/{clusterId}/pvs/{name} [delete]
+// @Router /api/v1/k8s/pv/detail [post]
 func (ctrl *ResourceController) DeletePV(c *gin.Context) {
-	clusterID, _ := strconv.ParseUint(c.Param("clusterId"), 10, 32)
-	name := c.Param("name")
+	clusterID, ok := common.RequireUintQuery(c, "clusterId")
+	if !ok {
+		return
+	}
+	name := c.Query("name")
 
 	service := &k8sservice.StorageService{}
 	if err := service.DeletePV(uint(clusterID), name); err != nil {
@@ -1004,12 +1128,15 @@ func (ctrl *ResourceController) DeletePV(c *gin.Context) {
 // @Tags K8s-Storage
 // @Accept json
 // @Produce json
-// @Param clusterId path int true "集群ID"
+// @Param clusterId query int true "集群ID"
 // @Param namespace query string true "命名空间"
 // @Success 200 {object} common.Response
-// @Router /api/k8s/clusters/{clusterId}/pvcs [get]
+// @Router /api/v1/k8s/pvcs [get]
 func (ctrl *ResourceController) ListPVCs(c *gin.Context) {
-	clusterID, _ := strconv.ParseUint(c.Param("clusterId"), 10, 32)
+	clusterID, ok := common.RequireUintQuery(c, "clusterId")
+	if !ok {
+		return
+	}
 	namespace := c.Query("namespace")
 
 	service := &k8sservice.StorageService{}
@@ -1027,15 +1154,18 @@ func (ctrl *ResourceController) ListPVCs(c *gin.Context) {
 // @Tags K8s-Storage
 // @Accept json
 // @Produce json
-// @Param clusterId path int true "集群ID"
+// @Param clusterId query int true "集群ID"
 // @Param namespace query string true "命名空间"
-// @Param name path string true "PVC名称"
+// @Param name query string true "PVC名称"
 // @Success 200 {object} common.Response
-// @Router /api/k8s/clusters/{clusterId}/pvcs/{name} [get]
+// @Router /api/v1/k8s/pvc/detail [get]
 func (ctrl *ResourceController) GetPVC(c *gin.Context) {
-	clusterID, _ := strconv.ParseUint(c.Param("clusterId"), 10, 32)
+	clusterID, ok := common.RequireUintQuery(c, "clusterId")
+	if !ok {
+		return
+	}
 	namespace := c.Query("namespace")
-	name := c.Param("name")
+	name := c.Query("name")
 
 	service := &k8sservice.StorageService{}
 	pvc, err := service.GetPVC(uint(clusterID), namespace, name)
@@ -1052,15 +1182,18 @@ func (ctrl *ResourceController) GetPVC(c *gin.Context) {
 // @Tags K8s-Storage
 // @Accept json
 // @Produce json
-// @Param clusterId path int true "集群ID"
+// @Param clusterId query int true "集群ID"
 // @Param namespace query string true "命名空间"
-// @Param name path string true "PVC名称"
+// @Param name query string true "PVC名称"
 // @Success 200 {object} common.Response
-// @Router /api/k8s/clusters/{clusterId}/pvcs/{name} [delete]
+// @Router /api/v1/k8s/pvc/detail [post]
 func (ctrl *ResourceController) DeletePVC(c *gin.Context) {
-	clusterID, _ := strconv.ParseUint(c.Param("clusterId"), 10, 32)
+	clusterID, ok := common.RequireUintQuery(c, "clusterId")
+	if !ok {
+		return
+	}
 	namespace := c.Query("namespace")
-	name := c.Param("name")
+	name := c.Query("name")
 
 	service := &k8sservice.StorageService{}
 	if err := service.DeletePVC(uint(clusterID), namespace, name); err != nil {
@@ -1076,11 +1209,14 @@ func (ctrl *ResourceController) DeletePVC(c *gin.Context) {
 // @Tags K8s-Storage
 // @Accept json
 // @Produce json
-// @Param clusterId path int true "集群ID"
+// @Param clusterId query int true "集群ID"
 // @Success 200 {object} common.Response
-// @Router /api/k8s/clusters/{clusterId}/storageclasses [get]
+// @Router /api/v1/k8s/storageclasses [get]
 func (ctrl *ResourceController) ListStorageClasses(c *gin.Context) {
-	clusterID, _ := strconv.ParseUint(c.Param("clusterId"), 10, 32)
+	clusterID, ok := common.RequireUintQuery(c, "clusterId")
+	if !ok {
+		return
+	}
 
 	service := &k8sservice.StorageService{}
 	scs, err := service.ListStorageClasses(uint(clusterID))
@@ -1097,13 +1233,16 @@ func (ctrl *ResourceController) ListStorageClasses(c *gin.Context) {
 // @Tags K8s-Storage
 // @Accept json
 // @Produce json
-// @Param clusterId path int true "集群ID"
-// @Param name path string true "StorageClass名称"
+// @Param clusterId query int true "集群ID"
+// @Param name query string true "StorageClass名称"
 // @Success 200 {object} common.Response
-// @Router /api/k8s/clusters/{clusterId}/storageclasses/{name} [get]
+// @Router /api/v1/k8s/storageclass/detail [get]
 func (ctrl *ResourceController) GetStorageClass(c *gin.Context) {
-	clusterID, _ := strconv.ParseUint(c.Param("clusterId"), 10, 32)
-	name := c.Param("name")
+	clusterID, ok := common.RequireUintQuery(c, "clusterId")
+	if !ok {
+		return
+	}
+	name := c.Query("name")
 
 	service := &k8sservice.StorageService{}
 	sc, err := service.GetStorageClass(uint(clusterID), name)
@@ -1122,11 +1261,14 @@ func (ctrl *ResourceController) GetStorageClass(c *gin.Context) {
 // @Tags K8s-Node
 // @Accept json
 // @Produce json
-// @Param clusterId path int true "集群ID"
+// @Param clusterId query int true "集群ID"
 // @Success 200 {object} common.Response
-// @Router /api/k8s/clusters/{clusterId}/nodes [get]
+// @Router /api/v1/k8s/nodes [get]
 func (ctrl *ResourceController) ListNodes(c *gin.Context) {
-	clusterID, _ := strconv.ParseUint(c.Param("clusterId"), 10, 32)
+	clusterID, ok := common.RequireUintQuery(c, "clusterId")
+	if !ok {
+		return
+	}
 
 	service := &k8sservice.NodeService{}
 	nodes, err := service.ListNodes(uint(clusterID))
@@ -1143,13 +1285,16 @@ func (ctrl *ResourceController) ListNodes(c *gin.Context) {
 // @Tags K8s-Node
 // @Accept json
 // @Produce json
-// @Param clusterId path int true "集群ID"
-// @Param name path string true "节点名称"
+// @Param clusterId query int true "集群ID"
+// @Param name query string true "节点名称"
 // @Success 200 {object} common.Response
-// @Router /api/k8s/clusters/{clusterId}/nodes/{name} [get]
+// @Router /api/v1/k8s/node/detail [get]
 func (ctrl *ResourceController) GetNode(c *gin.Context) {
-	clusterID, _ := strconv.ParseUint(c.Param("clusterId"), 10, 32)
-	name := c.Param("name")
+	clusterID, ok := common.RequireUintQuery(c, "clusterId")
+	if !ok {
+		return
+	}
+	name := c.Query("name")
 
 	service := &k8sservice.NodeService{}
 	node, err := service.GetNode(uint(clusterID), name)
@@ -1168,12 +1313,15 @@ func (ctrl *ResourceController) GetNode(c *gin.Context) {
 // @Tags K8s-Event
 // @Accept json
 // @Produce json
-// @Param clusterId path int true "集群ID"
+// @Param clusterId query int true "集群ID"
 // @Param namespace query string true "命名空间"
 // @Success 200 {object} common.Response
-// @Router /api/k8s/clusters/{clusterId}/events [get]
+// @Router /api/v1/k8s/events [get]
 func (ctrl *ResourceController) ListEvents(c *gin.Context) {
-	clusterID, _ := strconv.ParseUint(c.Param("clusterId"), 10, 32)
+	clusterID, ok := common.RequireUintQuery(c, "clusterId")
+	if !ok {
+		return
+	}
 	namespace := c.Query("namespace")
 
 	service := &k8sservice.EventService{}
@@ -1191,14 +1339,17 @@ func (ctrl *ResourceController) ListEvents(c *gin.Context) {
 // @Tags K8s-Event
 // @Accept json
 // @Produce json
-// @Param clusterId path int true "集群ID"
+// @Param clusterId query int true "集群ID"
 // @Param namespace query string true "命名空间"
 // @Param kind query string true "资源类型"
 // @Param name query string true "资源名称"
 // @Success 200 {object} common.Response
-// @Router /api/k8s/clusters/{clusterId}/events/object [get]
+// @Router /api/v1/k8s/events/object [get]
 func (ctrl *ResourceController) GetEventsByObject(c *gin.Context) {
-	clusterID, _ := strconv.ParseUint(c.Param("clusterId"), 10, 32)
+	clusterID, ok := common.RequireUintQuery(c, "clusterId")
+	if !ok {
+		return
+	}
 	namespace := c.Query("namespace")
 	kind := c.Query("kind")
 	name := c.Query("name")

@@ -18,17 +18,17 @@ func SetupUserRoutes(r *gin.RouterGroup) {
 		// 当前用户信息
 		auth.GET("/user/info", userCtrl.GetInfo)
 
-		// 用户管理CRUD - 按ID
+		// 用户管理CRUD
 		auth.GET("/users", userCtrl.GetList)
-		auth.POST("/users", userCtrl.Create)
-		auth.GET("/users/:id", userCtrl.GetByID)
-		auth.PUT("/users/:id", userCtrl.Update)
-		auth.DELETE("/users/:id", userCtrl.Delete)
-		auth.POST("/users/:id/roles", userCtrl.AssignRoles)
+		auth.POST("/user/create", userCtrl.Create)
+		auth.GET("/user/detail", userCtrl.GetByID)
+		auth.POST("/user/update", userCtrl.Update)        // 改为POST
+		auth.POST("/user/delete", userCtrl.Delete)        // 改为POST
+		auth.POST("/user/roles", userCtrl.AssignRoles)
 
 		// 用户管理 - 按用户名
-		auth.GET("/users/username/:username", userCtrl.GetByUsername)
-		auth.PUT("/users/username/:username", userCtrl.UpdateByUsername)
-		auth.DELETE("/users/username/:username", userCtrl.DeleteByUsername)
+		auth.GET("/user/by-username", userCtrl.GetByUsername)
+		auth.POST("/user/update-by-username", userCtrl.UpdateByUsername)  // 改为POST
+		auth.POST("/user/delete-by-username", userCtrl.DeleteByUsername)  // 改为POST
 	}
 }

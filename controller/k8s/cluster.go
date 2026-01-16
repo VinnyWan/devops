@@ -1,9 +1,8 @@
 package k8s
 
 import (
-	"strconv"
-
 	"devops/common"
+	"devops/middleware"
 	k8smodels "devops/models/k8s"
 	k8sservice "devops/service/k8s"
 
@@ -30,7 +29,7 @@ func NewClusterController() *ClusterController {
 // @Param data body object true "集群信息"
 // @Success 200 {object} common.Response
 // @Security Bearer
-// @Router /api/k8s/clusters [post]
+// @Router /api/v1/k8s/clusters [post]
 func (ctrl *ClusterController) Create(c *gin.Context) {
 	var cluster k8smodels.Cluster
 	if err := c.ShouldBindJSON(&cluster); err != nil {
@@ -57,33 +56,28 @@ func (ctrl *ClusterController) Create(c *gin.Context) {
 // @Param deptId query int false "部门ID"
 // @Success 200 {object} common.Response
 // @Security Bearer
-// @Router /api/k8s/clusters [get]
+// @Router /api/v1/k8s/clusters [get]
 func (ctrl *ClusterController) GetList(c *gin.Context) {
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	pageSize, _ := strconv.Atoi(c.DefaultQuery("pageSize", "10"))
+	page, pageSize, err := common.ParsePageParams(c, 1, 10, 100)
+	if err != nil {
+		common.BadRequest(c, err.Error())
+		return
+	}
 	name := c.Query("name")
-	deptID, _ := strconv.ParseUint(c.Query("deptId"), 10, 32)
+	deptID, _, err := common.OptionalUintQuery(c, "deptId")
+	if err != nil {
+		common.BadRequest(c, err.Error())
+		return
+	}
 
 	// 获取当前用户ID（注意：JWT中间件使用的key是 "userId"，不是 "userID"）
-	userID, exists := c.Get("userId")
-	if !exists {
+	userID := middleware.GetUserID(c)
+	if userID == 0 {
 		common.Unauthorized(c, "未登录")
 		return
 	}
 
-	// 将 userId 转换为 uint 类型
-	var uid uint
-	switch v := userID.(type) {
-	case uint:
-		uid = v
-	case float64:
-		uid = uint(v)
-	default:
-		common.Unauthorized(c, "用户ID格式错误")
-		return
-	}
-
-	clusters, total, err := ctrl.clusterService.GetListByUser(uid, page, pageSize, name, uint(deptID))
+	clusters, total, err := ctrl.clusterService.GetListByUser(userID, page, pageSize, name, deptID)
 	if err != nil {
 		common.Fail(c, "获取集群列表失败")
 		return
@@ -97,13 +91,16 @@ func (ctrl *ClusterController) GetList(c *gin.Context) {
 // @Tags K8s-Cluster
 // @Accept json
 // @Produce json
-// @Param clusterId path int true "集群ID"
+// @Param clusterId query int true "集群ID"
 // @Success 200 {object} common.Response
 // @Security Bearer
-// @Router /api/k8s/clusters/{clusterId} [get]
+// @Router /api/v1/k8s/cluster/detail [get]
 func (ctrl *ClusterController) GetByID(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("clusterId"), 10, 32)
-	cluster, err := ctrl.clusterService.GetByID(uint(id))
+	id, ok := common.RequireUintQuery(c, "clusterId")
+	if !ok {
+		return
+	}
+	cluster, err := ctrl.clusterService.GetByID(id)
 	if err != nil {
 		common.Fail(c, "集群不存在")
 		return
@@ -117,20 +114,23 @@ func (ctrl *ClusterController) GetByID(c *gin.Context) {
 // @Tags K8s-Cluster
 // @Accept json
 // @Produce json
-// @Param clusterId path int true "集群ID"
+// @Param clusterId query int true "集群ID"
 // @Param data body object true "集群信息"
 // @Success 200 {object} common.Response
 // @Security Bearer
-// @Router /api/k8s/clusters/{clusterId} [put]
+// @Router /api/v1/k8s/cluster/update [post]
 func (ctrl *ClusterController) Update(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("clusterId"), 10, 32)
+	id, ok := common.RequireUintQuery(c, "clusterId")
+	if !ok {
+		return
+	}
 	var cluster k8smodels.Cluster
 	if err := c.ShouldBindJSON(&cluster); err != nil {
 		common.Fail(c, "参数错误")
 		return
 	}
 
-	if err := ctrl.clusterService.Update(uint(id), &cluster); err != nil {
+	if err := ctrl.clusterService.Update(id, &cluster); err != nil {
 		common.Fail(c, "更新集群失败: "+err.Error())
 		return
 	}
@@ -138,18 +138,31 @@ func (ctrl *ClusterController) Update(c *gin.Context) {
 	common.Success(c, nil)
 }
 
+// Create 创建集群
+// @Summary 创建K8s集群
+// @Tags K8s-Cluster
+// @Accept json
+// @Produce json
+// @Param clusterId query int true "集群ID"
+// @Param data body object true "集群信息"
+// @Success 200 {object} common.Response
+// @Security Bearer
+// @Router /api/v1/k8s/cluster/create [post]
 // Delete 删除集群
 // @Summary 删除K8s集群
 // @Tags K8s-Cluster
 // @Accept json
 // @Produce json
-// @Param clusterId path int true "集群ID"
+// @Param clusterId query int true "集群ID"
 // @Success 200 {object} common.Response
 // @Security Bearer
-// @Router /api/k8s/clusters/{clusterId} [delete]
+// @Router /api/v1/k8s/cluster/delete [post]
 func (ctrl *ClusterController) Delete(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("clusterId"), 10, 32)
-	if err := ctrl.clusterService.Delete(uint(id)); err != nil {
+	id, ok := common.RequireUintQuery(c, "clusterId")
+	if !ok {
+		return
+	}
+	if err := ctrl.clusterService.Delete(id); err != nil {
 		common.Fail(c, "删除集群失败")
 		return
 	}
@@ -162,13 +175,16 @@ func (ctrl *ClusterController) Delete(c *gin.Context) {
 // @Tags K8s-Cluster
 // @Accept json
 // @Produce json
-// @Param clusterId path int true "集群ID"
+// @Param clusterId query int true "集群ID"
 // @Success 200 {object} common.Response
 // @Security Bearer
-// @Router /api/k8s/clusters/{clusterId}/health [get]
+// @Router /api/v1/k8s/cluster/health [get]
 func (ctrl *ClusterController) HealthCheck(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("clusterId"), 10, 32)
-	healthy, version, err := ctrl.clusterService.HealthCheck(uint(id))
+	id, ok := common.RequireUintQuery(c, "clusterId")
+	if !ok {
+		return
+	}
+	healthy, version, err := ctrl.clusterService.HealthCheck(id)
 
 	if err != nil {
 		common.Success(c, gin.H{
@@ -191,13 +207,16 @@ func (ctrl *ClusterController) HealthCheck(c *gin.Context) {
 // @Tags K8s-Cluster
 // @Accept json
 // @Produce json
-// @Param clusterId path int true "集群ID"
+// @Param clusterId query int true "集群ID"
 // @Param data body object true "KubeConfig配置"
 // @Success 200 {object} common.Response
 // @Security Bearer
-// @Router /api/k8s/clusters/{clusterId}/reimport [post]
+// @Router /api/v1/k8s/cluster/reimport [post]
 func (ctrl *ClusterController) ReimportKubeConfig(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("clusterId"), 10, 32)
+	id, ok := common.RequireUintQuery(c, "clusterId")
+	if !ok {
+		return
+	}
 
 	var req struct {
 		KubeConfig string `json:"kubeConfig" binding:"required"`
@@ -208,13 +227,13 @@ func (ctrl *ClusterController) ReimportKubeConfig(c *gin.Context) {
 		return
 	}
 
-	if err := ctrl.clusterService.ReimportKubeConfig(uint(id), req.KubeConfig); err != nil {
+	if err := ctrl.clusterService.ReimportKubeConfig(id, req.KubeConfig); err != nil {
 		common.Fail(c, "重新导入失败: "+err.Error())
 		return
 	}
 
 	// 获取更新后的集群信息
-	cluster, err := ctrl.clusterService.GetByID(uint(id))
+	cluster, err := ctrl.clusterService.GetByID(id)
 	if err != nil {
 		common.Success(c, gin.H{
 			"message": "重新导入成功",
@@ -230,13 +249,16 @@ func (ctrl *ClusterController) ReimportKubeConfig(c *gin.Context) {
 // @Tags K8s-Cluster
 // @Accept json
 // @Produce json
-// @Param clusterId path int true "集群ID"
+// @Param clusterId query int true "集群ID"
 // @Param data body object true "权限信息"
 // @Success 200 {object} common.Response
 // @Security Bearer
-// @Router /api/k8s/clusters/{clusterId}/access [post]
+// @Router /api/v1/k8s/cluster/access [post]
 func (ctrl *ClusterController) CreateAccess(c *gin.Context) {
-	clusterID, _ := strconv.ParseUint(c.Param("clusterId"), 10, 32)
+	clusterID, ok := common.RequireUintQuery(c, "clusterId")
+	if !ok {
+		return
+	}
 
 	var access k8smodels.ClusterAccess
 	if err := c.ShouldBindJSON(&access); err != nil {
@@ -244,7 +266,7 @@ func (ctrl *ClusterController) CreateAccess(c *gin.Context) {
 		return
 	}
 
-	access.ClusterID = uint(clusterID)
+	access.ClusterID = clusterID
 
 	if err := ctrl.permissionService.CreateAccess(&access); err != nil {
 		common.Fail(c, "创建权限失败: "+err.Error())
@@ -259,14 +281,17 @@ func (ctrl *ClusterController) CreateAccess(c *gin.Context) {
 // @Tags K8s-Cluster
 // @Accept json
 // @Produce json
-// @Param clusterId path int true "集群ID"
+// @Param clusterId query int true "集群ID"
 // @Success 200 {object} common.Response
 // @Security Bearer
-// @Router /api/k8s/clusters/{clusterId}/access [get]
+// @Router /api/v1/k8s/cluster/access [get]
 func (ctrl *ClusterController) GetAccessList(c *gin.Context) {
-	clusterID, _ := strconv.ParseUint(c.Param("clusterId"), 10, 32)
+	clusterID, ok := common.RequireUintQuery(c, "clusterId")
+	if !ok {
+		return
+	}
 
-	accesses, err := ctrl.permissionService.GetAccessList(uint(clusterID))
+	accesses, err := ctrl.permissionService.GetAccessList(clusterID)
 	if err != nil {
 		common.Fail(c, "获取权限列表失败")
 		return
@@ -280,15 +305,17 @@ func (ctrl *ClusterController) GetAccessList(c *gin.Context) {
 // @Tags K8s-Cluster
 // @Accept json
 // @Produce json
-// @Param clusterId path int true "集群ID"
-// @Param accessId path int true "权限ID"
+// @Param accessId query int true "权限ID"
 // @Success 200 {object} common.Response
 // @Security Bearer
-// @Router /api/k8s/clusters/{clusterId}/access/{accessId} [delete]
+// @Router /api/v1/k8s/cluster/access/delete [post]
 func (ctrl *ClusterController) DeleteAccess(c *gin.Context) {
-	accessID, _ := strconv.ParseUint(c.Param("accessId"), 10, 32)
+	accessID, ok := common.RequireUintQuery(c, "accessId")
+	if !ok {
+		return
+	}
 
-	if err := ctrl.permissionService.DeleteAccess(uint(accessID)); err != nil {
+	if err := ctrl.permissionService.DeleteAccess(accessID); err != nil {
 		common.Fail(c, "删除权限失败")
 		return
 	}
