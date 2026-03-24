@@ -1,0 +1,69 @@
+# 项目启动端口
+server:
+  port: 8080
+  # debug / release 模式
+  model: debug
+  enableSwagger: true
+
+# 数据库配置
+db:
+  dialects: mysql
+  host: 127.0.0.1
+  port: 3306
+  db: devops_platform
+  username: root
+  password: your_password
+  charset: utf8mb4
+  # 最大空闲数
+  maxIdle: 10
+  # 最大连接数
+  maxOpen: 100
+
+# redis配置
+redis:
+  address: 127.0.0.1:6379
+  password: ""
+
+# Session配置
+session:
+  expire: 7200  # Session过期时间(秒), 2小时
+
+# LDAP配置
+ldap:
+  enable: false
+  host: "ldap.example.com"
+  port: 389
+  base_dn: "dc=example,dc=com"
+  bind_dn: "cn=admin,dc=example,dc=com"
+  bind_password: "password"
+  user_filter: "(&(uid=%s)(objectClass=person))"
+  attributes:
+    username: "uid"
+    email: "mail"
+    nickname: "cn"
+
+# OIDC配置
+oidc:
+  enable: false
+  provider: "https://accounts.google.com"
+  client_id: "your-client-id"
+  client_secret: "your-client-secret"
+  redirect_url: "http://localhost:8080/api/v1/auth/oidc/callback"
+  scopes: ["openid", "profile", "email"]
+
+# 加密配置
+crypto:
+  secret: "your-crypto-secret-key-32-bytes" # AES key usually needs specific length
+
+# 日志配置
+log:
+  # 输出目标：console(终端) 或 file(文件) 或 both(两者)
+  output: console
+  # 日志文件路径（当 output 为 file 或 both 时生效）
+  filePath: ./logs/app.log
+  # 日志级别：debug, info, warn, error
+  level: debug
+  # 是否启用调用者信息
+  enableCaller: true
+  # 是否启用堆栈跟踪（error级别及以上）
+  enableStacktrace: true

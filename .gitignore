@@ -1,0 +1,48 @@
+# Backend
+# Binaries
+backend/main
+backend/*.exe
+backend/*.exe~
+backend/*.dll
+backend/*.so
+backend/*.dylib
+backend/*.test
+backend/*.out
+backend/go.work
+backend/.idea/
+backend/.vscode/
+backend/*.swp
+backend/*.swo
+backend/.DS_Store
+backend/logs/
+backend/*.log
+backend/config/config.yaml
+backend/!config/config.yaml.example
+# Frontend
+frontend/.claude
+frontend/.claude/*
+frontend/# Logs
+frontend/logs
+frontend/*.log
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*
+frontend/pnpm-debug.log*
+frontend/lerna-debug.log*
+frontend/
+frontend/node_modules
+frontend/dist
+frontend/dist-ssr
+frontend/*.local
+frontend/
+frontend/# Editor directories and files
+frontend/.vscode/*
+frontend/!.vscode/extensions.json
+frontend/.idea
+frontend/.DS_Store
+frontend/*.suo
+frontend/*.ntvs*
+frontend/*.njsproj
+frontend/*.sln
+frontend/*.sw?
+frontend/
