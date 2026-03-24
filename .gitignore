@@ -1,5 +1,11 @@
+.DS_Store
+server
+
+
 # Backend
+backend/CLAUDE.md
 backend/main
+backend/server
 backend/*.exe
 backend/*.exe~
 backend/*.dll
@@ -19,6 +25,7 @@ backend/config/config.yaml
 backend/!config/config.yaml.example
 
 # Frontend
+frontend/CLAUDE.md
 frontend/.claude
 frontend/.claude/*
 frontend/# Logs
@@ -47,5 +54,12 @@ frontend/*.claude
 frontend/*.claude/*
 frontend/node_modules/*
 frontend/node_modules
+frontend/.gitignore
+frontend/README.md
+frontend/dist
+frontend/.omc
+frontend/.vscode
+frontend/docs
+frontend/docs/*
 images/*
 images/

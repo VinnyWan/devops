@@ -1,6 +1,23 @@
 <script setup lang="ts">
-import { ref, onMounted, h } from 'vue'
-import { NCard, NSpace, NDataTable, NButton, useMessage, NPagination, NModal, NForm, NFormItem, NInput, NSelect, NCheckbox, NInputNumber, NTag, NPopconfirm } from 'naive-ui'
+import { ref, onMounted, h, computed } from 'vue'
+import {
+  NCard,
+  NSpace,
+  NDataTable,
+  NButton,
+  useMessage,
+  NPagination,
+  NModal,
+  NForm,
+  NFormItem,
+  NInput,
+  NSelect,
+  NCheckbox,
+  NInputNumber,
+  NTag,
+  NPopconfirm,
+  NIcon,
+} from 'naive-ui'
 import ClusterSelector from '@/components/ClusterSelector.vue'
 import { useCluster } from '@/composables/useCluster'
 import {
@@ -9,7 +26,7 @@ import {
   k8sK8sNodeCordonPost,
   k8sK8sNodeDrainPost,
   k8sK8sNodeLabelsPost,
-  k8sK8sNodeTaintsPost
+  k8sK8sNodeTaintsPost,
 } from '@/api/generated/k8s-node.api'
 
 const message = useMessage()
@@ -19,6 +36,27 @@ const nodes = ref<any[]>([])
 const total = ref(0)
 const page = ref(1)
 const pageSize = ref(10)
+
+// Filter state
+const filters = ref({
+  name: '',
+  status: null as string | null,
+  role: null as string | null,
+})
+
+const statusOptions = [
+  { label: '全部', value: null },
+  { label: '运行中', value: 'Ready' },
+  { label: '异常', value: 'NotReady' },
+  { label: '调度中', value: 'Scheduling' },
+]
+
+const roleOptions = [
+  { label: '全部', value: null },
+  { label: 'Master', value: 'master' },
+  { label: 'Worker', value: 'worker' },
+  { label: 'Control-plane', value: 'control-plane' },
+]
 
 // 详情弹窗
 const showDetailModal = ref(false)
@@ -44,47 +82,142 @@ const drainOptions = ref({
   force: false,
   ignoreDaemonSets: true,
   deleteLocalData: false,
-  gracePeriodSeconds: 30
+  gracePeriodSeconds: 30,
 })
 
 const taintEffects = [
   { label: '禁止调度 (NoSchedule)', value: 'NoSchedule' },
   { label: '禁止执行 (NoExecute)', value: 'NoExecute' },
-  { label: '尽量避免调度 (PreferNoSchedule)', value: 'PreferNoSchedule' }
+  { label: '尽量避免调度 (PreferNoSchedule)', value: 'PreferNoSchedule' },
 ]
 
+// Filtered nodes
+const filteredNodes = computed(() => {
+  let result = nodes.value
+
+  if (filters.value.name) {
+    result = result.filter((node: any) =>
+      node.name.toLowerCase().includes(filters.value.name.toLowerCase())
+    )
+  }
+
+  if (filters.value.status) {
+    result = result.filter((node: any) => node.status === filters.value.status)
+  }
+
+  if (filters.value.role) {
+    result = result.filter((node: any) =>
+      node.role?.toLowerCase().includes(filters.value.role!.toLowerCase())
+    )
+  }
+
+  return result
+})
+
+// Reset filters
+function resetFilters() {
+  filters.value = {
+    name: '',
+    status: null,
+    role: null,
+  }
+}
+
 const columns = [
-  { title: '节点名称', key: 'name', width: 180 },
-  { title: '状态', key: 'status', width: 100 },
+  { title: '节点名称', key: 'name', width: 200 },
+  {
+    title: '状态',
+    key: 'status',
+    width: 100,
+    render: (row: any) => {
+      const statusMap: Record<string, { type: string; text: string }> = {
+        Ready: { type: 'success', text: '运行中' },
+        NotReady: { type: 'error', text: '异常' },
+        Scheduling: { type: 'info', text: '调度中' },
+      }
+      const status = statusMap[row.status] || { type: 'default', text: row.status }
+      return h(
+        NTag,
+        {
+          type: status.type,
+          bordered: false,
+          size: 'small',
+        },
+        { default: () => status.text }
+      )
+    },
+  },
   { title: 'IP地址', key: 'ip', width: 140 },
-  { title: '角色', key: 'role', width: 100 },
+  { title: '角色', key: 'role', width: 120 },
   { title: 'CPU容量', key: 'cpuCapacity', width: 100 },
-  { title: '内存容量', key: 'memoryCapacity', width: 140 },
+  { title: '内存容量', key: 'memoryCapacity', width: 120 },
   {
     title: '操作',
     key: 'actions',
-    width: 400,
+    width: 320,
+    fixed: 'right',
     render: (row: any) => {
-      return h(NSpace, {}, {
-        default: () => [
-          h(NButton, { size: 'small', onClick: () => openDetailModal(row) }, { default: () => '详情' }),
-          h(NButton, { size: 'small', onClick: () => openTaintModal(row) }, { default: () => '污点' }),
-          h(NButton, { size: 'small', onClick: () => openLabelModal(row) }, { default: () => '标签' }),
-          h(NButton, {
-            size: 'small',
-            type: row.unschedulable ? 'success' : 'warning',
-            onClick: () => toggleCordon(row)
-          }, { default: () => row.unschedulable ? '恢复调度' : '禁止调度' }),
-          h(NPopconfirm, {
-            onPositiveClick: () => openDrainModal(row)
-          }, {
-            default: () => '确定要驱逐此节点上的所有Pod吗？',
-            trigger: () => h(NButton, { size: 'small', type: 'error' }, { default: () => '驱逐' })
-          })
-        ]
-      })
-    }
-  }
+      return h(
+        NSpace,
+        { size: 'small' },
+        {
+          default: () => [
+            h(
+              NButton,
+              {
+                size: 'small',
+                quaternary: true,
+                onClick: () => openDetailModal(row),
+              },
+              { default: () => '详情' }
+            ),
+            h(
+              NButton,
+              {
+                size: 'small',
+                quaternary: true,
+                onClick: () => openTaintModal(row),
+              },
+              { default: () => '污点' }
+            ),
+            h(
+              NButton,
+              {
+                size: 'small',
+                quaternary: true,
+                onClick: () => openLabelModal(row),
+              },
+              { default: () => '标签' }
+            ),
+            h(
+              NButton,
+              {
+                size: 'small',
+                type: row.unschedulable ? 'success' : 'warning',
+                onClick: () => toggleCordon(row),
+              },
+              { default: () => (row.unschedulable ? '恢复调度' : '禁止调度') }
+            ),
+            h(
+              NPopconfirm,
+              {
+                onPositiveClick: () => openDrainModal(row),
+              },
+              {
+                default: () => '确定要驱逐此节点上的所有Pod吗？',
+                trigger: () =>
+                  h(
+                    NButton,
+                    { size: 'small', type: 'error', quaternary: true },
+                    { default: () => '驱逐' }
+                  ),
+              }
+            ),
+          ],
+        }
+      )
+    },
+  },
 ]
 
 async function fetchNodes() {
@@ -98,7 +231,7 @@ async function fetchNodes() {
     const res = await k8sK8sNodesPost({
       clusterId: currentClusterId.value,
       page: page.value,
-      pageSize: pageSize.value
+      pageSize: pageSize.value,
     })
     const data = res.data.data
     nodes.value = data?.items || []
@@ -119,7 +252,7 @@ async function openDetailModal(node: any) {
   try {
     const res = await k8sK8sNodeDetailPost({
       clusterId: currentClusterId.value!,
-      name: node.name
+      name: node.name,
     })
     nodeDetail.value = res.data.data
   } catch (error: any) {
@@ -160,7 +293,7 @@ async function saveTaints() {
     await k8sK8sNodeTaintsPost({
       clusterId: currentClusterId.value!,
       name: currentNode.value.name,
-      taints: taints.value
+      taints: taints.value,
     })
     message.success('更新污点成功')
     showTaintModal.value = false
@@ -195,7 +328,7 @@ async function saveLabels() {
     await k8sK8sNodeLabelsPost({
       clusterId: currentClusterId.value!,
       name: currentNode.value.name,
-      labels: labels.value
+      labels: labels.value,
     })
     message.success('更新标签成功')
     showLabelModal.value = false
@@ -211,7 +344,7 @@ async function toggleCordon(node: any) {
     await k8sK8sNodeCordonPost({
       clusterId: currentClusterId.value!,
       name: node.name,
-      cordon: !node.unschedulable
+      cordon: !node.unschedulable,
     })
     message.success(node.unschedulable ? '恢复调度成功' : '禁止调度成功')
     fetchNodes()
@@ -231,7 +364,7 @@ async function drainNode() {
     await k8sK8sNodeDrainPost({
       clusterId: currentClusterId.value!,
       name: currentNode.value.name,
-      ...drainOptions.value
+      ...drainOptions.value,
     })
     message.success('节点驱逐成功')
     showDrainModal.value = false
@@ -260,177 +393,365 @@ onMounted(() => {
 </script>
 
 <template>
-  <NCard title="节点管理">
-    <template #header-extra>
-      <NSpace>
-        <ClusterSelector @update:value="fetchNodes" />
-        <NButton type="primary" @click="fetchNodes">刷新</NButton>
-      </NSpace>
-    </template>
-    <NSpace vertical :size="16">
-      <NDataTable
-        :columns="columns"
-        :data="nodes"
-        :loading="loading"
-        :bordered="false"
-      />
-    <div style="display: flex; justify-content: flex-end; margin-top: 16px">
-      <NPagination
-        v-model:page="page"
-        v-model:page-size="pageSize"
-        :item-count="total"
-        :page-sizes="[10, 20, 50, 100]"
-        show-size-picker
-        show-quick-jumper
-        @update:page="handlePageChange"
-        @update:page-size="handlePageSizeChange"
-      />
-    </div>
-    </NSpace>
+  <div class="node-list-page">
+    <!-- Filter Bar -->
+    <div class="filter-bar">
+      <div class="filter-item">
+            <span class="filter-label">节点名称</span>
+            <n-input
+              v-model:value="filters.name"
+              placeholder="请输入节点名称"
+              clearable
+              style="width: 200px"
+            />
+          </div>
 
-    <!-- 详情弹窗 -->
-    <NModal
-      v-model:show="showDetailModal"
-      preset="card"
-      title="节点详情"
-      style="width: 900px; margin-top: 50px"
-      :trap-focus="false"
-      :block-scroll="true"
-    >
-      <NSpace vertical v-if="nodeDetail" :size="16">
-        <NDescriptions bordered :column="2">
-          <NDescriptionsItem label="CPU使用率">
-            {{ calculatePercentage(nodeDetail.cpuUsage, nodeDetail.cpuCapacity) }}
-          </NDescriptionsItem>
-          <NDescriptionsItem label="内存使用率">
-            {{ calculatePercentage(nodeDetail.memoryUsage, nodeDetail.memoryCapacity) }}
-          </NDescriptionsItem>
-          <NDescriptionsItem label="Pod使用率">
-            {{ calculatePercentage(String(nodeDetail.podCount), String(nodeDetail.podCapacity)) }}
-          </NDescriptionsItem>
-        </NDescriptions>
-        
-        <div>
-          <h4>Pod列表</h4>
-          <NDataTable
-            :columns="[
-              { title: 'Pod名称', key: 'name' },
-              { title: '命名空间', key: 'namespace' },
-              { title: 'CPU请求', key: 'cpuRequest' },
-              { title: '内存请求', key: 'memoryRequest' },
-              { title: 'CPU限制', key: 'cpuLimit' },
-              { title: '内存限制', key: 'memoryLimit' }
-            ]"
-            :data="nodeDetail.pods || []"
-            :pagination="{ page: podPage, pageSize: podPageSize }"
-            @update:page="podPage = $event"
+          <div class="filter-item">
+            <span class="filter-label">状态</span>
+            <n-select
+              v-model:value="filters.status"
+              :options="statusOptions"
+              placeholder="请选择状态"
+              clearable
+              style="width: 140px"
+            />
+          </div>
+
+          <div class="filter-item">
+            <span class="filter-label">角色</span>
+            <n-select
+              v-model:value="filters.role"
+              :options="roleOptions"
+              placeholder="请选择角色"
+              clearable
+              style="width: 140px"
+            />
+          </div>
+
+          <div class="filter-actions">
+            <n-button type="primary" @click="fetchNodes">
+              <template #icon>
+                <n-icon>
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      d="M21 21L16.65 16.65M19 11C19 7.13401 15.866 4 12 4C9.13401 4 4 7.13401 4 12C4 16.866 7.13401 19 12 19C15.866 19 19 15.866 19 12C19 11C15.866 19 11 12C11C7.13401 11 4 12 4Z"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    />
+                  </svg>
+                </n-icon>
+              </template>
+              搜索
+            </n-button>
+            <n-button @click="resetFilters">重置</n-button>
+          </div>
+
+          <div class="filter-extra">
+            <ClusterSelector @update:value="fetchNodes" />
+            <n-button type="info" @click="() => message.info('监控仪表板功能开发中')">
+              <template #icon>
+                <n-icon>
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      d="M3 3V19H5V12H3V3ZM10 3V19H12V3H10ZM17 3V12H19V19H17V12V3Z"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    />
+                  </svg>
+                </n-icon>
+              </template>
+              监控仪表板
+            </n-button>
+          </div>
+        </div>
+
+        <!-- Data Table -->
+        <div class="table-container">
+          <n-data-table
+            :columns="columns"
+            :data="filteredNodes"
+            :loading="loading"
+            :bordered="false"
+            :row-key="(row: any) => row.name"
           />
-        </div>
-      </NSpace>
-    </NModal>
 
-    <!-- 污点管理弹窗 -->
-    <NModal v-model:show="showTaintModal" preset="card" title="污点管理" style="width: 700px">
-      <NSpace vertical :size="16">
-        <div>
-          <h4>现有污点</h4>
-          <NSpace v-if="taints.length > 0">
-            <NTag v-for="(taint, index) in taints" :key="index" closable @close="removeTaint(index)">
-              {{ taint.key }}={{ taint.value }}:{{ taint.effect }}
-            </NTag>
-          </NSpace>
-          <div v-else style="color: #999">暂无污点</div>
+          <div class="pagination-container">
+            <n-pagination
+              v-model:page="page"
+              v-model:page-size="pageSize"
+              :item-count="total"
+              :page-sizes="[10, 20, 50, 100]"
+              show-size-picker
+              show-quick-jumper
+              @update:page="handlePageChange"
+              @update:page-size="handlePageSizeChange"
+            />
+          </div>
         </div>
-        
-        <NForm inline>
-          <NFormItem label="键名">
-            <NInput v-model:value="newTaint.key" placeholder="例如: node-role" style="width: 150px" />
-          </NFormItem>
-          <NFormItem label="值">
-            <NInput v-model:value="newTaint.value" placeholder="例如: master" style="width: 120px" />
-          </NFormItem>
-          <NFormItem label="效果">
-            <NSelect v-model:value="newTaint.effect" :options="taintEffects" style="width: 200px" />
-          </NFormItem>
-          <NButton type="primary" @click="addTaint">添加</NButton>
-        </NForm>
-      </NSpace>
-      
-      <template #footer>
-        <NSpace justify="end">
-          <NButton @click="showTaintModal = false">取消</NButton>
-          <NButton type="primary" @click="saveTaints">保存</NButton>
-        </NSpace>
-      </template>
-    </NModal>
 
-    <!-- 标签管理弹窗 -->
-    <NModal v-model:show="showLabelModal" preset="card" title="标签管理" style="width: 700px">
-      <NSpace vertical :size="16">
-        <div>
-          <h4>现有标签</h4>
-          <NSpace v-if="Object.keys(labels).length > 0">
-            <NTag v-for="(value, key) in labels" :key="key" closable @close="removeLabel(key)">
-              {{ key }}={{ value }}
-            </NTag>
-          </NSpace>
-          <div v-else style="color: #999">暂无标签</div>
-        </div>
-        
-        <NForm inline>
-          <NFormItem label="键">
-            <NInput v-model:value="newLabel.key" placeholder="例如: env" style="width: 150px" />
-          </NFormItem>
-          <NFormItem label="值">
-            <NInput v-model:value="newLabel.value" placeholder="例如: production" style="width: 150px" />
-          </NFormItem>
-          <NButton type="primary" @click="addLabel">添加</NButton>
-        </NForm>
-      </NSpace>
-      
-      <template #footer>
-        <NSpace justify="end">
-          <NButton @click="showLabelModal = false">取消</NButton>
-          <NButton type="primary" @click="saveLabels">保存</NButton>
-        </NSpace>
-      </template>
-    </NModal>
+        <!-- Detail Modal -->
+        <n-modal
+          v-model:show="showDetailModal"
+          preset="card"
+          title="节点详情"
+          style="width: 900px"
+          :trap-focus="false"
+          :block-scroll="true"
+        >
+          <n-space vertical v-if="nodeDetail" :size="16">
+            <n-descriptions bordered :column="2">
+              <n-descriptions-item label="CPU使用率">
+                {{ calculatePercentage(nodeDetail.cpuUsage, nodeDetail.cpuCapacity) }}
+              </n-descriptions-item>
+              <n-descriptions-item label="内存使用率">
+                {{ calculatePercentage(nodeDetail.memoryUsage, nodeDetail.memoryCapacity) }}
+              </n-descriptions-item>
+              <n-descriptions-item label="Pod使用率">
+                {{
+                  calculatePercentage(
+                    String(nodeDetail.podCount),
+                    String(nodeDetail.podCapacity)
+                  )
+                }}
+              </n-descriptions-item>
+            </n-descriptions>
 
-    <!-- 驱逐节点弹窗 -->
-    <NModal v-model:show="showDrainModal" preset="card" title="驱逐节点" style="width: 600px">
-      <NSpace vertical :size="16">
-        <div style="color: #d03050">
-          <strong>警告：</strong>此操作将驱逐节点上的所有Pod，请谨慎操作！
-        </div>
-        
-        <NForm label-placement="left" label-width="140">
-          <NFormItem label="强制驱逐">
-            <NCheckbox v-model:checked="drainOptions.force">
-              强制删除Pod（即使违反PDB）
-            </NCheckbox>
-          </NFormItem>
-          <NFormItem label="忽略DaemonSet">
-            <NCheckbox v-model:checked="drainOptions.ignoreDaemonSets">
-              忽略DaemonSet管理的Pod
-            </NCheckbox>
-          </NFormItem>
-          <NFormItem label="删除本地数据">
-            <NCheckbox v-model:checked="drainOptions.deleteLocalData">
-              删除使用emptyDir的Pod
-            </NCheckbox>
-          </NFormItem>
-          <NFormItem label="优雅期限（秒）">
-            <NInputNumber v-model:value="drainOptions.gracePeriodSeconds" :min="0" :max="300" />
-          </NFormItem>
-        </NForm>
-      </NSpace>
-      
-      <template #footer>
-        <NSpace justify="end">
-          <NButton @click="showDrainModal = false">取消</NButton>
-          <NButton type="error" @click="drainNode">确认驱逐</NButton>
-        </NSpace>
-      </template>
-    </NModal>
-  </NCard>
+            <div>
+              <h4>Pod列表</h4>
+              <n-data-table
+                :columns="[
+                  { title: 'Pod名称', key: 'name' },
+                  { title: '命名空间', key: 'namespace' },
+                  { title: 'CPU请求', key: 'cpuRequest' },
+                  { title: '内存请求', key: 'memoryRequest' },
+                  { title: 'CPU限制', key: 'cpuLimit' },
+                  { title: '内存限制', key: 'memoryLimit' },
+                ]"
+                :data="nodeDetail.pods || []"
+                :pagination="{ page: podPage, pageSize: podPageSize }"
+                @update:page="podPage = $event"
+              />
+            </div>
+          </n-space>
+        </n-modal>
+
+        <!-- Taint Modal -->
+        <n-modal
+          v-model:show="showTaintModal"
+          preset="card"
+          title="污点管理"
+          style="width: 700px"
+        >
+          <n-space vertical :size="16">
+            <div>
+              <h4>现有污点</h4>
+              <n-space v-if="taints.length > 0">
+                <n-tag
+                  v-for="(taint, index) in taints"
+                  :key="index"
+                  closable
+                  @close="removeTaint(index)"
+                >
+                  {{ taint.key }}={{ taint.value }}:{{ taint.effect }}
+                </n-tag>
+              </n-space>
+              <div v-else style="color: #999">暂无污点</div>
+            </div>
+
+            <n-form inline>
+              <n-form-item label="键名">
+                <n-input
+                  v-model:value="newTaint.key"
+                  placeholder="例如: node-role"
+                  style="width: 150px"
+                />
+              </n-form-item>
+              <n-form-item label="值">
+                <n-input
+                  v-model:value="newTaint.value"
+                  placeholder="例如: master"
+                  style="width: 120px"
+                />
+              </n-form-item>
+              <n-form-item label="效果">
+                <n-select
+                  v-model:value="newTaint.effect"
+                  :options="taintEffects"
+                  style="width: 200px"
+                />
+              </n-form-item>
+              <n-button type="primary" @click="addTaint">添加</n-button>
+            </n-form>
+          </n-space>
+
+          <template #footer>
+            <n-space justify="end">
+              <n-button @click="showTaintModal = false">取消</n-button>
+              <n-button type="primary" @click="saveTaints">保存</n-button>
+            </n-space>
+          </template>
+        </n-modal>
+
+        <!-- Label Modal -->
+        <n-modal
+          v-model:show="showLabelModal"
+          preset="card"
+          title="标签管理"
+          style="width: 700px"
+        >
+          <n-space vertical :size="16">
+            <div>
+              <h4>现有标签</h4>
+              <n-space v-if="Object.keys(labels).length > 0">
+                <n-tag
+                  v-for="(value, key) in labels"
+                  :key="key"
+                  closable
+                  @close="removeLabel(key)"
+                >
+                  {{ key }}={{ value }}
+                </n-tag>
+              </n-space>
+              <div v-else style="color: #999">暂无标签</div>
+            </div>
+
+            <n-form inline>
+              <n-form-item label="键">
+                <n-input
+                  v-model:value="newLabel.key"
+                  placeholder="例如: env"
+                  style="width: 150px"
+                />
+              </n-form-item>
+              <n-form-item label="值">
+                <n-input
+                  v-model:value="newLabel.value"
+                  placeholder="例如: production"
+                  style="width: 150px"
+                />
+              </n-form-item>
+              <n-button type="primary" @click="addLabel">添加</n-button>
+            </n-form>
+          </n-space>
+
+          <template #footer>
+            <n-space justify="end">
+              <n-button @click="showLabelModal = false">取消</n-button>
+              <n-button type="primary" @click="saveLabels">保存</n-button>
+            </n-space>
+          </template>
+        </n-modal>
+
+        <!-- Drain Modal -->
+        <n-modal
+          v-model:show="showDrainModal"
+          preset="card"
+          title="驱逐节点"
+          style="width: 600px"
+        >
+          <n-space vertical :size="16">
+            <div style="color: #d03050">
+              <strong>警告：</strong>此操作将驱逐节点上的所有Pod，请谨慎操作！
+            </div>
+
+            <n-form label-placement="left" label-width="140">
+              <n-form-item label="强制驱逐">
+                <n-checkbox v-model:checked="drainOptions.force">
+                  强制删除Pod（即使违反PDB）
+                </n-checkbox>
+              </n-form-item>
+              <n-form-item label="忽略DaemonSet">
+                <n-checkbox v-model:checked="drainOptions.ignoreDaemonSets">
+                  忽略DaemonSet管理的Pod
+                </n-checkbox>
+              </n-form-item>
+              <n-form-item label="删除本地数据">
+                <n-checkbox v-model:checked="drainOptions.deleteLocalData">
+                  删除使用emptyDir的Pod
+                </n-checkbox>
+              </n-form-item>
+              <n-form-item label="优雅期限（秒）">
+                <n-input-number
+                  v-model:value="drainOptions.gracePeriodSeconds"
+                  :min="0"
+                  :max="300"
+                />
+              </n-form-item>
+            </n-form>
+          </n-space>
+
+          <template #footer>
+            <n-space justify="end">
+              <n-button @click="showDrainModal = false">取消</n-button>
+              <n-button type="error" @click="drainNode">确认驱逐</n-button>
+            </n-space>
+          </template>
+        </n-modal>
+      </div>
+    </div>
+  </div>
 </template>
+
+<style scoped>
+.node-list-page {
+  padding: var(--spacing-lg);
+}
+
+.filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-md);
+  padding: var(--spacing-lg);
+  background: var(--card-bg);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--spacing-lg);
+  align-items: flex-end;
+}
+
+.filter-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+
+.filter-label {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.filter-actions {
+  display: flex;
+  gap: var(--spacing-sm);
+}
+
+.filter-extra {
+  margin-left: auto;
+  display: flex;
+  gap: var(--spacing-md);
+  align-items: center;
+}
+
+.table-container {
+  background: var(--card-bg);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-lg);
+}
+
+.pagination-container {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: var(--spacing-lg);
+}
+</style>
