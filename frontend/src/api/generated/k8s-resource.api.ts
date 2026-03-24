@@ -67,6 +67,13 @@ import type {
   K8sK8sPodListPostResponse,
   K8sK8sPodTerminalGetParams,
   K8sK8sPodTerminalGetResponse,
+  K8sK8sPodLogsGetParams,
+  K8sK8sPodLogsGetResponse,
+  K8sK8sPodYamlGetParams,
+  K8sK8sPodYamlGetResponse,
+  K8sK8sPodYamlUpdatePostParams,
+  K8sK8sPodYamlUpdatePostRequest,
+  K8sK8sPodYamlUpdatePostResponse,
   K8sK8sPodUpdatePostParams,
   K8sK8sPodUpdatePostRequest,
   K8sK8sPodUpdatePostResponse,
@@ -283,6 +290,21 @@ export function k8sK8sPodListByOwnerPost(params: K8sK8sPodListByOwnerPostParams)
 
 export function k8sK8sPodTerminalGet(params: K8sK8sPodTerminalGetParams) {
   return http.get<ApiResponse<K8sK8sPodTerminalGetResponse>>('/v1/k8s/pod/terminal', { params })
+}
+
+export function k8sK8sPodLogsGet(params: K8sK8sPodLogsGetParams) {
+  return http.get<ApiResponse<K8sK8sPodLogsGetResponse>>('/v1/k8s/pod/logs', { params })
+}
+
+export function k8sK8sPodYamlGet(params: K8sK8sPodYamlGetParams) {
+  return http.get<ApiResponse<K8sK8sPodYamlGetResponse>>('/v1/k8s/pod/yaml', { params })
+}
+
+export function k8sK8sPodYamlUpdatePost(
+  params: K8sK8sPodYamlUpdatePostParams,
+  data: K8sK8sPodYamlUpdatePostRequest,
+) {
+  return http.post<ApiResponse<K8sK8sPodYamlUpdatePostResponse>>('/v1/k8s/pod/yaml/update', data, { params })
 }
 
 export function k8sK8sPodUpdatePost(

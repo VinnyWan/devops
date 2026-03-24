@@ -42,6 +42,12 @@ const routes: RouteRecordRaw[] = [
     meta: { title: '工作负载', permissions: ['cluster:list'] },
   },
   {
+    path: '/workload/:type/:namespace/:name',
+    name: 'WorkloadDetail',
+    component: () => import('@/views/workload/WorkloadDetail.vue'),
+    meta: { title: '工作负载详情', permissions: ['cluster:list'] },
+  },
+  {
     path: '/network',
     name: 'Network',
     component: () => import('@/views/network/NetworkList.vue'),

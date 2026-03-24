@@ -2,6 +2,7 @@ package api
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	corev1 "k8s.io/api/core/v1"
@@ -314,4 +315,140 @@ func ListPodsByOwner(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"code": 200, "data": data})
+}
+
+// GetPodLogs godoc
+// @Summary 获取 Pod 日志
+// @Description 获取指定 Pod 的日志内容
+// @Tags K8s资源管理
+// @Accept json
+// @Produce json
+// @Param clusterId query int false "集群ID（可选，未传则使用默认集群）"
+// @Param namespace query string true "命名空间"
+// @Param name query string true "Pod 名称"
+// @Param container query string false "容器名称（可选，未指定时使用第一个容器）"
+// @Param tailLines query int false "获取最近多少行日志" default(100)
+// @Success 200 {object} Response "成功"
+// @Security BearerAuth
+// @Router /k8s/pod/logs [get]
+func GetPodLogs(c *gin.Context) {
+	namespace := c.Query("namespace")
+	name := c.Query("name")
+	container := c.Query("container")
+	tailLines, _ := strconv.Atoi(c.DefaultQuery("tailLines", "100"))
+
+	if namespace == "" || name == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "参数不完整"})
+		return
+	}
+
+	clusterID, err := resolveClusterID(c)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
+		return
+	}
+
+	service, err := getK8sService()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+		return
+	}
+
+	logs, err := service.GetPodLogs(clusterID, namespace, name, container, int64(tailLines))
+	if err != nil {
+		handleK8sError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"code": 200, "data": gin.H{"logs": logs}})
+}
+
+// GetPodYAML godoc
+// @Summary 获取 Pod YAML
+// @Description 获取指定 Pod 的 YAML 内容
+// @Tags K8s资源管理
+// @Accept json
+// @Produce json
+// @Param clusterId query int false "集群ID（可选，未传则使用默认集群）"
+// @Param namespace query string true "命名空间"
+// @Param name query string true "Pod 名称"
+// @Success 200 {object} Response "成功"
+// @Security BearerAuth
+// @Router /k8s/pod/yaml [get]
+func GetPodYAML(c *gin.Context) {
+	namespace := c.Query("namespace")
+	name := c.Query("name")
+	if namespace == "" || name == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "参数不完整"})
+		return
+	}
+
+	clusterID, err := resolveClusterID(c)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
+		return
+	}
+
+	service, err := getK8sService()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+		return
+	}
+
+	raw, err := service.GetPodYAML(clusterID, namespace, name)
+	if err != nil {
+		handleK8sError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"code": 200, "data": gin.H{"yaml": raw}})
+}
+
+// UpdatePodYAML godoc
+// @Summary 通过 YAML 更新 Pod
+// @Description 使用 YAML 内容更新指定 Pod
+// @Tags K8s资源管理
+// @Accept json
+// @Produce json
+// @Param clusterId query int false "集群ID（可选，未传则使用默认集群）"
+// @Param namespace query string true "命名空间"
+// @Param name query string true "Pod 名称"
+// @Param request body object true "参数: {yaml}" example({"yaml":"apiVersion: v1\nkind: Pod\nmetadata:\n  name: nginx\n  namespace: default\n..."})
+// @Success 200 {object} Response "成功"
+// @Security BearerAuth
+// @Router /k8s/pod/yaml/update [post]
+func UpdatePodYAML(c *gin.Context) {
+	namespace := c.Query("namespace")
+	name := c.Query("name")
+	if namespace == "" || name == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "参数不完整"})
+		return
+	}
+
+	var req struct {
+		YAML string `json:"yaml" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
+		return
+	}
+
+	clusterID, err := resolveClusterID(c)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
+		return
+	}
+
+	service, err := getK8sService()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+		return
+	}
+
+	updated, err := service.UpdatePodByYAML(clusterID, namespace, name, req.YAML)
+	if err != nil {
+		handleK8sError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 200, "data": updated})
 }

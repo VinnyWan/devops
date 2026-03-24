@@ -134,6 +134,12 @@ func registerCluster(r *gin.RouterGroup) {
 		g.GET("/pod/list_by_owner", listPermission, api.ListPodsByOwner)
 		g.GET("/pod/detail", listPermission, api.GetPodDetail)
 		g.GET("/pod/describe", listPermission, api.DescribePod)
+		g.GET("/pod/yaml", listPermission, api.GetPodYAML)
+		g.POST("/pod/yaml/update",
+			updatePermission,
+			middleware.SetAuditOperation("YAML更新Pod"),
+			api.UpdatePodYAML)
+		g.GET("/pod/logs", listPermission, api.GetPodLogs)
 		g.GET("/pod/terminal", listPermission, api.PodTerminal)
 		g.POST("/pod/create",
 			createPermission,

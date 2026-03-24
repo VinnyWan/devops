@@ -7,25 +7,32 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/yaml"
 )
 
 type PodVO struct {
-	Name      string            `json:"name"`
-	Namespace string            `json:"namespace"`
-	Status    string            `json:"status"`
-	IP        string            `json:"ip"`
-	Node      string            `json:"node"`
-	Labels    map[string]string `json:"labels"`
-	CreatedAt time.Time         `json:"createdAt"`
+	Name         string            `json:"name"`
+	Namespace    string            `json:"namespace"`
+	Status       string            `json:"status"`
+	IP           string            `json:"ip"`
+	Node         string            `json:"node"`
+	Labels       map[string]string `json:"labels"`
+	CreatedAt    time.Time         `json:"createdAt"`
+	RestartCount int32             `json:"restartCount"`
+	Age          string            `json:"age"`
+	Containers   []ContainerInfo   `json:"containers,omitempty"`
 }
 
 type PodListVO struct {
-	Name      string    `json:"name"`
-	Namespace string    `json:"namespace"`
-	Status    string    `json:"status"`
-	IP        string    `json:"ip"`
-	Node      string    `json:"node"`
-	CreatedAt time.Time `json:"createdAt"`
+	Name         string            `json:"name"`
+	Namespace    string            `json:"namespace"`
+	Status       string            `json:"status"`
+	IP           string            `json:"ip"`
+	Node         string            `json:"node"`
+	CreatedAt    time.Time         `json:"createdAt"`
+	RestartCount int32             `json:"restartCount"`
+	Age          string            `json:"age"`
+	Containers   []ContainerInfo   `json:"containers,omitempty"`
 }
 
 // PodListResponse Pod 列表分页响应
@@ -74,13 +81,25 @@ func (s *K8sService) ListPods(clusterId uint, namespace string, page, pageSize i
 
 	result := make([]PodListVO, 0, len(paged))
 	for _, item := range paged {
+		// 计算重启次数
+		restartCount := int32(0)
+		for _, cs := range item.Status.ContainerStatuses {
+			restartCount += cs.RestartCount
+		}
+
+		// 计算运行时间
+		age := calculateAge(item.CreationTimestamp.Time)
+
 		result = append(result, PodListVO{
-			Name:      item.Name,
-			Namespace: item.Namespace,
-			Status:    string(item.Status.Phase),
-			IP:        item.Status.PodIP,
-			Node:      item.Spec.NodeName,
-			CreatedAt: item.CreationTimestamp.Time,
+			Name:         item.Name,
+			Namespace:    item.Namespace,
+			Status:       string(item.Status.Phase),
+			IP:           item.Status.PodIP,
+			Node:         item.Spec.NodeName,
+			CreatedAt:    item.CreationTimestamp.Time,
+			RestartCount: restartCount,
+			Age:          age,
+			Containers:   buildContainerInfos(item.Spec.Containers),
 		})
 	}
 	return &PodListResponse{Total: total, Items: result}, nil
@@ -102,14 +121,26 @@ func (s *K8sService) GetPodDetail(clusterId uint, namespace, name string) (*PodV
 		return nil, err
 	}
 
+	// 计算重启次数
+	restartCount := int32(0)
+	for _, cs := range item.Status.ContainerStatuses {
+		restartCount += cs.RestartCount
+	}
+
+	// 计算运行时间
+	age := calculateAge(item.CreationTimestamp.Time)
+
 	return &PodVO{
-		Name:      item.Name,
-		Namespace: item.Namespace,
-		Status:    string(item.Status.Phase),
-		IP:        item.Status.PodIP,
-		Node:      item.Spec.NodeName,
-		Labels:    item.Labels,
-		CreatedAt: item.CreationTimestamp.Time,
+		Name:         item.Name,
+		Namespace:    item.Namespace,
+		Status:       string(item.Status.Phase),
+		IP:           item.Status.PodIP,
+		Node:         item.Spec.NodeName,
+		Labels:       item.Labels,
+		CreatedAt:    item.CreationTimestamp.Time,
+		RestartCount: restartCount,
+		Age:          age,
+		Containers:   buildContainerInfos(item.Spec.Containers),
 	}, nil
 }
 
@@ -141,6 +172,49 @@ func (s *K8sService) CreatePod(clusterId uint, namespace string, pod *corev1.Pod
 	return client.CoreV1().Pods(namespace).Create(context.Background(), pod, metav1.CreateOptions{})
 }
 
+// GetPodLogs 获取 Pod 日志
+func (s *K8sService) GetPodLogs(clusterId uint, namespace, name, container string, tailLines int64) (string, error) {
+	if err := s.ensureReady(); err != nil {
+		return "", err
+	}
+	cluster, err := s.clusterService.GetByID(clusterId)
+	if err != nil {
+		return "", err
+	}
+
+	client, err := s.clientFactory.GetClient(cluster)
+	if err != nil {
+		return "", err
+	}
+
+	// 获取 Pod 对象以确定容器
+	pod, err := client.CoreV1().Pods(namespace).Get(context.Background(), name, metav1.GetOptions{})
+	if err != nil {
+		return "", err
+	}
+
+	// 如果未指定容器，使用第一个容器
+	if container == "" {
+		if len(pod.Spec.Containers) == 0 {
+			return "", fmt.Errorf("pod 中没有容器")
+		}
+		container = pod.Spec.Containers[0].Name
+	}
+
+	// 获取日志
+	req := client.CoreV1().Pods(namespace).GetLogs(name, &corev1.PodLogOptions{
+		Container: container,
+		TailLines: &tailLines,
+	})
+
+	logs, err := req.Do(context.Background()).Raw()
+	if err != nil {
+		return "", err
+	}
+
+	return string(logs), nil
+}
+
 func (s *K8sService) UpdatePod(clusterId uint, namespace string, pod *corev1.Pod) (*corev1.Pod, error) {
 	cluster, err := s.clusterService.GetByID(clusterId)
 	if err != nil {
@@ -153,6 +227,58 @@ func (s *K8sService) UpdatePod(clusterId uint, namespace string, pod *corev1.Pod
 	}
 
 	return client.CoreV1().Pods(namespace).Update(context.Background(), pod, metav1.UpdateOptions{})
+}
+
+func (s *K8sService) GetPodYAML(clusterId uint, namespace, name string) (string, error) {
+	if err := s.ensureReady(); err != nil {
+		return "", err
+	}
+	obj, err := s.GetPodObject(clusterId, namespace, name)
+	if err != nil {
+		return "", err
+	}
+	b, err := yaml.Marshal(obj)
+	if err != nil {
+		return "", err
+	}
+	return string(b), nil
+}
+
+func (s *K8sService) UpdatePodByYAML(clusterId uint, namespace, name, rawYAML string) (*corev1.Pod, error) {
+	if err := s.ensureReady(); err != nil {
+		return nil, err
+	}
+	current, err := s.GetPodObject(clusterId, namespace, name)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get current pod: %w", err)
+	}
+
+	var desired corev1.Pod
+	if err := yaml.Unmarshal([]byte(rawYAML), &desired); err != nil {
+		return nil, fmt.Errorf("invalid yaml: %w", err)
+	}
+
+	// 校验不可变字段
+	if desired.APIVersion != "" && desired.APIVersion != "v1" {
+		return nil, fmt.Errorf("不允许修改 apiVersion")
+	}
+	if desired.Kind != "" && desired.Kind != "Pod" {
+		return nil, fmt.Errorf("不允许修改 kind")
+	}
+	if desired.Name != "" && desired.Name != name {
+		return nil, fmt.Errorf("不允许修改 metadata.name")
+	}
+	if desired.Namespace != "" && desired.Namespace != namespace {
+		return nil, fmt.Errorf("不允许修改 metadata.namespace")
+	}
+
+	desired.Namespace = namespace
+	desired.Name = name
+	desired.ResourceVersion = current.ResourceVersion
+	desired.Status = corev1.PodStatus{}
+	desired.ManagedFields = nil
+
+	return s.UpdatePod(clusterId, namespace, &desired)
 }
 
 // ListPodsByOwner 根据控制器类型和名称获取 Pod 列表
@@ -203,14 +329,40 @@ func (s *K8sService) ListPodsByOwner(clusterId uint, namespace string, ownerType
 
 	result := make([]PodListVO, 0, len(list.Items))
 	for _, item := range list.Items {
+		// 计算重启次数
+		restartCount := int32(0)
+		for _, cs := range item.Status.ContainerStatuses {
+			restartCount += cs.RestartCount
+		}
+
+		// 计算运行时间
+		age := calculateAge(item.CreationTimestamp.Time)
+
 		result = append(result, PodListVO{
-			Name:      item.Name,
-			Namespace: item.Namespace,
-			Status:    string(item.Status.Phase),
-			IP:        item.Status.PodIP,
-			Node:      item.Spec.NodeName,
-			CreatedAt: item.CreationTimestamp.Time,
+			Name:         item.Name,
+			Namespace:    item.Namespace,
+			Status:       string(item.Status.Phase),
+			IP:           item.Status.PodIP,
+			Node:         item.Spec.NodeName,
+			CreatedAt:    item.CreationTimestamp.Time,
+			RestartCount: restartCount,
+			Age:          age,
+			Containers:   buildContainerInfos(item.Spec.Containers),
 		})
 	}
 	return result, nil
+}
+
+// calculateAge 计算运行时间
+func calculateAge(createdAt time.Time) string {
+	duration := time.Since(createdAt)
+	if duration < time.Minute {
+		return fmt.Sprintf("%ds", int(duration.Seconds()))
+	} else if duration < time.Hour {
+		return fmt.Sprintf("%dm", int(duration.Minutes()))
+	} else if duration < 24*time.Hour {
+		return fmt.Sprintf("%dh", int(duration.Hours()))
+	} else {
+		return fmt.Sprintf("%dd", int(duration.Hours()/24))
+	}
 }

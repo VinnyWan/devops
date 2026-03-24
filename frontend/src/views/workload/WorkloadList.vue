@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, h } from 'vue'
+import { useRouter } from 'vue-router'
 import { NCard, NSpace, NDataTable, NButton, useMessage, NPagination, NTabs, NTabPane, NSelect, NModal, NInputNumber, NTag } from 'naive-ui'
 import ClusterSelector from '@/components/ClusterSelector.vue'
 import YamlTerminalModal from '@/components/YamlTerminalModal.vue'
@@ -7,7 +8,6 @@ import { useCluster } from '@/composables/useCluster'
 import {
   k8sK8sDeploymentListPost,
   k8sK8sDeploymentScalePost,
-  k8sK8sDeploymentRestartPost,
   k8sK8sDeploymentYamlPost,
   k8sK8sDeploymentYamlUpdatePost,
   k8sK8sDeploymentDeletePost,
@@ -16,12 +16,10 @@ import {
 import {
   k8sK8sStatefulSetListPost,
   k8sK8sStatefulSetScalePost,
-  k8sK8sStatefulSetRestartPost,
   k8sK8sStatefulSetYamlPost,
   k8sK8sStatefulSetYamlUpdatePost,
   k8sK8sStatefulSetDeletePost,
   k8sK8sDaemonSetListPost,
-  k8sK8sDaemonSetRestartPost,
   k8sK8sDaemonSetYamlPost,
   k8sK8sDaemonSetYamlUpdatePost,
   k8sK8sDaemonSetDeletePost
@@ -56,6 +54,8 @@ const yamlLoading = ref(false)
 
 // 删除确认弹窗
 const showDeleteModal = ref(false)
+
+const router = useRouter()
 
 const columns = computed(() => [
   { title: '名称', key: 'name', width: 180 },
@@ -101,19 +101,20 @@ const columns = computed(() => [
   {
     title: '操作',
     key: 'actions',
-    width: 300,
+    width: 280,
     fixed: 'right' as const,
     render: (row: any) => {
       return h(NSpace, {}, {
         default: () => [
+          h(NButton, {
+            size: 'small',
+            type: 'info',
+            onClick: () => viewDetail(row)
+          }, { default: () => '详情' }),
           resourceType.value !== 'daemonset' && h(NButton, {
             size: 'small',
             onClick: () => openScaleModal(row)
           }, { default: () => '伸缩' }),
-          h(NButton, {
-            size: 'small',
-            onClick: () => restartWorkload(row)
-          }, { default: () => '重启' }),
           h(NButton, {
             size: 'small',
             onClick: () => openYamlModal(row)
@@ -158,7 +159,9 @@ async function fetchData() {
   try {
     const params: any = {
       clusterId: currentClusterId.value,
-      namespace: selectedNamespace.value === 'all' ? undefined : selectedNamespace.value
+      namespace: selectedNamespace.value === 'all' ? undefined : selectedNamespace.value,
+      page: page.value,
+      pageSize: pageSize.value
     }
 
     let res
@@ -212,33 +215,6 @@ async function scaleWorkload() {
     fetchData()
   } catch (error: any) {
     message.error('伸缩失败: ' + error.message)
-  }
-}
-
-async function restartWorkload(row: any) {
-  try {
-    const data = {
-      clusterId: currentClusterId.value!,
-      namespace: row.namespace,
-      name: row.name
-    }
-
-    switch (resourceType.value) {
-      case 'deployment':
-        await k8sK8sDeploymentRestartPost(data)
-        break
-      case 'statefulset':
-        await k8sK8sStatefulSetRestartPost(data)
-        break
-      case 'daemonset':
-        await k8sK8sDaemonSetRestartPost(data)
-        break
-    }
-
-    message.success('重启成功')
-    fetchData()
-  } catch (error: any) {
-    message.error('重启失败: ' + error.message)
   }
 }
 
@@ -339,6 +315,17 @@ function handlePageSizeChange(newSize: number) {
   fetchData()
 }
 
+// 查看详情
+function viewDetail(row: any) {
+  router.push(`/workload/${resourceType.value}/${row.namespace}/${row.name}`)
+}
+
+// 分页变化处理
+function handlePageChange(newPage: number) {
+  page.value = newPage
+  fetchData()
+}
+
 watch(currentClusterId, () => {
   fetchNamespaces()
   fetchData()
@@ -391,7 +378,7 @@ onMounted(() => {
           :page-sizes="[10, 20, 50, 100]"
           show-size-picker
           show-quick-jumper
-          @update:page="fetchData"
+          @update:page="handlePageChange"
           @update:page-size="handlePageSizeChange"
         />
       </div>

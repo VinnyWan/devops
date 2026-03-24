@@ -224,6 +224,40 @@ export type K8sK8sPodTerminalGetRequest = Record<string, never>
 
 export type K8sK8sPodTerminalGetResponse = unknown
 
+export type K8sK8sPodLogsGetParams = {
+  clusterId?: number
+  namespace: string
+  name: string
+  container?: string
+  tailLines?: number
+}
+
+export type K8sK8sPodLogsGetRequest = Record<string, never>
+
+export type K8sK8sPodLogsGetResponse = ApiResponse
+
+export type K8sK8sPodYamlGetParams = {
+  clusterId?: number
+  namespace: string
+  name: string
+}
+
+export type K8sK8sPodYamlGetRequest = Record<string, never>
+
+export type K8sK8sPodYamlGetResponse = ApiResponse
+
+export type K8sK8sPodYamlUpdatePostParams = {
+  clusterId?: number
+  namespace: string
+  name: string
+}
+
+export type K8sK8sPodYamlUpdatePostRequest = {
+  yaml: string
+}
+
+export type K8sK8sPodYamlUpdatePostResponse = ApiResponse
+
 export type K8sK8sPodUpdatePostParams = { clusterId?: number; namespace: string }
 
 export type K8sK8sPodUpdatePostRequest = ApiK8sObject
