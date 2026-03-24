@@ -156,7 +156,6 @@ DevOps Platform 是一个企业级的运维管理系统，旨在简化 Kubernete
 │
 ├── docs/                       # 文档
 ├── tasks/                      # 任务跟踪
-└── .claude/                    # Claude Code 配置
 ```
 
 ## 快速开始
