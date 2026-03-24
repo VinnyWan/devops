@@ -2,6 +2,19 @@
 
 一个基于 Kubernetes 的企业级 DevOps 运维管理平台，提供集群管理、工作负载管理、监控告警、CI/CD 流水线等功能。
 
+## 📖 项目简介
+
+DevOps Platform 是一个企业级的运维管理系统，旨在简化 Kubernetes 集群的管理复杂度。它提供了一套统一的控制平面，允许用户通过 Web 界面纳管多个 K8s 集群，管理工作负载、配置资源，并具备完善的 RBAC 权限体系和审计日志功能。
+
+## ✨ 核心功能
+
+- **多集群管理**: 统一纳管开发、测试、生产等多套 Kubernetes 环境。
+- **Kubernetes 资源操作**: 可视化管理 Deployments, Pods, Services, ConfigMaps, Namespaces 等核心资源。
+- **细粒度权限控制 (RBAC)**: 基于 Casbin 和自定义 RBAC 模型，支持用户、角色、权限的灵活配置。
+- **用户认证与安全**: 集成 JWT 认证，支持审计日志记录，确保操作可追溯。
+- **终端控制台**: (计划中) 提供 Web Terminal 直接连接 Pod。
+- **监控集成**: (计划中) 集成 Prometheus 和 Grafana 指标展示。
+
 ## 技术栈
 
 ### 后端 (Backend)
