@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, h } from 'vue'
-import { NCard, NSpace, NDataTable, NButton, useMessage, NPagination, NTabs, NTabPane, NSelect, NModal, NInputNumber, NTag, NCode, NDescriptions, NDescriptionsItem } from 'naive-ui'
+import { NCard, NSpace, NDataTable, NButton, useMessage, NPagination, NTabs, NTabPane, NSelect, NModal, NInputNumber, NTag } from 'naive-ui'
 import ClusterSelector from '@/components/ClusterSelector.vue'
 import YamlTerminalModal from '@/components/YamlTerminalModal.vue'
 import { useCluster } from '@/composables/useCluster'
@@ -102,7 +102,7 @@ const columns = computed(() => [
     title: '操作',
     key: 'actions',
     width: 300,
-    fixed: 'right',
+    fixed: 'right' as const,
     render: (row: any) => {
       return h(NSpace, {}, {
         default: () => [
@@ -136,7 +136,7 @@ async function fetchNamespaces() {
   }
   try {
     const res = await k8sK8sNamespacesListPost({ clusterId: currentClusterId.value })
-    const namespaces = res.data.data || []
+    const namespaces = (res.data as any).data || []
     console.log('获取到的命名空间列表:', namespaces)
     namespaceOptions.value = [
       { label: '所有命名空间', value: 'all' },

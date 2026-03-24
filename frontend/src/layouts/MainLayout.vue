@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import {
-  NLayout,
   NLayoutContent,
   NMessageProvider,
   NDialogProvider,
@@ -11,8 +10,6 @@ import {
 import { useAppStore } from '@/stores/app'
 import AppSidebar from '@/components/layout/AppSidebar.vue'
 import AppHeader from '@/components/layout/AppHeader.vue'
-
-import '@/assets/styles/variables.css'
 
 const appStore = useAppStore()
 const collapsed = computed(() => appStore.sidebarCollapsed)
@@ -26,15 +23,6 @@ const themeOverrides = {
     borderRadius: '6px',
     fontFamily:
       'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
-  },
-  Select: {
-    peers: {
-      InternalSelection: {
-        borderColor: '#e2e8f0',
-        borderColorHover: '#3b82f6',
-        borderColorFocus: '#3b82f6',
-      },
-    },
   },
 }
 
