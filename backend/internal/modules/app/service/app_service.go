@@ -297,3 +297,71 @@ func mergeVariables(base map[string]string, override map[string]string) map[stri
 	}
 	return result
 }
+
+// ========== 应用配置相关方法 ==========
+
+func (s *AppService) GetAppConfig(appID uint) (model.AppConfig, error) {
+	config, ok := s.repo.GetAppConfig(appID)
+	if !ok {
+		return model.AppConfig{}, errors.New("应用配置不存在")
+	}
+	return config, nil
+}
+
+func (s *AppService) SaveAppConfig(config model.AppConfig) (model.AppConfig, error) {
+	return s.repo.SaveAppConfig(config), nil
+}
+
+func (s *AppService) GetBuildConfig(appID uint) (model.BuildConfig, error) {
+	config, ok := s.repo.GetBuildConfig(appID)
+	if !ok {
+		return model.BuildConfig{}, errors.New("构建配置不存在")
+	}
+	return config, nil
+}
+
+func (s *AppService) SaveBuildConfig(config model.BuildConfig) (model.BuildConfig, error) {
+	return s.repo.SaveBuildConfig(config), nil
+}
+
+func (s *AppService) GetDeployConfig(appID uint) (model.DeployConfig, error) {
+	config, ok := s.repo.GetDeployConfig(appID)
+	if !ok {
+		return model.DeployConfig{}, errors.New("部署配置不存在")
+	}
+	return config, nil
+}
+
+func (s *AppService) SaveDeployConfig(config model.DeployConfig) (model.DeployConfig, error) {
+	return s.repo.SaveDeployConfig(config), nil
+}
+
+func (s *AppService) GetTechStackConfig(appID uint) (model.TechStackConfig, error) {
+	config, ok := s.repo.GetTechStackConfig(appID)
+	if !ok {
+		return model.TechStackConfig{}, errors.New("技术栈配置不存在")
+	}
+	return config, nil
+}
+
+func (s *AppService) SaveTechStackConfig(config model.TechStackConfig) (model.TechStackConfig, error) {
+	return s.repo.SaveTechStackConfig(config), nil
+}
+
+// ========== 删除配置相关方法 ==========
+
+func (s *AppService) DeleteAppConfig(appID uint) bool {
+	return s.repo.DeleteAppConfig(appID)
+}
+
+func (s *AppService) DeleteBuildConfig(appID uint) bool {
+	return s.repo.DeleteBuildConfig(appID)
+}
+
+func (s *AppService) DeleteDeployConfig(appID uint) bool {
+	return s.repo.DeleteDeployConfig(appID)
+}
+
+func (s *AppService) DeleteTechStackConfig(appID uint) bool {
+	return s.repo.DeleteTechStackConfig(appID)
+}

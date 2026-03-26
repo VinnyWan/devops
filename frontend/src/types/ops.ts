@@ -279,3 +279,71 @@ export interface AuditLogRecord {
   requestAt?: string
   createdAt: string
 }
+
+// 应用配置相关类型
+export interface AppConfig {
+  id?: number
+  appId: number
+  name: string
+  owner: string
+  developers: string
+  testers: string
+  gitAddress: string
+  appState: string
+  language: string
+  description: string
+  domain: string
+  createdAt?: string
+  updatedAt?: string
+}
+
+export interface BuildConfig {
+  id?: number
+  appId: number
+  buildEnv: string
+  buildTool: string
+  buildConfig: string
+  customConfig: string
+  dockerfile: string
+  createdAt?: string
+  updatedAt?: string
+}
+
+export interface DeployConfig {
+  id?: number
+  appId: number
+  servicePort: number
+  cpuRequest: string
+  cpuLimit: string
+  memoryRequest: string
+  memoryLimit: string
+  environment: string
+  envVars: string
+  createdAt?: string
+  updatedAt?: string
+}
+
+export interface TechStackConfig {
+  id?: number
+  appId: number
+  name: string
+  language: string
+  version: string
+  baseImage: string
+  buildImage: string
+  runtimeImage: string
+  createdAt?: string
+  updatedAt?: string
+}
+
+export interface EnumOptions {
+  appStates: Array<{ label: string; value: string }>
+  buildEnvs: Array<{ label: string; value: string }>
+  languages: Array<{ label: string; value: string }>
+  environments: Array<{ label: string; value: string }>
+  cpuOptions: string[]
+  memoryOptions: string[]
+  defaultTechStacks: Record<string, TechStackConfig[]>
+  defaultBuildConfigs: Record<string, BuildConfig>
+  defaultDeployConfig: DeployConfig
+}

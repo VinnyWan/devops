@@ -69,6 +69,10 @@ import type {
   K8sK8sPodTerminalGetResponse,
   K8sK8sPodLogsGetParams,
   K8sK8sPodLogsGetResponse,
+  K8sK8sPodEventsGetParams,
+  K8sK8sPodEventsGetResponse,
+  K8sK8sPodDetectShellGetParams,
+  K8sK8sPodDetectShellGetResponse,
   K8sK8sPodYamlGetParams,
   K8sK8sPodYamlGetResponse,
   K8sK8sPodYamlUpdatePostParams,
@@ -294,6 +298,14 @@ export function k8sK8sPodTerminalGet(params: K8sK8sPodTerminalGetParams) {
 
 export function k8sK8sPodLogsGet(params: K8sK8sPodLogsGetParams) {
   return http.get<ApiResponse<K8sK8sPodLogsGetResponse>>('/v1/k8s/pod/logs', { params })
+}
+
+export function k8sK8sPodEventsGet(params: K8sK8sPodEventsGetParams) {
+  return http.get<ApiResponse<K8sK8sPodEventsGetResponse>>('/v1/k8s/pod/events', { params })
+}
+
+export function k8sK8sPodDetectShellGet(params: K8sK8sPodDetectShellGetParams) {
+  return http.get<ApiResponse<K8sK8sPodDetectShellGetResponse>>('/v1/k8s/pod/detect-shell', { params })
 }
 
 export function k8sK8sPodYamlGet(params: K8sK8sPodYamlGetParams) {

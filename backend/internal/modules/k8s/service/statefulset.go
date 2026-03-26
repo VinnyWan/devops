@@ -13,15 +13,15 @@ import (
 )
 
 type StatefulSetListVO struct {
-	Name              string            `json:"name"`
-	Namespace         string            `json:"namespace"`
-	Replicas          int32             `json:"replicas"`
-	ReadyReplicas     int32             `json:"readyReplicas"`
-	Labels            map[string]string `json:"labels"`
-	Containers        []ContainerInfo   `json:"containers"`
-	ResourceSummary   ResourceSummary   `json:"resourceSummary"`
-	Status            string            `json:"status"`
-	CreatedAt         time.Time         `json:"createdAt"`
+	Name            string            `json:"name"`
+	Namespace       string            `json:"namespace"`
+	Replicas        int32             `json:"replicas"`
+	ReadyReplicas   int32             `json:"readyReplicas"`
+	Labels          map[string]string `json:"labels"`
+	Containers      []ContainerInfo   `json:"containers"`
+	ResourceSummary ResourceSummary   `json:"resourceSummary"`
+	Status          string            `json:"status"`
+	CreatedAt       time.Time         `json:"createdAt"`
 }
 
 type StatefulSetListResponse struct {

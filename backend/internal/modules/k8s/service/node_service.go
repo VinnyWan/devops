@@ -31,10 +31,10 @@ type NodeListItem struct {
 	Status            string            `json:"status"` // Ready, NotReady, Unknown
 	Role              string            `json:"role"`   // master, worker
 	IP                string            `json:"ip"`
-	ExternalIP        string            `json:"externalIP"`        // 外部IP
+	ExternalIP        string            `json:"externalIP"` // 外部IP
 	KubeletVersion    string            `json:"kubeletVersion"`
-	K8sVersion        string            `json:"k8sVersion"`        // Kubelet 版本 (别名)
-	OsImage           string            `json:"osImage"`           // 操作系统镜像
+	K8sVersion        string            `json:"k8sVersion"` // Kubelet 版本 (别名)
+	OsImage           string            `json:"osImage"`    // 操作系统镜像
 	KernelVersion     string            `json:"kernelVersion"`
 	Labels            map[string]string `json:"labels"`
 	Taints            []interface{}     `json:"taints"`

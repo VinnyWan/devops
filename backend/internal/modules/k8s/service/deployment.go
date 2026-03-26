@@ -2,13 +2,11 @@ package service
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -24,7 +22,7 @@ type DeploymentConditionVO struct {
 
 // ResourceSummary 聚合所有容器的资源请求与限制
 type ResourceSummary struct {
-	CPURequest    string `json:"cpuRequest"`    // 如 "500m"，未设置为空
+	CPURequest    string `json:"cpuRequest"` // 如 "500m"，未设置为空
 	CPULimit      string `json:"cpuLimit"`
 	MemoryRequest string `json:"memoryRequest"` // 如 "256Mi"，未设置为空
 	MemoryLimit   string `json:"memoryLimit"`
@@ -251,86 +249,6 @@ func (s *K8sService) UpdateDeployment(clusterId uint, namespace string, deployme
 	return client.AppsV1().Deployments(namespace).Update(context.Background(), deployment, metav1.UpdateOptions{})
 }
 
-// --- helper functions ---
-
-func buildContainerInfos(containers []corev1.Container) []ContainerInfo {
-	result := make([]ContainerInfo, 0, len(containers))
-	for _, c := range containers {
-		result = append(result, ContainerInfo{
-			Name:      c.Name,
-			Image:     c.Image,
-			Resources: formatResources(c.Resources),
-		})
-	}
-	return result
-}
-
-func formatResources(req corev1.ResourceRequirements) string {
-	var parts []string
-
-	if !req.Requests.Cpu().IsZero() {
-		parts = append(parts, fmt.Sprintf("Req CPU: %s", req.Requests.Cpu().String()))
-	}
-	if !req.Requests.Memory().IsZero() {
-		parts = append(parts, fmt.Sprintf("Req Mem: %s", req.Requests.Memory().String()))
-	}
-	if !req.Limits.Cpu().IsZero() {
-		parts = append(parts, fmt.Sprintf("Lim CPU: %s", req.Limits.Cpu().String()))
-	}
-	if !req.Limits.Memory().IsZero() {
-		parts = append(parts, fmt.Sprintf("Lim Mem: %s", req.Limits.Memory().String()))
-	}
-
-	if len(parts) == 0 {
-		return "None"
-	}
-	return strings.Join(parts, ", ")
-}
-
-// aggregateResources 聚合所有容器的 CPU/Memory requests 和 limits
-func aggregateResources(containers []corev1.Container) ResourceSummary {
-	cpuReq := resource.Quantity{}
-	cpuLim := resource.Quantity{}
-	memReq := resource.Quantity{}
-	memLim := resource.Quantity{}
-
-	hasCPUReq, hasCPULim, hasMemReq, hasMemLim := false, false, false, false
-
-	for _, c := range containers {
-		if v, ok := c.Resources.Requests[corev1.ResourceCPU]; ok {
-			cpuReq.Add(v)
-			hasCPUReq = true
-		}
-		if v, ok := c.Resources.Limits[corev1.ResourceCPU]; ok {
-			cpuLim.Add(v)
-			hasCPULim = true
-		}
-		if v, ok := c.Resources.Requests[corev1.ResourceMemory]; ok {
-			memReq.Add(v)
-			hasMemReq = true
-		}
-		if v, ok := c.Resources.Limits[corev1.ResourceMemory]; ok {
-			memLim.Add(v)
-			hasMemLim = true
-		}
-	}
-
-	summary := ResourceSummary{}
-	if hasCPUReq {
-		summary.CPURequest = cpuReq.String()
-	}
-	if hasCPULim {
-		summary.CPULimit = cpuLim.String()
-	}
-	if hasMemReq {
-		summary.MemoryRequest = memReq.String()
-	}
-	if hasMemLim {
-		summary.MemoryLimit = memLim.String()
-	}
-	return summary
-}
-
 // computeDeploymentStatus 从 Deployment 的 conditions 和副本状态计算聚合状态枚举
 // 返回 (状态枚举, 原因字符串)
 func computeDeploymentStatus(deploy *appsv1.Deployment) (string, string) {
@@ -340,7 +258,7 @@ func computeDeploymentStatus(deploy *appsv1.Deployment) (string, string) {
 	}
 
 	var (
-		availableCond  *appsv1.DeploymentCondition
+		availableCond   *appsv1.DeploymentCondition
 		progressingCond *appsv1.DeploymentCondition
 	)
 	for i := range deploy.Status.Conditions {

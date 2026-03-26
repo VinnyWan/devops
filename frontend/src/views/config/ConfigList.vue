@@ -1,9 +1,22 @@
 <script setup lang="ts">
-import { ref, watch, onMounted } from 'vue'
-import { NCard, NSpace, NDataTable, NButton, useMessage, NPagination } from 'naive-ui'
+import { h, ref, watch, onMounted } from 'vue'
+import {
+  NCard,
+  NSpace,
+  NDataTable,
+  NButton,
+  useMessage,
+  NPagination,
+  NModal,
+  NCode,
+  NPopconfirm,
+} from 'naive-ui'
 import ClusterSelector from '@/components/ClusterSelector.vue'
 import { useCluster } from '@/composables/useCluster'
-import { k8sK8sConfigmapListPost } from '@/api/generated/k8s-resource.api'
+import {
+  k8sK8sConfigmapListPost,
+  k8sK8sConfigmapDeletePost,
+} from '@/api/generated/k8s-resource.api'
 
 const message = useMessage()
 const { currentClusterId } = useCluster()
@@ -13,11 +26,47 @@ const total = ref(0)
 const page = ref(1)
 const pageSize = ref(10)
 
+// YAML 详情弹窗
+const showYamlModal = ref(false)
+const yamlContent = ref('')
+const yamlTitle = ref('')
+
 const columns = [
   { title: 'ConfigMap', key: 'name' },
   { title: '命名空间', key: 'namespace' },
   { title: '数据项', key: 'dataCount' },
   { title: '创建时间', key: 'createdAt' },
+  {
+    title: '操作',
+    key: 'actions',
+    width: 180,
+    render: (row: any) =>
+      h(NSpace, { size: 'small' }, () => [
+        h(
+          NButton,
+          {
+            size: 'small',
+            quaternary: true,
+            type: 'info',
+            onClick: () => showYaml(row),
+          },
+          { default: () => '详情' }
+        ),
+        h(
+          NPopconfirm,
+          { onPositiveClick: () => handleDelete(row) },
+          {
+            trigger: () =>
+              h(
+                NButton,
+                { size: 'small', quaternary: true, type: 'error' },
+                { default: () => '删除' }
+              ),
+            default: () => `确认删除 ConfigMap「${row.name}」？`,
+          }
+        ),
+      ]),
+  },
 ]
 
 async function fetchData() {
@@ -38,6 +87,42 @@ async function fetchData() {
     message.error(error.message || '获取配置失败')
   } finally {
     loading.value = false
+  }
+}
+
+function showYaml(row: any) {
+  yamlTitle.value = `ConfigMap: ${row.name}`
+  yamlContent.value = row.yaml || generateYaml(row)
+  showYamlModal.value = true
+}
+
+function generateYaml(row: any): string {
+  const dataEntries = row.data
+    ? Object.entries(row.data)
+        .map(([k, v]) => `  ${k}: |-\n    ${v}`)
+        .join('\n')
+    : '  {}'
+
+  return `apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ${row.name}
+  namespace: ${row.namespace}
+data:
+${dataEntries}`
+}
+
+async function handleDelete(row: any) {
+  try {
+    await k8sK8sConfigmapDeletePost({
+      clusterId: currentClusterId.value!,
+      namespace: row.namespace,
+      name: row.name,
+    })
+    message.success('删除 ConfigMap 成功')
+    await fetchData()
+  } catch (error: any) {
+    message.error(error.message || '删除失败')
   }
 }
 
@@ -64,5 +149,14 @@ onMounted(fetchData)
       />
     </NSpace>
   </NCard>
-</template>
 
+  <!-- YAML 详情弹窗 -->
+  <NModal
+    v-model:show="showYamlModal"
+    preset="card"
+    :title="yamlTitle"
+    style="width: 800px; max-width: calc(100vw - 32px)"
+  >
+    <NCode :code="yamlContent" language="yaml" />
+  </NModal>
+</template>

@@ -13,16 +13,16 @@ import (
 )
 
 type DaemonSetListVO struct {
-	Name              string            `json:"name"`
-	Namespace         string            `json:"namespace"`
-	DesiredNumber     int32             `json:"desiredNumber"`
-	CurrentNumber     int32             `json:"currentNumber"`
-	ReadyNumber       int32             `json:"readyNumber"`
-	Labels            map[string]string `json:"labels"`
-	Containers        []ContainerInfo   `json:"containers"`
-	ResourceSummary   ResourceSummary   `json:"resourceSummary"`
-	Status            string            `json:"status"`
-	CreatedAt         time.Time         `json:"createdAt"`
+	Name            string            `json:"name"`
+	Namespace       string            `json:"namespace"`
+	DesiredNumber   int32             `json:"desiredNumber"`
+	CurrentNumber   int32             `json:"currentNumber"`
+	ReadyNumber     int32             `json:"readyNumber"`
+	Labels          map[string]string `json:"labels"`
+	Containers      []ContainerInfo   `json:"containers"`
+	ResourceSummary ResourceSummary   `json:"resourceSummary"`
+	Status          string            `json:"status"`
+	CreatedAt       time.Time         `json:"createdAt"`
 }
 
 type DaemonSetListResponse struct {

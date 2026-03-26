@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"sort"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -24,15 +25,15 @@ type PodVO struct {
 }
 
 type PodListVO struct {
-	Name         string            `json:"name"`
-	Namespace    string            `json:"namespace"`
-	Status       string            `json:"status"`
-	IP           string            `json:"ip"`
-	Node         string            `json:"node"`
-	CreatedAt    time.Time         `json:"createdAt"`
-	RestartCount int32             `json:"restartCount"`
-	Age          string            `json:"age"`
-	Containers   []ContainerInfo   `json:"containers,omitempty"`
+	Name         string          `json:"name"`
+	Namespace    string          `json:"namespace"`
+	Status       string          `json:"status"`
+	IP           string          `json:"ip"`
+	Node         string          `json:"node"`
+	CreatedAt    time.Time       `json:"createdAt"`
+	RestartCount int32           `json:"restartCount"`
+	Age          string          `json:"age"`
+	Containers   []ContainerInfo `json:"containers,omitempty"`
 }
 
 // PodListResponse Pod 列表分页响应
@@ -365,4 +366,41 @@ func calculateAge(createdAt time.Time) string {
 	} else {
 		return fmt.Sprintf("%dd", int(duration.Hours()/24))
 	}
+}
+
+// GetPodEvents 获取 Pod 事件
+func (s *K8sService) GetPodEvents(clusterID uint, namespace, name string) ([]EventInfo, error) {
+	client, err := s.getClient(clusterID)
+	if err != nil {
+		return nil, err
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// 筛选 involvedObject 为 Pod 且名称匹配
+	fieldSelector := fmt.Sprintf("involvedObject.kind=Pod,involvedObject.name=%s,involvedObject.namespace=%s", name, namespace)
+	events, err := client.CoreV1().Events(namespace).List(ctx, metav1.ListOptions{
+		FieldSelector: fieldSelector,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	// 按时间倒序排序
+	sort.Slice(events.Items, func(i, j int) bool {
+		return events.Items[i].LastTimestamp.Time.After(events.Items[j].LastTimestamp.Time)
+	})
+
+	var result []EventInfo
+	for _, e := range events.Items {
+		result = append(result, EventInfo{
+			Time:    e.LastTimestamp.Time.Format(time.RFC3339),
+			Type:    e.Type,
+			Reason:  e.Reason,
+			Object:  fmt.Sprintf("%s/%s", e.InvolvedObject.Kind, e.InvolvedObject.Name),
+			Message: e.Message,
+		})
+	}
+	return result, nil
 }

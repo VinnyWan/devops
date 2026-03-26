@@ -37,7 +37,7 @@ func (s *SessionService) CreateSession(ctx context.Context, userID uint, usernam
 
 	// 2. 清理旧会话（单点登录 - 可选，这里实现为单点登录）
 	userSessionsKey := fmt.Sprintf("user_sessions:%d", userID)
-	
+
 	// 获取所有旧的 sessionID
 	oldSessionIDs, err := redis.SMembers(ctx, userSessionsKey)
 	if err == nil {
@@ -58,7 +58,7 @@ func (s *SessionService) CreateSession(ctx context.Context, userID uint, usernam
 		IP:         ip,
 		UserAgent:  userAgent,
 	}
-	
+
 	jsonData, err := json.Marshal(sessionData)
 	if err != nil {
 		return "", err
@@ -85,7 +85,7 @@ func (s *SessionService) CreateSession(ctx context.Context, userID uint, usernam
 // ValidateSession 校验会话
 func (s *SessionService) ValidateSession(ctx context.Context, sessionID string) (*SessionData, error) {
 	sessionKey := fmt.Sprintf("session:%s", sessionID)
-	
+
 	data, err := redis.Get(ctx, sessionKey)
 	if err != nil {
 		return nil, fmt.Errorf("session invalid or expired")
@@ -99,7 +99,7 @@ func (s *SessionService) ValidateSession(ctx context.Context, sessionID string) 
 	// 滑动过期：延长有效期
 	expiration := 2 * time.Hour
 	redis.Expire(ctx, sessionKey, expiration)
-	
+
 	// 同时延长用户会话集合有效期
 	userSessionsKey := fmt.Sprintf("user_sessions:%d", sessionData.UserID)
 	redis.Expire(ctx, userSessionsKey, expiration+10*time.Minute)
@@ -110,13 +110,13 @@ func (s *SessionService) ValidateSession(ctx context.Context, sessionID string) 
 // RevokeSession 注销会话
 func (s *SessionService) RevokeSession(ctx context.Context, sessionID string) error {
 	sessionKey := fmt.Sprintf("session:%s", sessionID)
-	
+
 	// 获取 session 数据以拿到 userID
 	data, err := redis.Get(ctx, sessionKey)
 	if err != nil {
 		return nil // 已经不存在了
 	}
-	
+
 	var sessionData SessionData
 	json.Unmarshal([]byte(data), &sessionData)
 
@@ -137,7 +137,7 @@ func (s *SessionService) RevokeSession(ctx context.Context, sessionID string) er
 // RevokeAllUserSessions 强制下线用户所有端
 func (s *SessionService) RevokeAllUserSessions(ctx context.Context, userID uint) error {
 	userSessionsKey := fmt.Sprintf("user_sessions:%d", userID)
-	
+
 	sessionIDs, err := redis.SMembers(ctx, userSessionsKey)
 	if err != nil {
 		return err
@@ -146,6 +146,6 @@ func (s *SessionService) RevokeAllUserSessions(ctx context.Context, userID uint)
 	for _, sessionID := range sessionIDs {
 		redis.Del(ctx, fmt.Sprintf("session:%s", sessionID))
 	}
-	
+
 	return redis.Del(ctx, userSessionsKey)
 }

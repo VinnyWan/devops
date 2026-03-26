@@ -24,6 +24,11 @@ import type {
   PrometheusConfig,
   QueryResult,
   RepositoryImage,
+  AppConfig,
+  BuildConfig,
+  DeployConfig,
+  TechStackConfig,
+  EnumOptions,
 } from '@/types/ops'
 
 export function getAlertRules(params: { keyword?: string } = {}) {
@@ -173,4 +178,60 @@ export function exportAuditLogs(
 
 export function cleanupExpiredAuditLogs() {
   return unwrapResponseData<{ cleaned: number }>(http.post('/v1/audit/cleanup'))
+}
+
+// ========== 应用配置相关 API ==========
+
+export function getAppConfig(appId: number) {
+  return unwrapResponseData<AppConfig>(http.get(`/v1/app/${appId}/config`))
+}
+
+export function saveAppConfig(data: AppConfig) {
+  return unwrapResponseData<AppConfig>(http.post('/v1/app/config', data))
+}
+
+export function getBuildConfig(appId: number) {
+  return unwrapResponseData<BuildConfig>(http.get(`/v1/app/${appId}/build-config`))
+}
+
+export function saveBuildConfig(data: BuildConfig) {
+  return unwrapResponseData<BuildConfig>(http.post('/v1/app/build-config', data))
+}
+
+export function getDeployConfig(appId: number) {
+  return unwrapResponseData<DeployConfig>(http.get(`/v1/app/${appId}/deploy-config`))
+}
+
+export function saveDeployConfig(data: DeployConfig) {
+  return unwrapResponseData<DeployConfig>(http.post('/v1/app/deploy-config', data))
+}
+
+export function getTechStackConfig(appId: number) {
+  return unwrapResponseData<TechStackConfig>(http.get(`/v1/app/${appId}/tech-stack`))
+}
+
+export function saveTechStackConfig(data: TechStackConfig) {
+  return unwrapResponseData<TechStackConfig>(http.post('/v1/app/tech-stack', data))
+}
+
+export function getEnumOptions() {
+  return unwrapResponseData<EnumOptions>(http.get('/v1/app/enums'))
+}
+
+// ========== 删除配置相关 API ==========
+
+export function deleteAppConfig(appId: number) {
+  return unwrapResponseData<void>(http.delete(`/v1/app/${appId}/config`))
+}
+
+export function deleteBuildConfig(appId: number) {
+  return unwrapResponseData<void>(http.delete(`/v1/app/${appId}/build-config`))
+}
+
+export function deleteDeployConfig(appId: number) {
+  return unwrapResponseData<void>(http.delete(`/v1/app/${appId}/deploy-config`))
+}
+
+export function deleteTechStackConfig(appId: number) {
+  return unwrapResponseData<void>(http.delete(`/v1/app/${appId}/tech-stack`))
 }

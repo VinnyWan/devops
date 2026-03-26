@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -38,18 +37,123 @@ var podTerminalUpgrader = websocket.Upgrader{
 	},
 }
 
-type wsBinaryWriter struct {
-	conn *websocket.Conn
-	mu   sync.Mutex
+// K8sMessage WebSocket消息结构（与前端约定）
+type K8sMessage struct {
+	Operation string      `json:"operation"`
+	Data      interface{} `json:"data"`
+	Cols      int         `json:"cols,omitempty"`
+	Rows      int         `json:"rows,omitempty"`
 }
 
-func (w *wsBinaryWriter) Write(p []byte) (int, error) {
-	w.mu.Lock()
-	defer w.mu.Unlock()
-	if err := w.conn.WriteMessage(websocket.BinaryMessage, p); err != nil {
+// K8sWebSocketStream K8s WebSocket流处理
+type K8sWebSocketStream struct {
+	sync.RWMutex
+	Conn     *websocket.Conn
+	executor remotecommand.Executor
+	Ctx      context.Context
+	cancel   context.CancelFunc
+	closed   bool
+	reader   *io.PipeReader
+	writer   *io.PipeWriter
+}
+
+// terminalConn 实现io.ReadWriter接口用于K8s executor
+type terminalConn struct {
+	stream *K8sWebSocketStream
+}
+
+func (tc *terminalConn) Read(p []byte) (n int, err error) {
+	return tc.stream.reader.Read(p)
+}
+
+func (tc *terminalConn) Write(p []byte) (n int, err error) {
+	return tc.stream.WriteToWebSocket(p)
+}
+
+// Close 关闭WebSocket流
+func (kws *K8sWebSocketStream) Close() error {
+	kws.Lock()
+	defer kws.Unlock()
+
+	if kws.closed {
+		return nil
+	}
+
+	kws.closed = true
+	if kws.cancel != nil {
+		kws.cancel()
+	}
+	return nil
+}
+
+// IsClosed 检查是否已关闭
+func (kws *K8sWebSocketStream) IsClosed() bool {
+	kws.RLock()
+	defer kws.RUnlock()
+	return kws.closed
+}
+
+// WriteToWebSocket 写入数据到WebSocket
+func (kws *K8sWebSocketStream) WriteToWebSocket(p []byte) (n int, err error) {
+	if kws.IsClosed() {
+		return 0, io.EOF
+	}
+
+	message := K8sMessage{
+		Operation: "stdout",
+		Data:      string(p),
+	}
+
+	if err = kws.Conn.WriteJSON(message); err != nil {
+		go kws.Close()
 		return 0, err
 	}
+
 	return len(p), nil
+}
+
+// ReadFromWebSocket 从WebSocket读取数据
+func (kws *K8sWebSocketStream) ReadFromWebSocket() {
+	defer func() {
+		kws.Close()
+		if kws.writer != nil {
+			kws.writer.Close()
+		}
+	}()
+
+	for {
+		if kws.IsClosed() {
+			return
+		}
+
+		var message K8sMessage
+		err := kws.Conn.ReadJSON(&message)
+		if err != nil {
+			return
+		}
+
+		switch message.Operation {
+		case "stdin":
+			if kws.writer != nil && !kws.IsClosed() {
+				var data string
+				if str, ok := message.Data.(string); ok {
+					data = str
+				} else {
+					continue
+				}
+
+				_, err := kws.writer.Write([]byte(data))
+				if err != nil {
+					return
+				}
+			}
+		case "resize":
+			// 终端大小调整已在初始连接时处理，动态resize暂时忽略
+			continue
+		default:
+			continue
+		}
+	}
 }
 
 type terminalSizeQueue struct {
@@ -62,6 +166,50 @@ func (q *terminalSizeQueue) Next() *remotecommand.TerminalSize {
 		return nil
 	}
 	return &s
+}
+
+// DetectPodShell godoc
+// @Summary 检测Pod容器可用Shell
+// @Description 检测指定Pod容器中可用的shell类型
+// @Tags K8s资源管理
+// @Accept json
+// @Produce json
+// @Param clusterId query int false "集群ID（可选，未传则使用默认集群）"
+// @Param namespace query string true "命名空间"
+// @Param pod query string true "Pod名称"
+// @Param container query string false "容器名称（可选，默认第一个容器）"
+// @Success 200 {object} Response "成功"
+// @Security BearerAuth
+// @Router /k8s/pod/detect-shell [get]
+func DetectPodShell(c *gin.Context) {
+	namespace := c.Query("namespace")
+	podName := c.Query("pod")
+	container := c.Query("container")
+
+	if namespace == "" || podName == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "参数不完整"})
+		return
+	}
+
+	clusterID, err := resolveClusterID(c)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
+		return
+	}
+
+	svc, err := getK8sService()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+		return
+	}
+
+	result, err := svc.DetectContainerShell(clusterID, namespace, podName, container)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": fmt.Sprintf("检测shell失败: %v", err)})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"code": 200, "data": result})
 }
 
 // PodTerminal godoc
@@ -79,13 +227,13 @@ func (q *terminalSizeQueue) Next() *remotecommand.TerminalSize {
 // @Router /k8s/pod/terminal [get]
 func PodTerminal(c *gin.Context) {
 	namespace := c.Query("namespace")
-	pod := c.Query("pod")
+	podName := c.Query("pod")
 	container := c.Query("container")
 	shell := c.Query("shell")
 	cols, _ := strconv.Atoi(c.DefaultQuery("cols", "120"))
 	rows, _ := strconv.Atoi(c.DefaultQuery("rows", "30"))
 
-	if namespace == "" || pod == "" {
+	if namespace == "" || podName == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "参数不完整"})
 		return
 	}
@@ -104,7 +252,7 @@ func PodTerminal(c *gin.Context) {
 
 	// 若未指定容器，自动选择 Pod 的第一个容器
 	if container == "" {
-		podDetail, err := svc.GetPodObject(clusterID, namespace, pod)
+		podDetail, err := svc.GetPodObject(clusterID, namespace, podName)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"message": fmt.Sprintf("获取Pod信息失败: %v", err)})
 			return
@@ -116,84 +264,73 @@ func PodTerminal(c *gin.Context) {
 		container = podDetail.Spec.Containers[0].Name
 	}
 
+	// 升级HTTP连接为WebSocket
 	conn, err := podTerminalUpgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
 		return
 	}
 	defer conn.Close()
 
-	ctx, cancel := context.WithCancel(c.Request.Context())
-	defer cancel()
+	// 获取executor，支持bash到sh的自动降级
+	executor, actualShell, err := svc.CreatePodExecutor(clusterID, namespace, podName, container, shell)
+	if err != nil {
+		_ = conn.WriteJSON(K8sMessage{Operation: "error", Data: fmt.Sprintf("创建executor失败: %v", err)})
+		return
+	}
 
-	stdinR, stdinW := io.Pipe()
-	defer stdinR.Close()
+	// 如果降级了shell，通知前端
+	if shell != "" && shell != actualShell {
+		_ = conn.WriteJSON(K8sMessage{Operation: "stdout", Data: fmt.Sprintf("注意：容器不支持%s，已自动切换到%s\r\n\r\n", shell, actualShell)})
+	}
 
+	// 创建长期运行的上下文
+	ctx, cancel := context.WithCancel(context.Background())
+
+	// 创建管道
+	reader, writer := io.Pipe()
+
+	// 创建流对象
+	stream := &K8sWebSocketStream{
+		Conn:     conn,
+		executor: executor,
+		Ctx:      ctx,
+		cancel:   cancel,
+		reader:   reader,
+		writer:   writer,
+	}
+
+	// 创建终端连接
+	termConn := &terminalConn{stream: stream}
+
+	// 创建resize queue
 	resizeCh := make(chan remotecommand.TerminalSize, 8)
 	if cols > 0 && rows > 0 {
 		resizeCh <- remotecommand.TerminalSize{Width: uint16(cols), Height: uint16(rows)}
 	}
-
-	go func() {
-		defer func() {
-			stdinW.Close()
-			close(resizeCh)
-			cancel()
-		}()
-		for {
-			mt, data, err := conn.ReadMessage()
-			if err != nil {
-				return
-			}
-
-			if mt == websocket.TextMessage {
-				var msg struct {
-					Type string `json:"type"`
-					Cols int    `json:"cols"`
-					Rows int    `json:"rows"`
-					Data string `json:"data"`
-				}
-				if json.Unmarshal(data, &msg) == nil && msg.Type != "" {
-					if msg.Type == "resize" && msg.Cols > 0 && msg.Rows > 0 {
-						resizeCh <- remotecommand.TerminalSize{Width: uint16(msg.Cols), Height: uint16(msg.Rows)}
-						continue
-					}
-					if msg.Type == "stdin" && msg.Data != "" {
-						_, _ = stdinW.Write([]byte(msg.Data))
-						continue
-					}
-				}
-				_, _ = stdinW.Write(data)
-				continue
-			}
-
-			if mt == websocket.BinaryMessage {
-				_, _ = stdinW.Write(data)
-				continue
-			}
-		}
-	}()
-
-	out := &wsBinaryWriter{conn: conn}
+	close(resizeCh) // 初始大小设置后关闭
 	queue := &terminalSizeQueue{ch: resizeCh}
 
-	// Shell 自动探测：未指定时先尝试 bash，失败回退 sh
-	shells := []string{shell}
-	if shell == "" || shell == "bash" {
-		shells = []string{"bash", "sh"}
-	}
+	// 启动WebSocket读取goroutine
+	go stream.ReadFromWebSocket()
 
-	var execErr error
-	for _, sh := range shells {
-		execErr = svc.ExecPodTerminal(ctx, clusterID, namespace, pod, container, []string{sh}, stdinR, out, out, true, queue)
-		if execErr == nil {
-			return
-		}
-		// 如果只有一个 shell 或者 context 已取消，不再重试
-		if ctx.Err() != nil {
-			break
-		}
-	}
-	if execErr != nil {
-		_ = conn.WriteJSON(gin.H{"type": "error", "message": execErr.Error()})
-	}
+	// 启动K8s executor goroutine
+	go func() {
+		defer func() {
+			cancel()
+			if reader != nil {
+				reader.Close()
+			}
+		}()
+
+		executor.StreamWithContext(ctx, remotecommand.StreamOptions{
+			Stdin:             termConn,
+			Stdout:            termConn,
+			Stderr:            termConn,
+			Tty:               true,
+			TerminalSizeQueue: queue,
+		})
+	}()
+
+	// 等待连接关闭
+	<-ctx.Done()
 }

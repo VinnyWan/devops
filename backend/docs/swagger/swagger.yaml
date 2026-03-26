@@ -182,6 +182,81 @@ definitions:
     - name
     - taints
     type: object
+  model.AppConfig:
+    properties:
+      appId:
+        type: integer
+      appState:
+        type: string
+      createdAt:
+        type: string
+      description:
+        type: string
+      developers:
+        type: string
+      domain:
+        type: string
+      gitAddress:
+        type: string
+      id:
+        type: integer
+      language:
+        type: string
+      name:
+        type: string
+      owner:
+        type: string
+      testers:
+        type: string
+      updatedAt:
+        type: string
+    type: object
+  model.BuildConfig:
+    properties:
+      appId:
+        type: integer
+      buildConfig:
+        type: string
+      buildEnv:
+        type: string
+      buildTool:
+        type: string
+      createdAt:
+        type: string
+      customConfig:
+        type: string
+      dockerfile:
+        type: string
+      id:
+        type: integer
+      updatedAt:
+        type: string
+    type: object
+  model.DeployConfig:
+    properties:
+      appId:
+        type: integer
+      cpuLimit:
+        type: string
+      cpuRequest:
+        type: string
+      createdAt:
+        type: string
+      envVars:
+        type: string
+      environment:
+        type: string
+      id:
+        type: integer
+      memoryLimit:
+        type: string
+      memoryRequest:
+        type: string
+      servicePort:
+        type: integer
+      updatedAt:
+        type: string
+    type: object
   model.Permission:
     properties:
       action:
@@ -199,6 +274,29 @@ definitions:
         description: e.g., "cluster", "user"
         type: string
       updatedAt:
+        type: string
+    type: object
+  model.TechStackConfig:
+    properties:
+      appId:
+        type: integer
+      baseImage:
+        type: string
+      buildImage:
+        type: string
+      createdAt:
+        type: string
+      id:
+        type: integer
+      language:
+        type: string
+      name:
+        type: string
+      runtimeImage:
+        type: string
+      updatedAt:
+        type: string
+      version:
         type: string
     type: object
   service.ChangePasswordRequest:
@@ -830,6 +928,278 @@ paths:
       summary: 获取告警静默列表
       tags:
       - 告警管理
+  /app/{appId}/build-config:
+    delete:
+      description: 删除应用的构建配置
+      parameters:
+      - description: 应用ID
+        in: path
+        name: appId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: 参数错误
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 删除构建配置
+      tags:
+      - 应用管理
+    get:
+      description: 获取应用的构建配置
+      parameters:
+      - description: 应用ID
+        in: path
+        name: appId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: 参数错误
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 获取构建配置
+      tags:
+      - 应用管理
+  /app/{appId}/config:
+    delete:
+      description: 删除应用的基础配置信息
+      parameters:
+      - description: 应用ID
+        in: path
+        name: appId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: 参数错误
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 删除应用配置
+      tags:
+      - 应用管理
+    get:
+      description: 获取应用的完整配置信息
+      parameters:
+      - description: 应用ID
+        in: path
+        name: appId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: 参数错误
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 获取应用配置
+      tags:
+      - 应用管理
+  /app/{appId}/deploy-config:
+    delete:
+      description: 删除应用的部署配置
+      parameters:
+      - description: 应用ID
+        in: path
+        name: appId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: 参数错误
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 删除部署配置
+      tags:
+      - 应用管理
+    get:
+      description: 获取应用的部署配置
+      parameters:
+      - description: 应用ID
+        in: path
+        name: appId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: 参数错误
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 获取部署配置
+      tags:
+      - 应用管理
+  /app/{appId}/tech-stack:
+    delete:
+      description: 删除应用的技术栈配置
+      parameters:
+      - description: 应用ID
+        in: path
+        name: appId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: 参数错误
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 删除技术栈配置
+      tags:
+      - 应用管理
+    get:
+      description: 获取应用的技术栈配置
+      parameters:
+      - description: 应用ID
+        in: path
+        name: appId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: 参数错误
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 获取技术栈配置
+      tags:
+      - 应用管理
+  /app/build-config:
+    post:
+      consumes:
+      - application/json
+      description: 保存应用的构建配置
+      parameters:
+      - description: 构建配置
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/model.BuildConfig'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: 参数错误
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 保存构建配置
+      tags:
+      - 应用管理
+  /app/config:
+    post:
+      consumes:
+      - application/json
+      description: 保存应用的基础配置信息
+      parameters:
+      - description: 应用配置
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/model.AppConfig'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: 参数错误
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 保存应用配置
+      tags:
+      - 应用管理
   /app/deploy:
     post:
       consumes:
@@ -861,6 +1231,36 @@ paths:
       summary: 部署应用
       tags:
       - 应用管理
+  /app/deploy-config:
+    post:
+      consumes:
+      - application/json
+      description: 保存应用的部署配置
+      parameters:
+      - description: 部署配置
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/model.DeployConfig'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: 参数错误
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 保存部署配置
+      tags:
+      - 应用管理
   /app/deployment/list:
     get:
       description: 获取应用部署记录列表
@@ -888,6 +1288,22 @@ paths:
       security:
       - BearerAuth: []
       summary: 获取部署记录
+      tags:
+      - 应用管理
+  /app/enums:
+    get:
+      description: 获取预定义的枚举选项（应用状态、构建环境、语言、环境等）
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 获取枚举选项
       tags:
       - 应用管理
   /app/list:
@@ -935,6 +1351,36 @@ paths:
       security:
       - BearerAuth: []
       summary: 回滚应用
+      tags:
+      - 应用管理
+  /app/tech-stack:
+    post:
+      consumes:
+      - application/json
+      description: 保存应用的技术栈配置
+      parameters:
+      - description: 技术栈配置
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/model.TechStackConfig'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: 参数错误
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 保存技术栈配置
       tags:
       - 应用管理
   /app/template/list:
@@ -2533,6 +2979,262 @@ paths:
       summary: 更新 ConfigMap
       tags:
       - K8s资源管理
+  /k8s/daemonset/create:
+    post:
+      consumes:
+      - application/json
+      description: 创建一个新的 DaemonSet
+      parameters:
+      - description: 集群ID（可选，未传则使用默认集群）
+        in: query
+        name: clusterId
+        type: integer
+      - description: 命名空间
+        in: query
+        name: namespace
+        required: true
+        type: string
+      - description: DaemonSet 对象
+        in: body
+        name: daemonset
+        required: true
+        schema:
+          $ref: '#/definitions/api.K8sObject'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/api.Response'
+      security:
+      - BearerAuth: []
+      summary: 创建 DaemonSet
+      tags:
+      - K8s资源管理
+  /k8s/daemonset/delete:
+    post:
+      consumes:
+      - application/json
+      description: 删除指定的 DaemonSet
+      parameters:
+      - description: '参数: {clusterId, namespace, name}'
+        in: body
+        name: request
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/api.Response'
+      security:
+      - BearerAuth: []
+      summary: 删除 DaemonSet
+      tags:
+      - K8s资源管理
+  /k8s/daemonset/detail:
+    get:
+      consumes:
+      - application/json
+      description: 获取指定 DaemonSet 的详细信息
+      parameters:
+      - description: 集群ID（可选，未传则使用默认集群）
+        in: query
+        name: clusterId
+        type: integer
+      - description: 命名空间
+        in: query
+        name: namespace
+        required: true
+        type: string
+      - description: 资源名称
+        in: query
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/api.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取 DaemonSet 详情
+      tags:
+      - K8s资源管理
+  /k8s/daemonset/list:
+    get:
+      consumes:
+      - application/json
+      description: 获取 DaemonSet 列表，namespace 为空时获取所有命名空间
+      parameters:
+      - description: 集群ID（可选，未传则使用默认集群）
+        in: query
+        name: clusterId
+        type: integer
+      - description: 命名空间（为空时查询所有命名空间）
+        in: query
+        name: namespace
+        type: string
+      - default: 1
+        description: 页码
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: 每页数量
+        in: query
+        name: pageSize
+        type: integer
+      - description: 关键字搜索（匹配名称）
+        in: query
+        name: keyword
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/api.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取 DaemonSet 列表
+      tags:
+      - K8s资源管理
+  /k8s/daemonset/restart:
+    post:
+      consumes:
+      - application/json
+      description: 通过修改 PodTemplate 注解触发滚动重启
+      parameters:
+      - description: '参数: {clusterId, namespace, name}'
+        in: body
+        name: request
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/api.Response'
+      security:
+      - BearerAuth: []
+      summary: 重启 DaemonSet
+      tags:
+      - K8s资源管理
+  /k8s/daemonset/update:
+    post:
+      consumes:
+      - application/json
+      description: 更新现有的 DaemonSet
+      parameters:
+      - description: 集群ID（可选，未传则使用默认集群）
+        in: query
+        name: clusterId
+        type: integer
+      - description: 命名空间
+        in: query
+        name: namespace
+        required: true
+        type: string
+      - description: DaemonSet 对象
+        in: body
+        name: daemonset
+        required: true
+        schema:
+          $ref: '#/definitions/api.K8sObject'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/api.Response'
+      security:
+      - BearerAuth: []
+      summary: 更新 DaemonSet
+      tags:
+      - K8s资源管理
+  /k8s/daemonset/yaml:
+    get:
+      consumes:
+      - application/json
+      description: 获取指定 DaemonSet 的 YAML 内容
+      parameters:
+      - description: 集群ID（可选，未传则使用默认集群）
+        in: query
+        name: clusterId
+        type: integer
+      - description: 命名空间
+        in: query
+        name: namespace
+        required: true
+        type: string
+      - description: 资源名称
+        in: query
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/api.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取 DaemonSet YAML
+      tags:
+      - K8s资源管理
+  /k8s/daemonset/yaml/update:
+    post:
+      consumes:
+      - application/json
+      description: 使用 YAML 内容更新指定 DaemonSet
+      parameters:
+      - description: 集群ID（可选，未传则使用默认集群）
+        in: query
+        name: clusterId
+        type: integer
+      - description: 命名空间
+        in: query
+        name: namespace
+        required: true
+        type: string
+      - description: 资源名称
+        in: query
+        name: name
+        required: true
+        type: string
+      - description: '参数: {yaml}'
+        in: body
+        name: request
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/api.Response'
+      security:
+      - BearerAuth: []
+      summary: 通过 YAML 更新 DaemonSet
+      tags:
+      - K8s资源管理
   /k8s/deployment/create:
     post:
       consumes:
@@ -3394,6 +4096,74 @@ paths:
       summary: 获取 Pod 详情
       tags:
       - K8s资源管理
+  /k8s/pod/detect-shell:
+    get:
+      consumes:
+      - application/json
+      description: 检测指定Pod容器中可用的shell类型
+      parameters:
+      - description: 集群ID（可选，未传则使用默认集群）
+        in: query
+        name: clusterId
+        type: integer
+      - description: 命名空间
+        in: query
+        name: namespace
+        required: true
+        type: string
+      - description: Pod名称
+        in: query
+        name: pod
+        required: true
+        type: string
+      - description: 容器名称（可选，默认第一个容器）
+        in: query
+        name: container
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/api.Response'
+      security:
+      - BearerAuth: []
+      summary: 检测Pod容器可用Shell
+      tags:
+      - K8s资源管理
+  /k8s/pod/events:
+    get:
+      consumes:
+      - application/json
+      description: 获取指定 Pod 的事件列表
+      parameters:
+      - description: 集群ID（可选，未传则使用默认集群）
+        in: query
+        name: clusterId
+        type: integer
+      - description: 命名空间
+        in: query
+        name: namespace
+        required: true
+        type: string
+      - description: Pod 名称
+        in: query
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/api.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取 Pod 事件
+      tags:
+      - K8s资源管理
   /k8s/pod/list:
     get:
       consumes:
@@ -3491,6 +4261,47 @@ paths:
       tags:
       - K8s资源管理
       - K8s资源管理
+  /k8s/pod/logs:
+    get:
+      consumes:
+      - application/json
+      description: 获取指定 Pod 的日志内容
+      parameters:
+      - description: 集群ID（可选，未传则使用默认集群）
+        in: query
+        name: clusterId
+        type: integer
+      - description: 命名空间
+        in: query
+        name: namespace
+        required: true
+        type: string
+      - description: Pod 名称
+        in: query
+        name: name
+        required: true
+        type: string
+      - description: 容器名称（可选，未指定时使用第一个容器）
+        in: query
+        name: container
+        type: string
+      - default: 100
+        description: 获取最近多少行日志
+        in: query
+        name: tailLines
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/api.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取 Pod 日志
+      tags:
+      - K8s资源管理
   /k8s/pod/terminal:
     get:
       description: WebSocket 进入 Pod 命令行（shell=bash/sh，可选 container，支持 resize）
@@ -3562,6 +4373,127 @@ paths:
       security:
       - BearerAuth: []
       summary: 更新 Pod
+      tags:
+      - K8s资源管理
+  /k8s/pod/yaml:
+    get:
+      consumes:
+      - application/json
+      description: 获取指定 Pod 的 YAML 内容
+      parameters:
+      - description: 集群ID（可选，未传则使用默认集群）
+        in: query
+        name: clusterId
+        type: integer
+      - description: 命名空间
+        in: query
+        name: namespace
+        required: true
+        type: string
+      - description: Pod 名称
+        in: query
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/api.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取 Pod YAML
+      tags:
+      - K8s资源管理
+  /k8s/pod/yaml/update:
+    post:
+      consumes:
+      - application/json
+      description: 使用 YAML 内容更新指定 Pod
+      parameters:
+      - description: 集群ID（可选，未传则使用默认集群）
+        in: query
+        name: clusterId
+        type: integer
+      - description: 命名空间
+        in: query
+        name: namespace
+        required: true
+        type: string
+      - description: Pod 名称
+        in: query
+        name: name
+        required: true
+        type: string
+      - description: '参数: {yaml}'
+        in: body
+        name: request
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/api.Response'
+      security:
+      - BearerAuth: []
+      summary: 通过 YAML 更新 Pod
+      tags:
+      - K8s资源管理
+  /k8s/resource/types:
+    get:
+      description: 返回通用YAML接口支持的资源类型列表
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/api.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取支持的资源类型
+      tags:
+      - K8s资源管理
+  /k8s/resource/yaml:
+    get:
+      consumes:
+      - application/json
+      description: 通用接口，获取任意K8s资源的YAML格式
+      parameters:
+      - description: 集群ID（可选，未传则使用默认集群）
+        in: query
+        name: clusterId
+        type: integer
+      - description: 资源类型（pod/deployment/service/ingress等）
+        in: query
+        name: resourceType
+        required: true
+        type: string
+      - description: 命名空间（集群级别资源可不传）
+        in: query
+        name: namespace
+        type: string
+      - description: 资源名称
+        in: query
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/api.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取资源YAML
       tags:
       - K8s资源管理
   /k8s/service/create:
@@ -3725,6 +4657,286 @@ paths:
       security:
       - BearerAuth: []
       summary: 更新 Service
+      tags:
+      - K8s资源管理
+  /k8s/statefulset/create:
+    post:
+      consumes:
+      - application/json
+      description: 创建一个新的 StatefulSet
+      parameters:
+      - description: 集群ID（可选，未传则使用默认集群）
+        in: query
+        name: clusterId
+        type: integer
+      - description: 命名空间
+        in: query
+        name: namespace
+        required: true
+        type: string
+      - description: StatefulSet 对象
+        in: body
+        name: statefulset
+        required: true
+        schema:
+          $ref: '#/definitions/api.K8sObject'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/api.Response'
+      security:
+      - BearerAuth: []
+      summary: 创建 StatefulSet
+      tags:
+      - K8s资源管理
+  /k8s/statefulset/delete:
+    post:
+      consumes:
+      - application/json
+      description: 删除指定的 StatefulSet
+      parameters:
+      - description: '参数: {clusterId, namespace, name}'
+        in: body
+        name: request
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/api.Response'
+      security:
+      - BearerAuth: []
+      summary: 删除 StatefulSet
+      tags:
+      - K8s资源管理
+  /k8s/statefulset/detail:
+    get:
+      consumes:
+      - application/json
+      description: 获取指定 StatefulSet 的详细信息
+      parameters:
+      - description: 集群ID（可选，未传则使用默认集群）
+        in: query
+        name: clusterId
+        type: integer
+      - description: 命名空间
+        in: query
+        name: namespace
+        required: true
+        type: string
+      - description: 资源名称
+        in: query
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/api.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取 StatefulSet 详情
+      tags:
+      - K8s资源管理
+  /k8s/statefulset/list:
+    get:
+      consumes:
+      - application/json
+      description: 获取 StatefulSet 列表，namespace 为空时获取所有命名空间
+      parameters:
+      - description: 集群ID（可选，未传则使用默认集群）
+        in: query
+        name: clusterId
+        type: integer
+      - description: 命名空间（为空时查询所有命名空间）
+        in: query
+        name: namespace
+        type: string
+      - default: 1
+        description: 页码
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: 每页数量
+        in: query
+        name: pageSize
+        type: integer
+      - description: 关键字搜索（匹配名称）
+        in: query
+        name: keyword
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/api.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取 StatefulSet 列表
+      tags:
+      - K8s资源管理
+  /k8s/statefulset/restart:
+    post:
+      consumes:
+      - application/json
+      description: 通过修改 PodTemplate 注解触发滚动重启
+      parameters:
+      - description: '参数: {clusterId, namespace, name}'
+        in: body
+        name: request
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/api.Response'
+      security:
+      - BearerAuth: []
+      summary: 重启 StatefulSet
+      tags:
+      - K8s资源管理
+  /k8s/statefulset/scale:
+    post:
+      consumes:
+      - application/json
+      description: 设置 StatefulSet 的副本数（支持缩容到 0）
+      parameters:
+      - description: '参数: {clusterId, namespace, name, replicas}'
+        in: body
+        name: request
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/api.Response'
+      security:
+      - BearerAuth: []
+      summary: 扩缩容 StatefulSet
+      tags:
+      - K8s资源管理
+  /k8s/statefulset/update:
+    post:
+      consumes:
+      - application/json
+      description: 更新现有的 StatefulSet
+      parameters:
+      - description: 集群ID（可选，未传则使用默认集群）
+        in: query
+        name: clusterId
+        type: integer
+      - description: 命名空间
+        in: query
+        name: namespace
+        required: true
+        type: string
+      - description: StatefulSet 对象
+        in: body
+        name: statefulset
+        required: true
+        schema:
+          $ref: '#/definitions/api.K8sObject'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/api.Response'
+      security:
+      - BearerAuth: []
+      summary: 更新 StatefulSet
+      tags:
+      - K8s资源管理
+  /k8s/statefulset/yaml:
+    get:
+      consumes:
+      - application/json
+      description: 获取指定 StatefulSet 的 YAML 内容
+      parameters:
+      - description: 集群ID（可选，未传则使用默认集群）
+        in: query
+        name: clusterId
+        type: integer
+      - description: 命名空间
+        in: query
+        name: namespace
+        required: true
+        type: string
+      - description: 资源名称
+        in: query
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/api.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取 StatefulSet YAML
+      tags:
+      - K8s资源管理
+  /k8s/statefulset/yaml/update:
+    post:
+      consumes:
+      - application/json
+      description: 使用 YAML 内容更新指定 StatefulSet
+      parameters:
+      - description: 集群ID（可选，未传则使用默认集群）
+        in: query
+        name: clusterId
+        type: integer
+      - description: 命名空间
+        in: query
+        name: namespace
+        required: true
+        type: string
+      - description: 资源名称
+        in: query
+        name: name
+        required: true
+        type: string
+      - description: '参数: {yaml}'
+        in: body
+        name: request
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/api.Response'
+      security:
+      - BearerAuth: []
+      summary: 通过 YAML 更新 StatefulSet
       tags:
       - K8s资源管理
   /log/search:

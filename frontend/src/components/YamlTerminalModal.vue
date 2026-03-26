@@ -3,12 +3,17 @@ import { ref, computed, watch } from 'vue'
 import { NModal, NButton, NSpace, useMessage } from 'naive-ui'
 import yaml from 'js-yaml'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   show: boolean
   title: string
   content: string
   loading?: boolean
-}>()
+  readonly?: boolean
+  width?: string
+}>(), {
+  readonly: false,
+  width: '90%'
+})
 
 const emit = defineEmits<{
   'update:show': [value: boolean]
@@ -28,8 +33,10 @@ const highlightedContent = computed(() => {
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
-    .replace(/^(\s*)([\w-]+):/gm, '$1<span class="yaml-key">$2</span>:')
-    .replace(/:\s*([^\n]+)/g, ': <span class="yaml-value">$1</span>')
+    .replace(/^(\s*)([\w.-]+):/gm, '$1<span class="yaml-key">$2</span>:')
+    .replace(/:\s*"([^"]*)"/g, ': "<span class="yaml-string">$1</span>"')
+    .replace(/:\s*(true|false|null)/g, ': <span class="yaml-bool">$1</span>')
+    .replace(/:\s*(\d+)/g, ': <span class="yaml-number">$1</span>')
     .replace(/(#[^\n]*)/g, '<span class="yaml-comment">$1</span>')
 })
 
@@ -52,15 +59,22 @@ function handleInput(e: Event) {
 }
 
 function handleScroll(e: Event) {
-  if (lineNumbersRef.value && highlightedRef.value) {
-    lineNumbersRef.value.scrollTop = (e.target as HTMLTextAreaElement).scrollTop
-    highlightedRef.value.scrollTop = (e.target as HTMLTextAreaElement).scrollTop
+  const scrollTop = (e.target as HTMLTextAreaElement | HTMLDivElement).scrollTop
+  if (lineNumbersRef.value) {
+    lineNumbersRef.value.scrollTop = scrollTop
+  }
+  if (highlightedRef.value) {
+    highlightedRef.value.scrollTop = scrollTop
   }
 }
 
 watch(() => props.show, (newVal) => {
-  if (newVal && textareaRef.value && lineNumbersRef.value) {
-    lineNumbersRef.value.scrollTop = textareaRef.value.scrollTop
+  if (newVal) {
+    setTimeout(() => {
+      if (textareaRef.value && lineNumbersRef.value) {
+        lineNumbersRef.value.scrollTop = textareaRef.value.scrollTop
+      }
+    }, 0)
   }
 })
 </script>
@@ -69,18 +83,18 @@ watch(() => props.show, (newVal) => {
   <NModal
     :show="show"
     @update:show="emit('update:show', $event)"
-    style="width: 90%; max-width: 1200px"
+    :style="{ width: width, maxWidth: '1200px' }"
     :trap-focus="false"
     :content-style="{ padding: 0, background: '#1e1e1e' }"
     :bordered="false"
   >
     <div class="yaml-terminal">
       <div class="terminal-header">
-        <span class="terminal-title">编辑YAML - {{ title }}</span>
+        <span class="terminal-title">{{ readonly ? '查看' : '编辑' }}YAML - {{ title }}</span>
         <NSpace>
-          <NButton size="small" @click="validateYaml">校验格式</NButton>
+          <NButton v-if="!readonly" size="small" @click="validateYaml">校验格式</NButton>
           <NButton size="small" @click="copyToClipboard">复制</NButton>
-          <NButton size="small" type="primary" @click="emit('save')">保存</NButton>
+          <NButton v-if="!readonly" size="small" type="primary" @click="emit('save')">保存</NButton>
           <NButton size="small" @click="emit('update:show', false)">关闭</NButton>
         </NSpace>
       </div>
@@ -90,8 +104,10 @@ watch(() => props.show, (newVal) => {
           <div v-for="(_, i) in lines" :key="i" class="line-number">{{ i + 1 }}</div>
         </div>
         <div class="editor-container">
-          <div ref="highlightedRef" class="code-highlight" v-html="highlightedContent"></div>
+          <div ref="highlightedRef" class="code-highlight" :class="{ editable: !readonly }" v-html="highlightedContent"></div>
+          <!-- 编辑模式 -->
           <textarea
+            v-if="!readonly"
             ref="textareaRef"
             :value="content"
             @input="handleInput"
@@ -141,7 +157,8 @@ watch(() => props.show, (newVal) => {
   background: #1e1e1e;
   display: flex;
   max-height: 70vh;
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .line-numbers {
@@ -154,6 +171,7 @@ watch(() => props.show, (newVal) => {
   line-height: 20px;
   user-select: none;
   overflow-y: hidden;
+  flex-shrink: 0;
 }
 
 .line-number {
@@ -164,6 +182,7 @@ watch(() => props.show, (newVal) => {
   flex: 1;
   position: relative;
   overflow: hidden;
+  min-height: 300px;
 }
 
 .code-highlight {
@@ -178,9 +197,12 @@ watch(() => props.show, (newVal) => {
   line-height: 20px;
   white-space: pre;
   overflow-y: auto;
-  pointer-events: none;
   color: #d4d4d4;
   tab-size: 2;
+}
+
+.code-highlight.editable {
+  pointer-events: none;
 }
 
 .code-editor {
@@ -205,35 +227,47 @@ watch(() => props.show, (newVal) => {
 }
 
 .code-editor::-webkit-scrollbar,
-.code-highlight::-webkit-scrollbar {
+.code-highlight::-webkit-scrollbar,
+.terminal-body::-webkit-scrollbar {
   width: 10px;
   height: 10px;
 }
 
 .code-editor::-webkit-scrollbar-track,
-.code-highlight::-webkit-scrollbar-track {
-  background: #ffffff;
+.code-highlight::-webkit-scrollbar-track,
+.terminal-body::-webkit-scrollbar-track {
+  background: #1e1e1e;
 }
 
 .code-editor::-webkit-scrollbar-thumb,
-.code-highlight::-webkit-scrollbar-thumb {
-  background: #ffffff;
+.code-highlight::-webkit-scrollbar-thumb,
+.terminal-body::-webkit-scrollbar-thumb {
+  background: #4a4a4a;
   border-radius: 5px;
-  border: 2px solid #e0e0e0;
 }
 
 .code-editor::-webkit-scrollbar-thumb:hover,
-.code-highlight::-webkit-scrollbar-thumb:hover {
-  background: #f5f5f5;
+.code-highlight::-webkit-scrollbar-thumb:hover,
+.terminal-body::-webkit-scrollbar-thumb:hover {
+  background: #5a5a5a;
 }
 
+/* YAML 语法高亮 */
 :deep(.yaml-key) {
   color: #9cdcfe;
   font-weight: 500;
 }
 
-:deep(.yaml-value) {
+:deep(.yaml-string) {
   color: #ce9178;
+}
+
+:deep(.yaml-number) {
+  color: #b5cea8;
+}
+
+:deep(.yaml-bool) {
+  color: #569cd6;
 }
 
 :deep(.yaml-comment) {

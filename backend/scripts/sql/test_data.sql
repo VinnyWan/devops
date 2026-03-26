@@ -9,23 +9,33 @@ TRUNCATE TABLE `users`;
 TRUNCATE TABLE `roles`;
 TRUNCATE TABLE `permissions`;
 TRUNCATE TABLE `departments`;
+TRUNCATE TABLE `tenants`;
 SET FOREIGN_KEY_CHECKS = 1;
 
--- 2. 创建部门 (多层级)
--- 总公司 (1) -> 研发部 (2), 运维部 (3), 产品部 (4), 人力资源部 (7)
+-- 1.1 创建默认租户
+INSERT INTO `tenants` (`id`, `name`, `code`, `description`, `status`, `max_users`, `max_departments`, `max_roles`, `contact_name`, `contact_email`, `created_at`, `updated_at`) VALUES
+(1, '默认租户', 'default', '系统默认租户', 'active', 1000, 100, 100, '系统管理员', 'admin@example.com', NOW(), NOW()),
+(2, '研发中心', 'dev-center', '研发中心租户', 'active', 500, 50, 50, '研发主管', 'dev@example.com', NOW(), NOW());
+
+-- 2. 创建部门 (多层级，支持租户)
+-- 默认租户(1): 总公司 (1) -> 研发部 (2), 运维部 (3), 产品部 (4), 人力资源部 (7)
 -- 研发部 (2) -> 后端组 (5), 前端组 (6), 移动端组 (8)
 -- 运维部 (3) -> 基础运维 (9), 应用运维 (10)
-INSERT INTO `departments` (`id`, `name`, `parent_id`, `created_at`, `updated_at`) VALUES
-(1, '总公司', NULL, NOW(), NOW()),
-(2, '研发部', 1, NOW(), NOW()),
-(3, '运维部', 1, NOW(), NOW()),
-(4, '产品部', 1, NOW(), NOW()),
-(5, '后端组', 2, NOW(), NOW()),
-(6, '前端组', 2, NOW(), NOW()),
-(7, '人力资源部', 1, NOW(), NOW()),
-(8, '移动端组', 2, NOW(), NOW()),
-(9, '基础运维', 3, NOW(), NOW()),
-(10, '应用运维', 3, NOW(), NOW());
+INSERT INTO `departments` (`id`, `tenant_id`, `name`, `parent_id`, `created_at`, `updated_at`) VALUES
+(1, 1, '总公司', NULL, NOW(), NOW()),
+(2, 1, '研发部', 1, NOW(), NOW()),
+(3, 1, '运维部', 1, NOW(), NOW()),
+(4, 1, '产品部', 1, NOW(), NOW()),
+(5, 1, '后端组', 2, NOW(), NOW()),
+(6, 1, '前端组', 2, NOW(), NOW()),
+(7, 1, '人力资源部', 1, NOW(), NOW()),
+(8, 1, '移动端组', 2, NOW(), NOW()),
+(9, 1, '基础运维', 3, NOW(), NOW()),
+(10, 1, '应用运维', 3, NOW(), NOW()),
+-- 研发中心租户(2)
+(11, 2, '研发中心', NULL, NOW(), NOW()),
+(12, 2, '前端组', 11, NOW(), NOW()),
+(13, 2, '后端组', 11, NOW(), NOW());
 
 -- 3. 创建权限 (覆盖全模块 CRUD)
 INSERT INTO `permissions` (`id`, `name`, `resource`, `action`, `description`, `created_at`, `updated_at`) VALUES
@@ -57,16 +67,46 @@ INSERT INTO `permissions` (`id`, `name`, `resource`, `action`, `description`, `c
 -- 权限管理
 (17, '查看权限', 'permission', 'list', '查看权限列表', NOW(), NOW()),
 -- 审计管理
-(18, '查看审计日志', 'audit', 'list', '查看操作审计日志', NOW(), NOW());
+(18, '查看审计日志', 'audit', 'list', '查看操作审计日志', NOW(), NOW()),
+-- 应用管理
+(23, '查看应用', 'app', 'list', '查看应用列表', NOW(), NOW()),
+(24, '创建应用', 'app', 'create', '创建新应用', NOW(), NOW()),
+(25, '更新应用', 'app', 'update', '更新应用信息', NOW(), NOW()),
+(26, '删除应用', 'app', 'delete', '删除应用', NOW(), NOW()),
+-- 告警管理
+(27, '查看告警', 'alert', 'list', '查看告警列表', NOW(), NOW()),
+(28, '创建告警', 'alert', 'create', '创建告警规则', NOW(), NOW()),
+(29, '更新告警', 'alert', 'update', '更新告警规则', NOW(), NOW()),
+(30, '删除告警', 'alert', 'delete', '删除告警规则', NOW(), NOW()),
+-- 日志管理
+(31, '查看日志', 'log', 'list', '查看日志列表', NOW(), NOW()),
+-- 监控管理
+(32, '查看监控', 'monitor', 'list', '查看监控数据', NOW(), NOW()),
+-- Harbor管理
+(33, '查看Harbor', 'harbor', 'list', '查看Harbor项目', NOW(), NOW()),
+-- CI/CD管理
+(34, '查看CI/CD', 'cicd', 'list', '查看CI/CD流水线', NOW(), NOW()),
+(35, '创建CI/CD', 'cicd', 'create', '创建CI/CD流水线', NOW(), NOW()),
+(36, '更新CI/CD', 'cicd', 'update', '更新CI/CD流水线', NOW(), NOW()),
+(37, '删除CI/CD', 'cicd', 'delete', '删除CI/CD流水线', NOW(), NOW()),
+-- 租户管理
+(38, '查看租户', 'tenant', 'list', '查看租户列表', NOW(), NOW()),
+(39, '创建租户', 'tenant', 'create', '创建新租户', NOW(), NOW()),
+(40, '更新租户', 'tenant', 'update', '更新租户信息', NOW(), NOW()),
+(41, '删除租户', 'tenant', 'delete', '删除租户', NOW(), NOW());
 
--- 4. 创建角色 (系统角色与自定义角色)
-INSERT INTO `roles` (`id`, `name`, `description`, `type`, `created_at`, `updated_at`) VALUES
-(1, 'SYSTEM_ADMIN', '系统管理员-拥有所有权限', 'system', NOW(), NOW()),
-(2, 'READ_ONLY', '全局只读角色', 'system', NOW(), NOW()),
-(3, 'DEPT_ADMIN', '部门管理员-管理部门内成员', 'custom', NOW(), NOW()),
-(4, 'DEVELOPER', '研发人员-集群开发权限', 'custom', NOW(), NOW()),
-(5, 'OPS_ENGINEER', '运维工程师-集群全权管理', 'custom', NOW(), NOW()),
-(6, 'AUDITOR', '审计员-仅查看审计日志', 'custom', NOW(), NOW());
+-- 4. 创建角色 (系统角色与自定义角色，支持租户)
+-- 全局角色(tenant_id 为 NULL)可以被所有租户使用
+INSERT INTO `roles` (`id`, `tenant_id`, `name`, `display_name`, `description`, `type`, `created_at`, `updated_at`) VALUES
+(1, NULL, 'SYSTEM_ADMIN', '系统管理员', '系统管理员-拥有所有权限', 'system', NOW(), NOW()),
+(2, NULL, 'READ_ONLY', '只读用户', '全局只读角色', 'system', NOW(), NOW()),
+(3, NULL, 'DEPT_ADMIN', '部门管理员', '部门管理员-管理部门内成员', 'custom', NOW(), NOW()),
+(4, NULL, 'DEVELOPER', '研发人员', '研发人员-集群开发权限', 'custom', NOW(), NOW()),
+(5, NULL, 'OPS_ENGINEER', '运维工程师', '运维工程师-集群全权管理', 'custom', NOW(), NOW()),
+(6, NULL, 'AUDITOR', '审计员', '审计员-仅查看审计日志', 'custom', NOW(), NOW()),
+(7, NULL, 'TENANT_ADMIN', '租户管理员', '租户管理员-管理租户内所有资源', 'system', NOW(), NOW()),
+-- 租户专属角色
+(8, 2, 'DEV_CENTER_ADMIN', '研发中心管理员', '研发中心专属管理员', 'custom', NOW(), NOW());
 
 -- 5. 角色关联权限
 -- SYSTEM_ADMIN (ID:1): 所有权限 (1-18)
@@ -99,18 +139,22 @@ INSERT INTO `department_roles` (`department_id`, `role_id`) VALUES (2, 4);
 -- 运维部(3) 及其子部门继承 OPS_ENGINEER(5)
 INSERT INTO `department_roles` (`department_id`, `role_id`) VALUES (3, 5);
 
--- 7. 创建用户 (覆盖各种状态和类型)
--- 密码均为: 123456 (bcrypt: $2a$10$PXeuwlmYZmIGbyOlKM.SiOLRUdHr7.7cIFpcxx5cAfMLn9ZLxTR5i)
--- 注意: 这里的 Hash 是 123456 的正确 bcrypt 值
-INSERT INTO `users` (`id`, `username`, `password`, `email`, `department_id`, `is_admin`, `status`, `created_at`, `updated_at`) VALUES
-(1, 'admin', '$2a$10$PXeuwlmYZmIGbyOlKM.SiOLRUdHr7.7cIFpcxx5cAfMLn9ZLxTR5i', 'admin@example.com', 1, 1, 'active', NOW(), NOW()),
-(2, 'dept_mgr', '$2a$10$PXeuwlmYZmIGbyOlKM.SiOLRUdHr7.7cIFpcxx5cAfMLn9ZLxTR5i', 'mgr@example.com', 2, 0, 'active', NOW(), NOW()),
-(3, 'dev_01', '$2a$10$PXeuwlmYZmIGbyOlKM.SiOLRUdHr7.7cIFpcxx5cAfMLn9ZLxTR5i', 'dev01@example.com', 5, 0, 'active', NOW(), NOW()),
-(4, 'dev_02', '$2a$10$PXeuwlmYZmIGbyOlKM.SiOLRUdHr7.7cIFpcxx5cAfMLn9ZLxTR5i', 'dev02@example.com', 6, 0, 'active', NOW(), NOW()),
-(5, 'ops_01', '$2a$10$PXeuwlmYZmIGbyOlKM.SiOLRUdHr7.7cIFpcxx5cAfMLn9ZLxTR5i', 'ops01@example.com', 9, 0, 'active', NOW(), NOW()),
-(6, 'auditor_user', '$2a$10$PXeuwlmYZmIGbyOlKM.SiOLRUdHr7.7cIFpcxx5cAfMLn9ZLxTR5i', 'audit@example.com', 7, 0, 'active', NOW(), NOW()),
-(7, 'locked_user', '$2a$10$PXeuwlmYZmIGbyOlKM.SiOLRUdHr7.7cIFpcxx5cAfMLn9ZLxTR5i', 'locked@example.com', 4, 0, 'locked', NOW(), NOW()),
-(8, 'pending_user', '$2a$10$PXeuwlmYZmIGbyOlKM.SiOLRUdHr7.7cIFpcxx5cAfMLn9ZLxTR5i', 'pending@example.com', 1, 0, 'pending', NOW(), NOW());
+-- 7. 创建用户 (覆盖各种状态和类型，支持租户)
+-- 密码均为: admin@2026 (bcrypt hash)
+INSERT INTO `users` (`id`, `tenant_id`, `username`, `password`, `email`, `department_id`, `is_admin`, `status`, `created_at`, `updated_at`) VALUES
+-- 默认租户用户
+(1, 1, 'admin', '$2a$10$D3icwPuI7rPaCxOCuuyPFecYbqGy2vJOT40vCy/Qhd6Zz2RU0ufxC', 'admin@example.com', 1, 1, 'active', NOW(), NOW()),
+(2, 1, 'dept_mgr', '$2a$10$D3icwPuI7rPaCxOCuuyPFecYbqGy2vJOT40vCy/Qhd6Zz2RU0ufxC', 'mgr@example.com', 2, 0, 'active', NOW(), NOW()),
+(3, 1, 'dev_01', '$2a$10$D3icwPuI7rPaCxOCuuyPFecYbqGy2vJOT40vCy/Qhd6Zz2RU0ufxC', 'dev01@example.com', 5, 0, 'active', NOW(), NOW()),
+(4, 1, 'dev_02', '$2a$10$D3icwPuI7rPaCxOCuuyPFecYbqGy2vJOT40vCy/Qhd6Zz2RU0ufxC', 'dev02@example.com', 6, 0, 'active', NOW(), NOW()),
+(5, 1, 'ops_01', '$2a$10$D3icwPuI7rPaCxOCuuyPFecYbqGy2vJOT40vCy/Qhd6Zz2RU0ufxC', 'ops01@example.com', 9, 0, 'active', NOW(), NOW()),
+(6, 1, 'auditor_user', '$2a$10$D3icwPuI7rPaCxOCuuyPFecYbqGy2vJOT40vCy/Qhd6Zz2RU0ufxC', 'audit@example.com', 7, 0, 'active', NOW(), NOW()),
+(7, 1, 'locked_user', '$2a$10$D3icwPuI7rPaCxOCuuyPFecYbqGy2vJOT40vCy/Qhd6Zz2RU0ufxC', 'locked@example.com', 4, 0, 'locked', NOW(), NOW()),
+(8, 1, 'pending_user', '$2a$10$D3icwPuI7rPaCxOCuuyPFecYbqGy2vJOT40vCy/Qhd6Zz2RU0ufxC', 'pending@example.com', 1, 0, 'pending', NOW(), NOW()),
+-- 研发中心租户用户
+(9, 2, 'dev_center_admin', '$2a$10$D3icwPuI7rPaCxOCuuyPFecYbqGy2vJOT40vCy/Qhd6Zz2RU0ufxC', 'dev_admin@example.com', 11, 1, 'active', NOW(), NOW()),
+(10, 2, 'dev_fe', '$2a$10$D3icwPuI7rPaCxOCuuyPFecYbqGy2vJOT40vCy/Qhd6Zz2RU0ufxC', 'fe@example.com', 12, 0, 'active', NOW(), NOW()),
+(11, 2, 'dev_be', '$2a$10$D3icwPuI7rPaCxOCuuyPFecYbqGy2vJOT40vCy/Qhd6Zz2RU0ufxC', 'be@example.com', 13, 0, 'active', NOW(), NOW());
 
 -- 8. 用户关联个体角色
 -- admin (1) 拥有 SYSTEM_ADMIN (1)
@@ -119,3 +163,9 @@ INSERT INTO `user_roles` (`user_id`, `role_id`) VALUES (1, 1);
 INSERT INTO `user_roles` (`user_id`, `role_id`) VALUES (2, 3);
 -- dev_01 (3) 额外拥有 READ_ONLY (2) 权限
 INSERT INTO `user_roles` (`user_id`, `role_id`) VALUES (3, 2);
+-- 研发中心管理员 (9) 拥有 TENANT_ADMIN (7) 和租户专属角色 (8)
+INSERT INTO `user_roles` (`user_id`, `role_id`) VALUES (9, 7), (9, 8);
+-- 前端开发 (10) 拥有 DEVELOPER (4)
+INSERT INTO `user_roles` (`user_id`, `role_id`) VALUES (10, 4);
+-- 后端开发 (11) 拥有 DEVELOPER (4)
+INSERT INTO `user_roles` (`user_id`, `role_id`) VALUES (11, 4);

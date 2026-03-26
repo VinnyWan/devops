@@ -19,7 +19,7 @@ func registerUser(r *gin.RouterGroup) {
 		// 用户列表与详情 (查看权限)
 		g.GET("/list", middleware.RequirePermission("user", "list"), api.List)
 		g.GET("/detail", middleware.RequirePermission("user", "list"), api.GetDetail)
-		
+
 		// 用户更新与删除 (管理权限)
 		g.POST("/update", middleware.RequirePermission("user", "update"), middleware.SetAuditOperation("更新用户"), api.Update)
 		g.POST("/delete", middleware.RequirePermission("user", "delete"), middleware.SetAuditOperation("删除用户"), api.Delete)

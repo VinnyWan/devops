@@ -59,13 +59,14 @@ func InitDB() error {
 	sqlDB.SetMaxOpenConns(maxOpen)
 	sqlDB.SetConnMaxLifetime(time.Hour)
 
-	// 自动迁移数据表
+	// 自动迁移数据表 (注意顺序：先迁移被依赖的表)
 	err = db.AutoMigrate(
-		&userModel.Department{}, // 新增
+		&userModel.Tenant{},     // 租户表 (最优先，其他表可能关联)
+		&userModel.Department{}, // 部门表
 		&userModel.User{},
 		&userModel.Role{},
 		&userModel.Permission{},
-		&userModel.AuditLog{}, // 新增审计日志
+		&userModel.AuditLog{}, // 审计日志
 		&k8sModel.Cluster{},
 	)
 	if err != nil {
@@ -196,6 +197,32 @@ func seedPermissions(db *gorm.DB) error {
 		{Name: "更新权限", Resource: "permission", Action: "update", Description: "更新权限"},
 		{Name: "删除权限", Resource: "permission", Action: "delete", Description: "删除权限"},
 		{Name: "查看审计日志", Resource: "audit", Action: "list", Description: "查看操作审计日志"},
+		// 应用管理权限
+		{Name: "查看应用", Resource: "app", Action: "list", Description: "查看应用列表"},
+		{Name: "创建应用", Resource: "app", Action: "create", Description: "创建新应用"},
+		{Name: "更新应用", Resource: "app", Action: "update", Description: "更新应用信息"},
+		{Name: "删除应用", Resource: "app", Action: "delete", Description: "删除应用"},
+		// 告警管理权限
+		{Name: "查看告警", Resource: "alert", Action: "list", Description: "查看告警列表"},
+		{Name: "创建告警规则", Resource: "alert", Action: "create", Description: "创建告警规则"},
+		{Name: "更新告警规则", Resource: "alert", Action: "update", Description: "更新告警规则"},
+		{Name: "删除告警规则", Resource: "alert", Action: "delete", Description: "删除告警规则"},
+		// 日志管理权限
+		{Name: "查看日志", Resource: "log", Action: "list", Description: "查看日志列表"},
+		// 监控管理权限
+		{Name: "查看监控", Resource: "monitor", Action: "list", Description: "查看监控数据"},
+		// Harbor 管理权限
+		{Name: "查看Harbor", Resource: "harbor", Action: "list", Description: "查看Harbor项目"},
+		// CI/CD 管理权限
+		{Name: "查看CI/CD", Resource: "cicd", Action: "list", Description: "查看CI/CD流水线"},
+		{Name: "创建CI/CD", Resource: "cicd", Action: "create", Description: "创建CI/CD流水线"},
+		{Name: "更新CI/CD", Resource: "cicd", Action: "update", Description: "更新CI/CD流水线"},
+		{Name: "删除CI/CD", Resource: "cicd", Action: "delete", Description: "删除CI/CD流水线"},
+		// 租户管理权限
+		{Name: "查看租户", Resource: "tenant", Action: "list", Description: "查看租户列表"},
+		{Name: "创建租户", Resource: "tenant", Action: "create", Description: "创建新租户"},
+		{Name: "更新租户", Resource: "tenant", Action: "update", Description: "更新租户信息"},
+		{Name: "删除租户", Resource: "tenant", Action: "delete", Description: "删除租户"},
 	}
 
 	createdCount := 0

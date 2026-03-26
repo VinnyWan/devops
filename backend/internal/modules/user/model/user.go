@@ -18,9 +18,10 @@ const (
 // User 用户模型
 type User struct {
 	ID         uint   `gorm:"primaryKey"`
-	Username   string `gorm:"uniqueIndex;size:100;not null" json:"username"`
+	TenantID   *uint  `gorm:"index" json:"tenantId"` // 租户ID
+	Username   string `gorm:"size:100;not null;index:idx_tenant_username" json:"username"`
 	Password   string `gorm:"size:255" json:"-"`
-	Email      string `gorm:"uniqueIndex;size:255" json:"email"`
+	Email      string `gorm:"size:255;index:idx_tenant_email" json:"email"`
 	Name       string `gorm:"size:100;index" json:"name"`
 	ExternalID string `gorm:"size:255" json:"externalId"`
 
@@ -32,11 +33,18 @@ type User struct {
 
 	DepartmentID *uint       `gorm:"index" json:"departmentId"`
 	Department   *Department `json:"department,omitempty"`
+	Tenant       *Tenant     `json:"tenant,omitempty"`
 
 	Roles []Role `gorm:"many2many:user_roles;" json:"roles"`
 
-	LastLoginAt *time.Time `json:"lastLoginAt"`
-	CreatedAt   time.Time  `gorm:"index" json:"createdAt"`
-	UpdatedAt   time.Time  `json:"updatedAt"`
+	LastLoginAt *time.Time     `json:"lastLoginAt"`
+	CreatedAt   time.Time      `gorm:"index" json:"createdAt"`
+	UpdatedAt   time.Time      `json:"updatedAt"`
 	DeletedAt   gorm.DeletedAt `gorm:"index" json:"-"`
+}
+
+// TenantUser 租户用户关联 (用于查询)
+type TenantUser struct {
+	TenantID uint
+	UserID   uint
 }

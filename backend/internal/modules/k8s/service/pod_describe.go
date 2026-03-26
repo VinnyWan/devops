@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
+	"golang.org/x/sync/errgroup"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"golang.org/x/sync/errgroup"
 )
 
 // PodDescribeVO 聚合 Pod 的完整诊断信息
@@ -67,7 +67,7 @@ type EventInfoVO struct {
 	Message        string    `json:"message"`
 	Count          int32     `json:"count"`
 	FirstTimestamp time.Time `json:"firstTimestamp"`
-	LastTimestamp   time.Time `json:"lastTimestamp"`
+	LastTimestamp  time.Time `json:"lastTimestamp"`
 	Source         string    `json:"source"`
 }
 
@@ -175,7 +175,7 @@ func (s *K8sService) DescribePod(clusterId uint, namespace, name string) (*PodDe
 			Message:        e.Message,
 			Count:          e.Count,
 			FirstTimestamp: e.FirstTimestamp.Time,
-			LastTimestamp:   e.LastTimestamp.Time,
+			LastTimestamp:  e.LastTimestamp.Time,
 			Source:         e.Source.Component,
 		})
 	}

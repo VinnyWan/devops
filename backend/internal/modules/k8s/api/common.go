@@ -11,8 +11,8 @@ import (
 	"devops-platform/internal/pkg/k8s"
 
 	"github.com/gin-gonic/gin"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"gorm.io/gorm"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
 var (

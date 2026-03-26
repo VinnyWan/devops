@@ -21,10 +21,11 @@ import {
 } from '@/api/generated/cluster.api'
 import { unwrapResponseData } from '@/api/service'
 
-export function getClusterList(params: PageParams = { page: 1, pageSize: 10 }) {
-  return unwrapResponseData<Cluster[]>(
+export async function getClusterList(params: PageParams = { page: 1, pageSize: 10 }) {
+  const data = await unwrapResponseData<Cluster[] | null>(
     k8sClusterListPost(params as Parameters<typeof k8sClusterListPost>[0]),
   )
+  return data ?? []
 }
 
 export function createCluster(data: ClusterForm) {

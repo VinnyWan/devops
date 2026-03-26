@@ -15,13 +15,13 @@ const routes: RouteRecordRaw[] = [
     path: '/dashboard',
     name: 'Dashboard',
     component: () => import('@/views/dashboard/DashboardView.vue'),
-    meta: { title: '仪表盘' },
+    meta: { title: '仪表盘', permissions: ['dashboard:view'] },
   },
   {
     path: '/asset',
     name: 'Asset',
     component: () => import('@/views/asset/AssetList.vue'),
-    meta: { title: '资产管理' },
+    meta: { title: '资产管理', permissions: ['asset:list'] },
   },
   {
     path: '/cluster',
@@ -112,6 +112,12 @@ const routes: RouteRecordRaw[] = [
     name: 'AuditCenter',
     component: () => import('@/views/ops/AuditCenter.vue'),
     meta: { title: '审计日志', permissions: ['audit:list'] },
+  },
+  {
+    path: '/ops/api-docs',
+    name: 'ApiDocs',
+    component: () => import('@/views/ops/ApiDocs.vue'),
+    meta: { title: 'API 文档' },
   },
   {
     path: '/system/users',

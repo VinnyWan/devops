@@ -140,6 +140,8 @@ func registerCluster(r *gin.RouterGroup) {
 			middleware.SetAuditOperation("YAML更新Pod"),
 			api.UpdatePodYAML)
 		g.GET("/pod/logs", listPermission, api.GetPodLogs)
+		g.GET("/pod/events", listPermission, api.GetPodEvents)
+		g.GET("/pod/detect-shell", listPermission, api.DetectPodShell)
 		g.GET("/pod/terminal", listPermission, api.PodTerminal)
 		g.POST("/pod/create",
 			createPermission,
@@ -222,5 +224,9 @@ func registerCluster(r *gin.RouterGroup) {
 			updatePermission,
 			middleware.SetAuditOperation("更新节点污点"),
 			api.UpdateNodeTaints)
+
+		// 通用资源YAML接口
+		g.GET("/resource/yaml", listPermission, api.GetResourceYAML)
+		g.GET("/resource/types", listPermission, api.GetSupportedResourceTypes)
 	}
 }

@@ -37,4 +37,3 @@ func TestCORSPreflight(t *testing.T) {
 		t.Fatalf("expected allow-credentials true, got %q", got)
 	}
 }
-

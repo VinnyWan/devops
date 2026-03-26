@@ -22,7 +22,6 @@ backend/.DS_Store
 backend/logs/
 backend/*.log
 backend/config/config.yaml
-backend/!config/config.yaml.example
 
 # Frontend
 frontend/CLAUDE.md

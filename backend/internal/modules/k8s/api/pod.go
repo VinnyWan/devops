@@ -317,6 +317,48 @@ func ListPodsByOwner(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"code": 200, "data": data})
 }
 
+// GetPodEvents godoc
+// @Summary 获取 Pod 事件
+// @Description 获取指定 Pod 的事件列表
+// @Tags K8s资源管理
+// @Accept json
+// @Produce json
+// @Param clusterId query int false "集群ID（可选，未传则使用默认集群）"
+// @Param namespace query string true "命名空间"
+// @Param name query string true "Pod 名称"
+// @Success 200 {object} Response "成功"
+// @Security BearerAuth
+// @Router /k8s/pod/events [get]
+func GetPodEvents(c *gin.Context) {
+	namespace := c.Query("namespace")
+	name := c.Query("name")
+
+	if namespace == "" || name == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "参数不完整"})
+		return
+	}
+
+	clusterID, err := resolveClusterID(c)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
+		return
+	}
+
+	svc, err := getK8sService()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+		return
+	}
+
+	events, err := svc.GetPodEvents(clusterID, namespace, name)
+	if err != nil {
+		handleK8sError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"code": 200, "data": gin.H{"events": events}})
+}
+
 // GetPodLogs godoc
 // @Summary 获取 Pod 日志
 // @Description 获取指定 Pod 的日志内容

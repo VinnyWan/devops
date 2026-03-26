@@ -109,4 +109,3 @@ func (s *K8sService) ScaleDeployment(clusterId uint, namespace, name string, rep
 	patch := fmt.Sprintf(`{"spec":{"replicas":%d}}`, replicas)
 	return client.AppsV1().Deployments(namespace).Patch(context.Background(), name, types.StrategicMergePatchType, []byte(patch), metav1.PatchOptions{})
 }
-

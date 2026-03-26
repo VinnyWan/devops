@@ -14,7 +14,7 @@ func Register(r *gin.Engine) {
 	// 认证相关公开接口
 	apiV1.POST("/user/login", api.Login)
 	apiV1.POST("/user/register", api.Register)
-	
+
 	// OIDC
 	apiV1.GET("/auth/oidc/login", api.OIDCLogin)
 	apiV1.GET("/auth/oidc/callback", api.OIDCCallback)
@@ -22,7 +22,7 @@ func Register(r *gin.Engine) {
 	// 鉴权接口
 	auth := apiV1.Group("")
 	auth.Use(authMiddlewares()...)
-	
+
 	auth.POST("/user/logout", api.Logout)
 
 	// 按模块注册

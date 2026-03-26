@@ -5,6 +5,7 @@ import { NCard, NSpace, NDataTable, NButton, useMessage, NPagination, NTabs, NTa
 import ClusterSelector from '@/components/ClusterSelector.vue'
 import YamlTerminalModal from '@/components/YamlTerminalModal.vue'
 import { useCluster } from '@/composables/useCluster'
+import { useYamlModal, resourceTypeNames } from '@/composables/useYamlModal'
 import {
   k8sK8sDeploymentListPost,
   k8sK8sDeploymentScalePost,
@@ -47,13 +48,13 @@ const showScaleModal = ref(false)
 const scaleReplicas = ref(0)
 const currentWorkload = ref<any>(null)
 
-// YAML 弹窗
-const showYamlModal = ref(false)
-const yamlContent = ref('')
-const yamlLoading = ref(false)
-
 // 删除确认弹窗
 const showDeleteModal = ref(false)
+
+// YAML 弹窗 - 使用 composable
+const yamlModal = useYamlModal({
+  onSaveSuccess: () => fetchData()
+})
 
 const router = useRouter()
 
@@ -131,24 +132,16 @@ const columns = computed(() => [
 ])
 
 async function fetchNamespaces() {
-  if (!currentClusterId.value) {
-    console.warn('未选择集群，无法获取命名空间')
-    return
-  }
+  if (!currentClusterId.value) return
   try {
     const res = await k8sK8sNamespacesListPost({ clusterId: currentClusterId.value })
     const namespaces = (res.data as any).data || []
-    console.log('获取到的命名空间列表:', namespaces)
     namespaceOptions.value = [
       { label: '所有命名空间', value: 'all' },
       ...namespaces.map((ns: any) => ({ label: ns.name, value: ns.name }))
     ]
-    if (namespaceOptions.value.length === 1) {
-      console.warn('当前集群没有可用的命名空间')
-    }
   } catch (error: any) {
-    console.error('获取命名空间失败:', error)
-    message.error('获取命名空间列表失败，请检查集群连接')
+    message.error('获取命名空间列表失败')
   }
 }
 
@@ -218,12 +211,12 @@ async function scaleWorkload() {
   }
 }
 
+// 打开 YAML 弹窗
 async function openYamlModal(row: any) {
   currentWorkload.value = row
-  yamlLoading.value = true
-  showYamlModal.value = true
 
-  try {
+  // 定义获取 YAML 的函数
+  const fetchYaml = async () => {
     const params = {
       clusterId: currentClusterId.value!,
       namespace: row.namespace,
@@ -242,38 +235,41 @@ async function openYamlModal(row: any) {
         res = await k8sK8sDaemonSetYamlPost(params)
         break
     }
-
-    yamlContent.value = res?.data.data?.yaml || ''
-  } catch (error: any) {
-    message.error('获取YAML失败: ' + error.message)
-  } finally {
-    yamlLoading.value = false
+    return res?.data.data?.yaml || ''
   }
+
+  // 使用 composable 打开弹窗
+  await yamlModal.openWithFetch(
+    fetchYaml,
+    { type: resourceTypeNames[resourceType.value], namespace: row.namespace, name: row.name }
+  )
 }
 
+// 保存 YAML
 async function saveYaml() {
-  try {
+  // 定义保存函数
+  const saveFunc = async (yaml: string) => {
     const params = {
       clusterId: currentClusterId.value!,
       namespace: currentWorkload.value.namespace,
       name: currentWorkload.value.name
     }
-    const data = { yaml: yamlContent.value }
+    const data = { yaml }
 
-    if (resourceType.value === 'deployment') {
-      await k8sK8sDeploymentYamlUpdatePost(params, data)
-    } else if (resourceType.value === 'statefulset') {
-      await k8sK8sStatefulSetYamlUpdatePost(params, data)
-    } else if (resourceType.value === 'daemonset') {
-      await k8sK8sDaemonSetYamlUpdatePost(params, data)
+    switch (resourceType.value) {
+      case 'deployment':
+        await k8sK8sDeploymentYamlUpdatePost(params, data)
+        break
+      case 'statefulset':
+        await k8sK8sStatefulSetYamlUpdatePost(params, data)
+        break
+      case 'daemonset':
+        await k8sK8sDaemonSetYamlUpdatePost(params, data)
+        break
     }
-
-    message.success('保存成功')
-    showYamlModal.value = false
-    fetchData()
-  } catch (error: any) {
-    message.error('保存失败: ' + error.message)
   }
+
+  await yamlModal.save(saveFunc)
 }
 
 function openDeleteModal(row: any) {
@@ -315,12 +311,10 @@ function handlePageSizeChange(newSize: number) {
   fetchData()
 }
 
-// 查看详情
 function viewDetail(row: any) {
   router.push(`/workload/${resourceType.value}/${row.namespace}/${row.name}`)
 }
 
-// 分页变化处理
 function handlePageChange(newPage: number) {
   page.value = newPage
   fetchData()
@@ -403,12 +397,12 @@ onMounted(() => {
       </template>
     </NModal>
 
-    <!-- YAML 编辑弹窗 -->
+    <!-- YAML 弹窗 - 使用 composable 状态 -->
     <YamlTerminalModal
-      v-model:show="showYamlModal"
-      v-model:content="yamlContent"
-      :title="`${resourceType} / ${currentWorkload?.name || ''}`"
-      :loading="yamlLoading"
+      v-model:show="yamlModal.show.value"
+      v-model:content="yamlModal.content.value"
+      :title="yamlModal.title.value"
+      :loading="yamlModal.loading.value"
       @save="saveYaml"
     />
 

@@ -33,11 +33,53 @@ onMounted(() => {
 
   // WebSocket 连接
   ws = new WebSocket(props.wsUrl)
-  ws.onmessage = (e) => terminal?.write(e.data)
-  ws.onclose = () => terminal?.write('\r\n连接已断开\r\n')
 
+  ws.onopen = () => {
+    terminal?.writeln('\x1b[32m连接已建立\x1b[0m')
+  }
+
+  ws.onmessage = (e) => {
+    try {
+      const message = JSON.parse(e.data)
+      if (message.operation === 'stdout' && message.data) {
+        terminal?.write(message.data)
+      } else if (message.operation === 'error') {
+        terminal?.writeln(`\x1b[31m错误: ${message.data}\x1b[0m`)
+      }
+    } catch {
+      // 如果不是JSON格式，直接写入
+      terminal?.write(e.data)
+    }
+  }
+
+  ws.onclose = () => {
+    terminal?.writeln('\r\n\x1b[33m连接已断开\x1b[0m')
+  }
+
+  ws.onerror = (error) => {
+    console.error('WebSocket error:', error)
+    terminal?.writeln('\x1b[31m连接错误\x1b[0m')
+  }
+
+  // 用户输入时发送到后端
   terminal.onData((data) => {
-    ws?.send(data)
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({
+        operation: 'stdin',
+        data: data
+      }))
+    }
+  })
+
+  // 终端resize时发送尺寸变化
+  terminal.onResize(({ cols, rows }) => {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({
+        operation: 'resize',
+        cols: cols,
+        rows: rows
+      }))
+    }
   })
 
   window.addEventListener('resize', handleResize)
@@ -49,8 +91,12 @@ function handleResize() {
 
 onUnmounted(() => {
   window.removeEventListener('resize', handleResize)
-  ws?.close()
-  terminal?.dispose()
+  if (ws) {
+    ws.close()
+  }
+  if (terminal) {
+    terminal.dispose()
+  }
 })
 </script>
 

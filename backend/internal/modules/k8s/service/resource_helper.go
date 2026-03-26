@@ -8,6 +8,8 @@ import (
 	"devops-platform/internal/modules/k8s/model"
 	queryutil "devops-platform/internal/pkg/query"
 
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 )
@@ -99,4 +101,78 @@ func paginateItems[T any](items []T, page, pageSize int) ([]T, int64) {
 	page, pageSize = normalizePage(page, pageSize)
 	start, end := paginateRange(len(items), page, pageSize)
 	return items[start:end], total
+}
+
+// buildContainerInfos 构建容器信息列表
+func buildContainerInfos(containers []corev1.Container) []ContainerInfo {
+	result := make([]ContainerInfo, 0, len(containers))
+	for _, c := range containers {
+		result = append(result, ContainerInfo{
+			Name:      c.Name,
+			Image:     c.Image,
+			Resources: formatResources(c.Resources),
+		})
+	}
+	return result
+}
+
+// formatResources 格式化资源请求和限制
+func formatResources(req corev1.ResourceRequirements) string {
+	var parts []string
+	if !req.Requests.Cpu().IsZero() {
+		parts = append(parts, fmt.Sprintf("Req CPU: %s", req.Requests.Cpu().String()))
+	}
+	if !req.Requests.Memory().IsZero() {
+		parts = append(parts, fmt.Sprintf("Req Mem: %s", req.Requests.Memory().String()))
+	}
+	if !req.Limits.Cpu().IsZero() {
+		parts = append(parts, fmt.Sprintf("Lim CPU: %s", req.Limits.Cpu().String()))
+	}
+	if !req.Limits.Memory().IsZero() {
+		parts = append(parts, fmt.Sprintf("Lim Mem: %s", req.Limits.Memory().String()))
+	}
+	if len(parts) == 0 {
+		return "None"
+	}
+	return strings.Join(parts, ", ")
+}
+
+// aggregateResources 聚合所有容器的 CPU/Memory requests 和 limits
+func aggregateResources(containers []corev1.Container) ResourceSummary {
+	cpuReq, cpuLim, memReq, memLim := resource.Quantity{}, resource.Quantity{}, resource.Quantity{}, resource.Quantity{}
+	hasCPUReq, hasCPULim, hasMemReq, hasMemLim := false, false, false, false
+
+	for _, c := range containers {
+		if v, ok := c.Resources.Requests[corev1.ResourceCPU]; ok {
+			cpuReq.Add(v)
+			hasCPUReq = true
+		}
+		if v, ok := c.Resources.Limits[corev1.ResourceCPU]; ok {
+			cpuLim.Add(v)
+			hasCPULim = true
+		}
+		if v, ok := c.Resources.Requests[corev1.ResourceMemory]; ok {
+			memReq.Add(v)
+			hasMemReq = true
+		}
+		if v, ok := c.Resources.Limits[corev1.ResourceMemory]; ok {
+			memLim.Add(v)
+			hasMemLim = true
+		}
+	}
+
+	summary := ResourceSummary{}
+	if hasCPUReq {
+		summary.CPURequest = cpuReq.String()
+	}
+	if hasCPULim {
+		summary.CPULimit = cpuLim.String()
+	}
+	if hasMemReq {
+		summary.MemoryRequest = memReq.String()
+	}
+	if hasMemLim {
+		summary.MemoryLimit = memLim.String()
+	}
+	return summary
 }
