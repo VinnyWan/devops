@@ -1,7 +1,6 @@
 .DS_Store
 server
 
-
 # Backend
 backend/CLAUDE.md
 backend/main
