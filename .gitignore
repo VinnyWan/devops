@@ -50,3 +50,4 @@ frontend/*.sw?
 
 # Images
 images/
+.worktrees/
