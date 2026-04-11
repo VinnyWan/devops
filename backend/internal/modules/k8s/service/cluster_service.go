@@ -53,6 +53,11 @@ type UpdateRequest struct {
 
 // Create 创建集群
 func (s *ClusterService) Create(req *CreateRequest) (*model.Cluster, error) {
+	return s.CreateInTenant(0, req)
+}
+
+// CreateInTenant 在指定租户下创建集群
+func (s *ClusterService) CreateInTenant(tenantID uint, req *CreateRequest) (*model.Cluster, error) {
 	// 1. 参数校验
 	if req.Name == "" {
 		return nil, errors.New("集群名称不能为空")
@@ -62,7 +67,7 @@ func (s *ClusterService) Create(req *CreateRequest) (*model.Cluster, error) {
 	}
 
 	// 检查集群名称是否已存在
-	existing, err := s.repo.GetByExactName(req.Name)
+	existing, err := s.repo.GetByExactNameInTenant(tenantID, req.Name)
 	if err == nil && existing != nil {
 		return nil, fmt.Errorf("集群名称 %s 已存在", req.Name)
 	}
@@ -176,6 +181,7 @@ func (s *ClusterService) Create(req *CreateRequest) (*model.Cluster, error) {
 
 	// 5. 数据入库
 	cluster := &model.Cluster{
+		TenantID:   nil,
 		Name:       req.Name,
 		Url:        server,
 		AuthType:   req.AuthType,
@@ -188,15 +194,15 @@ func (s *ClusterService) Create(req *CreateRequest) (*model.Cluster, error) {
 		Env:        req.Env,
 	}
 
-	err = s.repo.Create(cluster)
+	err = s.repo.CreateInTenant(tenantID, cluster)
 	if err != nil {
 		return nil, fmt.Errorf("保存集群失败: %w", err)
 	}
 
-	_, derr := s.repo.GetDefault()
+	_, derr := s.repo.GetDefaultInTenant(tenantID)
 	if derr != nil {
 		if errors.Is(derr, gorm.ErrRecordNotFound) {
-			if err := s.repo.SetDefault(cluster.ID); err != nil {
+			if err := s.repo.SetDefaultInTenant(tenantID, cluster.ID); err != nil {
 				return nil, fmt.Errorf("设置默认集群失败: %w", err)
 			}
 			cluster.IsDefault = true
@@ -210,25 +216,53 @@ func (s *ClusterService) Create(req *CreateRequest) (*model.Cluster, error) {
 
 // GetByID 根据ID获取集群
 func (s *ClusterService) GetByID(id uint) (*model.Cluster, error) {
-	return s.repo.GetByID(id)
+	return s.GetByIDInTenant(0, id)
+}
+
+func (s *ClusterService) GetByIDInTenant(tenantID uint, id uint) (*model.Cluster, error) {
+	return s.repo.GetByIDInTenant(tenantID, id)
 }
 
 // GetByName 根据Name获取集群
 func (s *ClusterService) GetByName(name string) ([]model.Cluster, error) {
-	return s.repo.GetByName(name)
+	return s.GetByNameInTenant(0, name)
+}
+
+func (s *ClusterService) GetByNameInTenant(tenantID uint, name string) ([]model.Cluster, error) {
+	return s.repo.GetByNameInTenant(tenantID, name)
+}
+
+func (s *ClusterService) GetByExactName(name string) (*model.Cluster, error) {
+	return s.GetByExactNameInTenant(0, name)
+}
+
+func (s *ClusterService) GetByExactNameInTenant(tenantID uint, name string) (*model.Cluster, error) {
+	return s.repo.GetByExactNameInTenant(tenantID, name)
 }
 
 // GetByEnv 根据Env获取集群
 func (s *ClusterService) GetByEnv(env string) (*model.Cluster, error) {
-	return s.repo.GetByEnv(env)
+	return s.GetByEnvInTenant(0, env)
+}
+
+func (s *ClusterService) GetByEnvInTenant(tenantID uint, env string) (*model.Cluster, error) {
+	return s.repo.GetByEnvInTenant(tenantID, env)
 }
 
 func (s *ClusterService) GetDefault() (*model.Cluster, error) {
-	return s.repo.GetDefault()
+	return s.GetDefaultInTenant(0)
+}
+
+func (s *ClusterService) GetDefaultInTenant(tenantID uint) (*model.Cluster, error) {
+	return s.repo.GetDefaultInTenant(tenantID)
 }
 
 func (s *ClusterService) GetDefaultOrFirst() (*model.Cluster, error) {
-	cluster, err := s.repo.GetDefault()
+	return s.GetDefaultOrFirstInTenant(0)
+}
+
+func (s *ClusterService) GetDefaultOrFirstInTenant(tenantID uint) (*model.Cluster, error) {
+	cluster, err := s.repo.GetDefaultInTenant(tenantID)
 	if err == nil {
 		return cluster, nil
 	}
@@ -236,7 +270,7 @@ func (s *ClusterService) GetDefaultOrFirst() (*model.Cluster, error) {
 		return nil, err
 	}
 
-	clusters, _, err := s.repo.List(1, 1, "", "")
+	clusters, _, err := s.repo.ListInTenant(tenantID, 1, 1, "", "")
 	if err != nil {
 		return nil, err
 	}
@@ -247,17 +281,25 @@ func (s *ClusterService) GetDefaultOrFirst() (*model.Cluster, error) {
 }
 
 func (s *ClusterService) SetDefault(id uint) error {
-	if _, err := s.repo.GetByID(id); err != nil {
+	return s.SetDefaultInTenant(0, id)
+}
+
+func (s *ClusterService) SetDefaultInTenant(tenantID, id uint) error {
+	if _, err := s.repo.GetByIDInTenant(tenantID, id); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return errors.New("集群不存在")
 		}
 		return err
 	}
-	return s.repo.SetDefault(id)
+	return s.repo.SetDefaultInTenant(tenantID, id)
 }
 
 // List 获取集群列表
 func (s *ClusterService) List(page, pageSize int, env, keyword string) ([]model.Cluster, int64, error) {
+	return s.ListInTenant(0, page, pageSize, env, keyword)
+}
+
+func (s *ClusterService) ListInTenant(tenantID uint, page, pageSize int, env, keyword string) ([]model.Cluster, int64, error) {
 	if page <= 0 {
 		page = 1
 	}
@@ -268,13 +310,17 @@ func (s *ClusterService) List(page, pageSize int, env, keyword string) ([]model.
 		pageSize = 100
 	}
 
-	return s.repo.List(page, pageSize, env, keyword)
+	return s.repo.ListInTenant(tenantID, page, pageSize, env, keyword)
 }
 
 // Update 更新集群
 func (s *ClusterService) Update(req *UpdateRequest) (*model.Cluster, error) {
+	return s.UpdateInTenant(0, req)
+}
+
+func (s *ClusterService) UpdateInTenant(tenantID uint, req *UpdateRequest) (*model.Cluster, error) {
 	// 1. 获取现有集群
-	cluster, err := s.repo.GetByID(req.ID)
+	cluster, err := s.repo.GetByIDInTenant(tenantID, req.ID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.New("集群不存在")
@@ -285,7 +331,7 @@ func (s *ClusterService) Update(req *UpdateRequest) (*model.Cluster, error) {
 	// 2. 更新基本信息
 	if req.Name != "" {
 		// 检查名称是否与其他集群冲突
-		existing, err := s.repo.GetByExactName(req.Name)
+		existing, err := s.repo.GetByExactNameInTenant(tenantID, req.Name)
 		if err == nil && existing != nil && existing.ID != cluster.ID {
 			return nil, fmt.Errorf("集群名称 %s 已被使用", req.Name)
 		}
@@ -414,7 +460,7 @@ func (s *ClusterService) Update(req *UpdateRequest) (*model.Cluster, error) {
 	}
 
 	// 6. 保存更新
-	err = s.repo.Update(cluster)
+	err = s.repo.UpdateInTenant(tenantID, cluster)
 	if err != nil {
 		return nil, fmt.Errorf("更新集群失败: %w", err)
 	}
@@ -424,8 +470,12 @@ func (s *ClusterService) Update(req *UpdateRequest) (*model.Cluster, error) {
 
 // Delete 删除集群
 func (s *ClusterService) Delete(id uint) error {
+	return s.DeleteInTenant(0, id)
+}
+
+func (s *ClusterService) DeleteInTenant(tenantID uint, id uint) error {
 	// 检查集群是否存在
-	_, err := s.repo.GetByID(id)
+	_, err := s.repo.GetByIDInTenant(tenantID, id)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return errors.New("集群不存在")
@@ -433,12 +483,16 @@ func (s *ClusterService) Delete(id uint) error {
 		return err
 	}
 
-	return s.repo.Delete(id)
+	return s.repo.DeleteInTenant(tenantID, id)
 }
 
 // HealthCheck 健康检查
 func (s *ClusterService) HealthCheck(id uint) (string, error) {
-	cluster, err := s.repo.GetByID(id)
+	return s.HealthCheckInTenant(0, id)
+}
+
+func (s *ClusterService) HealthCheckInTenant(tenantID uint, id uint) (string, error) {
+	cluster, err := s.repo.GetByIDInTenant(tenantID, id)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return "", errors.New("集群不存在")
@@ -453,13 +507,13 @@ func (s *ClusterService) HealthCheck(id uint) (string, error) {
 	if cluster.AuthType == "kubeconfig" {
 		decryptedKubeconfig, err := utils.Decrypt(cluster.Kubeconfig)
 		if err != nil {
-			s.repo.UpdateStatus(id, "unhealthy")
+			s.repo.UpdateStatusInTenant(tenantID, id, "unhealthy")
 			return "unhealthy", fmt.Errorf("解密 kubeconfig 失败: %w", err)
 		}
 
 		kubeconfigData, err := utils.ParseKubeconfig(decryptedKubeconfig)
 		if err != nil {
-			s.repo.UpdateStatus(id, "unhealthy")
+			s.repo.UpdateStatusInTenant(tenantID, id, "unhealthy")
 			return "unhealthy", fmt.Errorf("解析 kubeconfig 失败: %w", err)
 		}
 
@@ -474,7 +528,7 @@ func (s *ClusterService) HealthCheck(id uint) (string, error) {
 	} else {
 		decryptedToken, err := utils.Decrypt(cluster.Token)
 		if err != nil {
-			s.repo.UpdateStatus(id, "unhealthy")
+			s.repo.UpdateStatusInTenant(tenantID, id, "unhealthy")
 			return "unhealthy", fmt.Errorf("解密 token 失败: %w", err)
 		}
 		token = decryptedToken
@@ -498,7 +552,7 @@ func (s *ClusterService) HealthCheck(id uint) (string, error) {
 
 	client, err := k8s.NewClient(clientCfg)
 	if err != nil {
-		s.repo.UpdateStatus(id, "unhealthy")
+		s.repo.UpdateStatusInTenant(tenantID, id, "unhealthy")
 		return "unhealthy", fmt.Errorf("创建客户端失败: %w", err)
 	}
 
@@ -507,7 +561,7 @@ func (s *ClusterService) HealthCheck(id uint) (string, error) {
 
 	err = client.HealthCheck(ctx)
 	if err != nil {
-		s.repo.UpdateStatus(id, "unhealthy")
+		s.repo.UpdateStatusInTenant(tenantID, id, "unhealthy")
 		return "unhealthy", err
 	}
 
@@ -519,7 +573,7 @@ func (s *ClusterService) HealthCheck(id uint) (string, error) {
 	cluster.Status = "healthy"
 	cluster.K8sVersion = version
 	cluster.NodeCount = nodeCount
-	if err := s.repo.Update(cluster); err != nil {
+	if err := s.repo.UpdateInTenant(tenantID, cluster); err != nil {
 		return "healthy", fmt.Errorf("更新集群信息失败: %w", err)
 	}
 
@@ -532,7 +586,16 @@ func (s *ClusterService) Search(
 	page int,
 	pageSize int,
 ) ([]model.Cluster, int64, error) {
+	return s.SearchInTenant(0, name, env, page, pageSize)
+}
 
+func (s *ClusterService) SearchInTenant(
+	tenantID uint,
+	name string,
+	env string,
+	page int,
+	pageSize int,
+) ([]model.Cluster, int64, error) {
 	if page <= 0 {
 		page = 1
 	}
@@ -543,5 +606,5 @@ func (s *ClusterService) Search(
 		pageSize = 100
 	}
 
-	return s.repo.Search(name, env, page, pageSize)
+	return s.repo.SearchInTenant(tenantID, name, env, page, pageSize)
 }

@@ -13,7 +13,7 @@ import (
 // @Tags K8s资源管理
 // @Accept json
 // @Produce json
-// @Param clusterId query int false "集群ID（可选，未传则使用默认集群）"
+// @Param clusterName query string false "集群名称（可选，未传则使用默认集群）"
 // @Param namespace query string false "命名空间（为空时查询所有命名空间）"
 // @Param page query int false "页码" default(1)
 // @Param pageSize query int false "每页数量" default(10)
@@ -28,7 +28,7 @@ func ListDeployments(c *gin.Context) {
 		return
 	}
 
-	clusterID, err := resolveListClusterID(c, req.ClusterID)
+	clusterName, err := resolveListClusterName(c, req.ClusterName)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, Response{Code: 400, Message: err.Error()})
 		return
@@ -40,7 +40,7 @@ func ListDeployments(c *gin.Context) {
 		return
 	}
 
-	resp, err := svc.ListDeployments(clusterID, req.Namespace, req.Page, req.PageSize, req.Keyword)
+	resp, err := svc.ListDeployments(clusterName, req.Namespace, req.Page, req.PageSize, req.Keyword)
 	if err != nil {
 		handleK8sError(c, err)
 		return
@@ -55,7 +55,7 @@ func ListDeployments(c *gin.Context) {
 // @Tags K8s资源管理
 // @Accept json
 // @Produce json
-// @Param clusterId query int false "集群ID（可选，未传则使用默认集群）"
+// @Param clusterName query string false "集群名称（可选，未传则使用默认集群）"
 // @Param namespace query string true "命名空间"
 // @Param name query string true "资源名称"
 // @Success 200 {object} Response "成功"
@@ -70,7 +70,7 @@ func GetDeploymentDetail(c *gin.Context) {
 		return
 	}
 
-	clusterID, err := resolveClusterID(c)
+	clusterName, err := resolveClusterName(c)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 		return
@@ -82,7 +82,7 @@ func GetDeploymentDetail(c *gin.Context) {
 		return
 	}
 
-	data, err := service.GetDeploymentDetail(clusterID, namespace, name)
+	data, err := service.GetDeploymentDetail(clusterName, namespace, name)
 	if err != nil {
 		handleK8sError(c, err)
 		return
@@ -97,7 +97,7 @@ func GetDeploymentDetail(c *gin.Context) {
 // @Tags K8s资源管理
 // @Accept json
 // @Produce json
-// @Param clusterId query int false "集群ID（可选，未传则使用默认集群）"
+// @Param clusterName query string false "集群名称（可选，未传则使用默认集群）"
 // @Param namespace query string true "命名空间"
 // @Param deployment body K8sObject true "Deployment 对象"
 // @Success 200 {object} Response "成功"
@@ -111,7 +111,7 @@ func CreateDeployment(c *gin.Context) {
 		return
 	}
 
-	clusterID, err := resolveClusterID(c)
+	clusterName, err := resolveClusterName(c)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 		return
@@ -129,7 +129,7 @@ func CreateDeployment(c *gin.Context) {
 		return
 	}
 
-	data, err := service.CreateDeployment(clusterID, namespace, &deployment)
+	data, err := service.CreateDeployment(clusterName, namespace, &deployment)
 	if err != nil {
 		handleK8sError(c, err)
 		return
@@ -144,7 +144,7 @@ func CreateDeployment(c *gin.Context) {
 // @Tags K8s资源管理
 // @Accept json
 // @Produce json
-// @Param clusterId query int false "集群ID（可选，未传则使用默认集群）"
+// @Param clusterName query string false "集群名称（可选，未传则使用默认集群）"
 // @Param namespace query string true "命名空间"
 // @Param deployment body K8sObject true "Deployment 对象"
 // @Success 200 {object} Response "成功"
@@ -158,7 +158,7 @@ func UpdateDeployment(c *gin.Context) {
 		return
 	}
 
-	clusterID, err := resolveClusterID(c)
+	clusterName, err := resolveClusterName(c)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 		return
@@ -176,7 +176,7 @@ func UpdateDeployment(c *gin.Context) {
 		return
 	}
 
-	data, err := service.UpdateDeployment(clusterID, namespace, &deployment)
+	data, err := service.UpdateDeployment(clusterName, namespace, &deployment)
 	if err != nil {
 		handleK8sError(c, err)
 		return
@@ -191,15 +191,15 @@ func UpdateDeployment(c *gin.Context) {
 // @Tags K8s资源管理
 // @Accept json
 // @Produce json
-// @Param request body object true "参数: {clusterId, namespace, name}" example({"clusterId": 1, "namespace": "default", "name": "nginx-deployment"})
+// @Param request body object true "参数: {clusterName, namespace, name}" example({"clusterName": "k8s-prod-01", "namespace": "default", "name": "nginx-deployment"})
 // @Success 200 {object} Response "成功"
 // @Security BearerAuth
 // @Router /k8s/deployment/delete [post]
 func DeleteDeployment(c *gin.Context) {
 	var req struct {
-		ClusterID uint   `json:"clusterId"`
-		Namespace string `json:"namespace" binding:"required"`
-		Name      string `json:"name" binding:"required"`
+		ClusterName string `json:"clusterName"`
+		Namespace   string `json:"namespace" binding:"required"`
+		Name        string `json:"name" binding:"required"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -213,16 +213,16 @@ func DeleteDeployment(c *gin.Context) {
 		return
 	}
 
-	clusterID := req.ClusterID
-	if clusterID == 0 {
-		clusterID, err = resolveClusterID(c)
+	clusterName := req.ClusterName
+	if clusterName == "" {
+		clusterName, err = resolveClusterName(c)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 			return
 		}
 	}
 
-	if err := service.DeleteDeployment(clusterID, req.Namespace, req.Name); err != nil {
+	if err := service.DeleteDeployment(clusterName, req.Namespace, req.Name); err != nil {
 		handleK8sError(c, err)
 		return
 	}
@@ -236,7 +236,7 @@ func DeleteDeployment(c *gin.Context) {
 // @Tags K8s资源管理
 // @Accept json
 // @Produce json
-// @Param clusterId query int false "集群ID（可选，未传则使用默认集群）"
+// @Param clusterName query string false "集群名称（可选，未传则使用默认集群）"
 // @Param namespace query string true "命名空间"
 // @Param name query string true "Deployment 名称"
 // @Success 200 {object} Response "成功"
@@ -250,7 +250,7 @@ func GetDeploymentPods(c *gin.Context) {
 		return
 	}
 
-	clusterID, err := resolveClusterID(c)
+	clusterName, err := resolveClusterName(c)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 		return
@@ -262,7 +262,7 @@ func GetDeploymentPods(c *gin.Context) {
 		return
 	}
 
-	data, err := svc.ListPodsByOwner(clusterID, namespace, "Deployment", name)
+	data, err := svc.ListPodsByOwner(clusterName, namespace, "Deployment", name)
 	if err != nil {
 		handleK8sError(c, err)
 		return
@@ -276,7 +276,7 @@ func GetDeploymentPods(c *gin.Context) {
 // @Tags K8s资源管理
 // @Accept json
 // @Produce json
-// @Param clusterId query int false "集群ID（可选，未传则使用默认集群）"
+// @Param clusterName query string false "集群名称（可选，未传则使用默认集群）"
 // @Param namespace query string true "命名空间"
 // @Param name query string true "资源名称"
 // @Success 200 {object} Response "成功"
@@ -290,7 +290,7 @@ func GetDeploymentYAML(c *gin.Context) {
 		return
 	}
 
-	clusterID, err := resolveClusterID(c)
+	clusterName, err := resolveClusterName(c)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 		return
@@ -302,7 +302,7 @@ func GetDeploymentYAML(c *gin.Context) {
 		return
 	}
 
-	raw, err := svc.GetDeploymentYAML(clusterID, namespace, name)
+	raw, err := svc.GetDeploymentYAML(clusterName, namespace, name)
 	if err != nil {
 		handleK8sError(c, err)
 		return
@@ -317,10 +317,10 @@ func GetDeploymentYAML(c *gin.Context) {
 // @Tags K8s资源管理
 // @Accept json
 // @Produce json
-// @Param clusterId query int false "集群ID（可选，未传则使用默认集群）"
+// @Param clusterName query string false "集群名称（可选，未传则使用默认集群）"
 // @Param namespace query string true "命名空间"
 // @Param name query string true "资源名称"
-// @Param request body object true "参数: {yaml}" example({"yaml":"apiVersion: apps/v1\\nkind: Deployment\\nmetadata:\\n  name: nginx\\n  namespace: default\\n..."})
+// @Param request body object true "参数: {yaml}" example({"yaml":"apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: nginx\n  namespace: default\n..."})
 // @Success 200 {object} Response "成功"
 // @Security BearerAuth
 // @Router /k8s/deployment/yaml/update [post]
@@ -340,7 +340,7 @@ func UpdateDeploymentYAML(c *gin.Context) {
 		return
 	}
 
-	clusterID, err := resolveClusterID(c)
+	clusterName, err := resolveClusterName(c)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 		return
@@ -352,7 +352,7 @@ func UpdateDeploymentYAML(c *gin.Context) {
 		return
 	}
 
-	updated, err := svc.UpdateDeploymentByYAML(clusterID, namespace, name, req.YAML)
+	updated, err := svc.UpdateDeploymentByYAML(clusterName, namespace, name, req.YAML)
 	if err != nil {
 		handleK8sError(c, err)
 		return
@@ -366,15 +366,15 @@ func UpdateDeploymentYAML(c *gin.Context) {
 // @Tags K8s资源管理
 // @Accept json
 // @Produce json
-// @Param request body object true "参数: {clusterId, namespace, name}" example({"clusterId":1,"namespace":"default","name":"nginx"})
+// @Param request body object true "参数: {clusterName, namespace, name}" example({"clusterName":"k8s-prod-01","namespace":"default","name":"nginx"})
 // @Success 200 {object} Response "成功"
 // @Security BearerAuth
 // @Router /k8s/deployment/restart [post]
 func RestartDeployment(c *gin.Context) {
 	var req struct {
-		ClusterID uint   `json:"clusterId"`
-		Namespace string `json:"namespace" binding:"required"`
-		Name      string `json:"name" binding:"required"`
+		ClusterName string `json:"clusterName"`
+		Namespace   string `json:"namespace" binding:"required"`
+		Name        string `json:"name" binding:"required"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -388,16 +388,16 @@ func RestartDeployment(c *gin.Context) {
 		return
 	}
 
-	clusterID := req.ClusterID
-	if clusterID == 0 {
-		clusterID, err = resolveClusterID(c)
+	clusterName := req.ClusterName
+	if clusterName == "" {
+		clusterName, err = resolveClusterName(c)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 			return
 		}
 	}
 
-	updated, err := svc.RestartDeployment(clusterID, req.Namespace, req.Name)
+	updated, err := svc.RestartDeployment(clusterName, req.Namespace, req.Name)
 	if err != nil {
 		handleK8sError(c, err)
 		return
@@ -411,16 +411,16 @@ func RestartDeployment(c *gin.Context) {
 // @Tags K8s资源管理
 // @Accept json
 // @Produce json
-// @Param request body object true "参数: {clusterId, namespace, name, replicas}" example({"clusterId":1,"namespace":"default","name":"nginx","replicas":0})
+// @Param request body object true "参数: {clusterName, namespace, name, replicas}" example({"clusterName":"k8s-prod-01","namespace":"default","name":"nginx","replicas":0})
 // @Success 200 {object} Response "成功"
 // @Security BearerAuth
 // @Router /k8s/deployment/scale [post]
 func ScaleDeployment(c *gin.Context) {
 	var req struct {
-		ClusterID uint   `json:"clusterId"`
-		Namespace string `json:"namespace" binding:"required"`
-		Name      string `json:"name" binding:"required"`
-		Replicas  *int32 `json:"replicas" binding:"required"`
+		ClusterName string `json:"clusterName"`
+		Namespace   string `json:"namespace" binding:"required"`
+		Name        string `json:"name" binding:"required"`
+		Replicas    *int32 `json:"replicas" binding:"required"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -439,16 +439,16 @@ func ScaleDeployment(c *gin.Context) {
 		return
 	}
 
-	clusterID := req.ClusterID
-	if clusterID == 0 {
-		clusterID, err = resolveClusterID(c)
+	clusterName := req.ClusterName
+	if clusterName == "" {
+		clusterName, err = resolveClusterName(c)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 			return
 		}
 	}
 
-	updated, err := svc.ScaleDeployment(clusterID, req.Namespace, req.Name, *req.Replicas)
+	updated, err := svc.ScaleDeployment(clusterName, req.Namespace, req.Name, *req.Replicas)
 	if err != nil {
 		handleK8sError(c, err)
 		return

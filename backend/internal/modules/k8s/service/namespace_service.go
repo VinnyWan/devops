@@ -10,13 +10,13 @@ type NamespaceListVO struct {
 	Name string `json:"name"`
 }
 
-func (s *K8sService) ListNamespaces(clusterId uint) ([]NamespaceListVO, error) {
+func (s *K8sService) ListNamespaces(clusterName string) ([]NamespaceListVO, error) {
 	if err := s.ensureReady(); err != nil {
 		return nil, err
 	}
 
 	// 1️⃣ 查询集群
-	cluster, err := s.clusterService.GetByID(clusterId)
+	cluster, err := s.clusterService.GetByExactName(clusterName)
 	if err != nil {
 		return nil, err
 	}
@@ -33,7 +33,7 @@ func (s *K8sService) ListNamespaces(clusterId uint) ([]NamespaceListVO, error) {
 		List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		// ❗调用失败 → 移除 client，下次自动重建
-		s.clientFactory.RemoveClient(clusterId)
+		s.clientFactory.RemoveClient(cluster.Name)
 		return nil, err
 	}
 

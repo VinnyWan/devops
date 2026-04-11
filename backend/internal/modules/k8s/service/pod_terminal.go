@@ -31,11 +31,11 @@ type DetectShellResponse struct {
 }
 
 // DetectContainerShell 检测容器可用的shell
-func (s *K8sService) DetectContainerShell(clusterId uint, namespace, podName, container string) (*DetectShellResponse, error) {
+func (s *K8sService) DetectContainerShell(clusterName string, namespace, podName, container string) (*DetectShellResponse, error) {
 	if err := s.ensureReady(); err != nil {
 		return nil, err
 	}
-	cluster, err := s.clusterService.GetByID(clusterId)
+	cluster, err := s.clusterService.GetByExactName(clusterName)
 	if err != nil {
 		return nil, err
 	}
@@ -187,11 +187,11 @@ func (s *K8sService) testShellAvailability(clientSet interface{}, restCfg *rest.
 
 // CreatePodExecutor 创建Pod的executor（用于WebSocket终端）
 // 支持自动降级：优先使用bash，失败则使用sh
-func (s *K8sService) CreatePodExecutor(clusterId uint, namespace, podName, container, shell string) (remotecommand.Executor, string, error) {
+func (s *K8sService) CreatePodExecutor(clusterName string, namespace, podName, container, shell string) (remotecommand.Executor, string, error) {
 	if err := s.ensureReady(); err != nil {
 		return nil, "", err
 	}
-	cluster, err := s.clusterService.GetByID(clusterId)
+	cluster, err := s.clusterService.GetByExactName(clusterName)
 	if err != nil {
 		return nil, "", err
 	}
@@ -262,7 +262,7 @@ func (s *K8sService) CreatePodExecutor(clusterId uint, namespace, podName, conta
 
 func (s *K8sService) ExecPodTerminal(
 	ctx context.Context,
-	clusterId uint,
+	clusterName string,
 	namespace string,
 	pod string,
 	container string,
@@ -276,7 +276,7 @@ func (s *K8sService) ExecPodTerminal(
 	if err := s.ensureReady(); err != nil {
 		return err
 	}
-	cluster, err := s.clusterService.GetByID(clusterId)
+	cluster, err := s.clusterService.GetByExactName(clusterName)
 	if err != nil {
 		return err
 	}

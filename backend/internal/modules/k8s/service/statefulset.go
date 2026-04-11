@@ -29,11 +29,11 @@ type StatefulSetListResponse struct {
 	Items []StatefulSetListVO `json:"items"`
 }
 
-func (s *K8sService) ListStatefulSets(clusterId uint, namespace string, page, pageSize int, keyword string) (*StatefulSetListResponse, error) {
+func (s *K8sService) ListStatefulSets(clusterName string, namespace string, page, pageSize int, keyword string) (*StatefulSetListResponse, error) {
 	if err := s.ensureReady(); err != nil {
 		return nil, err
 	}
-	cluster, err := s.clusterService.GetByID(clusterId)
+	cluster, err := s.clusterService.GetByExactName(clusterName)
 	if err != nil {
 		return nil, err
 	}
@@ -45,7 +45,7 @@ func (s *K8sService) ListStatefulSets(clusterId uint, namespace string, page, pa
 
 	list, err := client.AppsV1().StatefulSets(namespace).List(context.Background(), metav1.ListOptions{})
 	if err != nil {
-		s.clientFactory.RemoveClient(clusterId)
+		s.clientFactory.RemoveClient(cluster.Name)
 		return nil, err
 	}
 
@@ -93,8 +93,8 @@ func (s *K8sService) ListStatefulSets(clusterId uint, namespace string, page, pa
 	return &StatefulSetListResponse{Total: total, Items: result}, nil
 }
 
-func (s *K8sService) GetStatefulSetDetail(clusterId uint, namespace, name string) (*StatefulSetListVO, error) {
-	cluster, err := s.clusterService.GetByID(clusterId)
+func (s *K8sService) GetStatefulSetDetail(clusterName string, namespace, name string) (*StatefulSetListVO, error) {
+	cluster, err := s.clusterService.GetByExactName(clusterName)
 	if err != nil {
 		return nil, err
 	}
@@ -130,8 +130,8 @@ func (s *K8sService) GetStatefulSetDetail(clusterId uint, namespace, name string
 	}, nil
 }
 
-func (s *K8sService) GetStatefulSetYAML(clusterId uint, namespace, name string) (string, error) {
-	obj, err := s.GetStatefulSetObject(clusterId, namespace, name)
+func (s *K8sService) GetStatefulSetYAML(clusterName string, namespace, name string) (string, error) {
+	obj, err := s.GetStatefulSetObject(clusterName, namespace, name)
 	if err != nil {
 		return "", err
 	}
@@ -142,11 +142,11 @@ func (s *K8sService) GetStatefulSetYAML(clusterId uint, namespace, name string) 
 	return string(b), nil
 }
 
-func (s *K8sService) GetStatefulSetObject(clusterId uint, namespace, name string) (*appsv1.StatefulSet, error) {
+func (s *K8sService) GetStatefulSetObject(clusterName string, namespace, name string) (*appsv1.StatefulSet, error) {
 	if err := s.ensureReady(); err != nil {
 		return nil, err
 	}
-	cluster, err := s.clusterService.GetByID(clusterId)
+	cluster, err := s.clusterService.GetByExactName(clusterName)
 	if err != nil {
 		return nil, err
 	}
@@ -157,11 +157,11 @@ func (s *K8sService) GetStatefulSetObject(clusterId uint, namespace, name string
 	return client.AppsV1().StatefulSets(namespace).Get(context.Background(), name, metav1.GetOptions{})
 }
 
-func (s *K8sService) UpdateStatefulSetByYAML(clusterId uint, namespace, name, rawYAML string) (*appsv1.StatefulSet, error) {
+func (s *K8sService) UpdateStatefulSetByYAML(clusterName string, namespace, name, rawYAML string) (*appsv1.StatefulSet, error) {
 	if err := s.ensureReady(); err != nil {
 		return nil, err
 	}
-	current, err := s.GetStatefulSetObject(clusterId, namespace, name)
+	current, err := s.GetStatefulSetObject(clusterName, namespace, name)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get current statefulset: %w", err)
 	}
@@ -177,14 +177,14 @@ func (s *K8sService) UpdateStatefulSetByYAML(clusterId uint, namespace, name, ra
 	desired.Status = appsv1.StatefulSetStatus{}
 	desired.ManagedFields = nil
 
-	return s.UpdateStatefulSet(clusterId, namespace, &desired)
+	return s.UpdateStatefulSet(clusterName, namespace, &desired)
 }
 
-func (s *K8sService) RestartStatefulSet(clusterId uint, namespace, name string) (*appsv1.StatefulSet, error) {
+func (s *K8sService) RestartStatefulSet(clusterName string, namespace, name string) (*appsv1.StatefulSet, error) {
 	if err := s.ensureReady(); err != nil {
 		return nil, err
 	}
-	cluster, err := s.clusterService.GetByID(clusterId)
+	cluster, err := s.clusterService.GetByExactName(clusterName)
 	if err != nil {
 		return nil, err
 	}
@@ -198,11 +198,11 @@ func (s *K8sService) RestartStatefulSet(clusterId uint, namespace, name string) 
 	return client.AppsV1().StatefulSets(namespace).Patch(context.Background(), name, types.StrategicMergePatchType, []byte(patch), metav1.PatchOptions{})
 }
 
-func (s *K8sService) ScaleStatefulSet(clusterId uint, namespace, name string, replicas int32) (*appsv1.StatefulSet, error) {
+func (s *K8sService) ScaleStatefulSet(clusterName string, namespace, name string, replicas int32) (*appsv1.StatefulSet, error) {
 	if err := s.ensureReady(); err != nil {
 		return nil, err
 	}
-	cluster, err := s.clusterService.GetByID(clusterId)
+	cluster, err := s.clusterService.GetByExactName(clusterName)
 	if err != nil {
 		return nil, err
 	}
@@ -225,11 +225,11 @@ func (s *K8sService) ScaleStatefulSet(clusterId uint, namespace, name string, re
 	return client.AppsV1().StatefulSets(namespace).Get(context.Background(), name, metav1.GetOptions{})
 }
 
-func (s *K8sService) DeleteStatefulSet(clusterId uint, namespace, name string) error {
+func (s *K8sService) DeleteStatefulSet(clusterName string, namespace, name string) error {
 	if err := s.ensureReady(); err != nil {
 		return err
 	}
-	cluster, err := s.clusterService.GetByID(clusterId)
+	cluster, err := s.clusterService.GetByExactName(clusterName)
 	if err != nil {
 		return err
 	}
@@ -241,11 +241,11 @@ func (s *K8sService) DeleteStatefulSet(clusterId uint, namespace, name string) e
 	return client.AppsV1().StatefulSets(namespace).Delete(context.Background(), name, metav1.DeleteOptions{})
 }
 
-func (s *K8sService) CreateStatefulSet(clusterId uint, namespace string, sts *appsv1.StatefulSet) (*appsv1.StatefulSet, error) {
+func (s *K8sService) CreateStatefulSet(clusterName string, namespace string, sts *appsv1.StatefulSet) (*appsv1.StatefulSet, error) {
 	if err := s.ensureReady(); err != nil {
 		return nil, err
 	}
-	cluster, err := s.clusterService.GetByID(clusterId)
+	cluster, err := s.clusterService.GetByExactName(clusterName)
 	if err != nil {
 		return nil, err
 	}
@@ -257,11 +257,11 @@ func (s *K8sService) CreateStatefulSet(clusterId uint, namespace string, sts *ap
 	return client.AppsV1().StatefulSets(namespace).Create(context.Background(), sts, metav1.CreateOptions{})
 }
 
-func (s *K8sService) UpdateStatefulSet(clusterId uint, namespace string, sts *appsv1.StatefulSet) (*appsv1.StatefulSet, error) {
+func (s *K8sService) UpdateStatefulSet(clusterName string, namespace string, sts *appsv1.StatefulSet) (*appsv1.StatefulSet, error) {
 	if err := s.ensureReady(); err != nil {
 		return nil, err
 	}
-	cluster, err := s.clusterService.GetByID(clusterId)
+	cluster, err := s.clusterService.GetByExactName(clusterName)
 	if err != nil {
 		return nil, err
 	}

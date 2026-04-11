@@ -8,7 +8,8 @@ import (
 
 type Cluster struct {
 	ID         uint      `gorm:"primaryKey"`
-	Name       string    `gorm:"uniqueIndex;size:100;not null"`
+	TenantID   *uint     `gorm:"index;uniqueIndex:uk_clusters_tenant_name" json:"tenantId"`
+	Name       string    `gorm:"size:100;not null;uniqueIndex:uk_clusters_tenant_name"`
 	Url        string    `gorm:"size:255;not null"`
 	AuthType   string    `gorm:"size:20;not null"`
 	Kubeconfig string    `gorm:"type:text"`

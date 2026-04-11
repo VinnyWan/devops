@@ -21,14 +21,14 @@ type clusterClient struct {
 }
 
 // getClusterClient 统一获取集群信息和 K8s 客户端
-func (s *K8sService) getClusterClient(clusterId uint) (*clusterClient, error) {
+func (s *K8sService) getClusterClient(clusterName string) (*clusterClient, error) {
 	if err := s.ensureReady(); err != nil {
 		return nil, err
 	}
 
-	cluster, err := s.clusterService.GetByID(clusterId)
+	cluster, err := s.clusterService.GetByExactName(clusterName)
 	if err != nil {
-		return nil, fmt.Errorf("获取集群信息失败(id=%d): %w", clusterId, err)
+		return nil, fmt.Errorf("获取集群信息失败(name=%s): %w", clusterName, err)
 	}
 
 	client, err := s.clientFactory.GetClient(cluster)
@@ -43,14 +43,14 @@ func (s *K8sService) getClusterClient(clusterId uint) (*clusterClient, error) {
 }
 
 // getClusterDynamicClient 获取集群的 dynamic client
-func (s *K8sService) getClusterDynamicClient(clusterId uint) (*model.Cluster, dynamic.Interface, error) {
+func (s *K8sService) getClusterDynamicClient(clusterName string) (*model.Cluster, dynamic.Interface, error) {
 	if err := s.ensureReady(); err != nil {
 		return nil, nil, err
 	}
 
-	cluster, err := s.clusterService.GetByID(clusterId)
+	cluster, err := s.clusterService.GetByExactName(clusterName)
 	if err != nil {
-		return nil, nil, fmt.Errorf("获取集群信息失败(id=%d): %w", clusterId, err)
+		return nil, nil, fmt.Errorf("获取集群信息失败(name=%s): %w", clusterName, err)
 	}
 
 	dynamicClient, err := s.clientFactory.GetDynamicClient(cluster)
@@ -62,9 +62,9 @@ func (s *K8sService) getClusterDynamicClient(clusterId uint) (*model.Cluster, dy
 }
 
 // handleClientError 处理客户端错误，必要时移除缓存的客户端
-func (s *K8sService) handleClientError(clusterId uint, err error) error {
+func (s *K8sService) handleClientError(clusterName string, err error) error {
 	if err != nil {
-		s.clientFactory.RemoveClient(clusterId)
+		s.clientFactory.RemoveClient(clusterName)
 	}
 	return err
 }

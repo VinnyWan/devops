@@ -50,7 +50,7 @@ var resourceGVRMap = map[string]schema.GroupVersionResource{
 // resourceType: 资源类型，如 pod, deployment, service 等
 // namespace: 命名空间（集群级别资源传空字符串）
 // name: 资源名称
-func (s *K8sService) GetResourceYAML(clusterID uint, resourceType, namespace, name string) (string, error) {
+func (s *K8sService) GetResourceYAML(clusterName string, resourceType, namespace, name string) (string, error) {
 	if err := s.ensureReady(); err != nil {
 		return "", err
 	}
@@ -60,7 +60,7 @@ func (s *K8sService) GetResourceYAML(clusterID uint, resourceType, namespace, na
 		return "", fmt.Errorf("不支持的资源类型: %s", resourceType)
 	}
 
-	_, dynamicClient, err := s.getClusterDynamicClient(clusterID)
+	_, dynamicClient, err := s.getClusterDynamicClient(clusterName)
 	if err != nil {
 		return "", err
 	}
@@ -97,12 +97,12 @@ func (s *K8sService) GetResourceYAML(clusterID uint, resourceType, namespace, na
 }
 
 // GetResourceYAMLByGVR 通过 GVR 获取资源YAML（更灵活的方式）
-func (s *K8sService) GetResourceYAMLByGVR(clusterID uint, gvr schema.GroupVersionResource, namespace, name string) (string, error) {
+func (s *K8sService) GetResourceYAMLByGVR(clusterName string, gvr schema.GroupVersionResource, namespace, name string) (string, error) {
 	if err := s.ensureReady(); err != nil {
 		return "", err
 	}
 
-	_, dynamicClient, err := s.getClusterDynamicClient(clusterID)
+	_, dynamicClient, err := s.getClusterDynamicClient(clusterName)
 	if err != nil {
 		return "", err
 	}

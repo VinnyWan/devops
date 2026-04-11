@@ -30,11 +30,11 @@ type DaemonSetListResponse struct {
 	Items []DaemonSetListVO `json:"items"`
 }
 
-func (s *K8sService) ListDaemonSets(clusterId uint, namespace string, page, pageSize int, keyword string) (*DaemonSetListResponse, error) {
+func (s *K8sService) ListDaemonSets(clusterName string, namespace string, page, pageSize int, keyword string) (*DaemonSetListResponse, error) {
 	if err := s.ensureReady(); err != nil {
 		return nil, err
 	}
-	cluster, err := s.clusterService.GetByID(clusterId)
+	cluster, err := s.clusterService.GetByExactName(clusterName)
 	if err != nil {
 		return nil, err
 	}
@@ -46,7 +46,7 @@ func (s *K8sService) ListDaemonSets(clusterId uint, namespace string, page, page
 
 	list, err := client.AppsV1().DaemonSets(namespace).List(context.Background(), metav1.ListOptions{})
 	if err != nil {
-		s.clientFactory.RemoveClient(clusterId)
+		s.clientFactory.RemoveClient(cluster.Name)
 		return nil, err
 	}
 
@@ -90,8 +90,8 @@ func (s *K8sService) ListDaemonSets(clusterId uint, namespace string, page, page
 	return &DaemonSetListResponse{Total: total, Items: result}, nil
 }
 
-func (s *K8sService) GetDaemonSetDetail(clusterId uint, namespace, name string) (*DaemonSetListVO, error) {
-	cluster, err := s.clusterService.GetByID(clusterId)
+func (s *K8sService) GetDaemonSetDetail(clusterName string, namespace, name string) (*DaemonSetListVO, error) {
+	cluster, err := s.clusterService.GetByExactName(clusterName)
 	if err != nil {
 		return nil, err
 	}
@@ -123,8 +123,8 @@ func (s *K8sService) GetDaemonSetDetail(clusterId uint, namespace, name string) 
 	}, nil
 }
 
-func (s *K8sService) GetDaemonSetYAML(clusterId uint, namespace, name string) (string, error) {
-	obj, err := s.GetDaemonSetObject(clusterId, namespace, name)
+func (s *K8sService) GetDaemonSetYAML(clusterName string, namespace, name string) (string, error) {
+	obj, err := s.GetDaemonSetObject(clusterName, namespace, name)
 	if err != nil {
 		return "", err
 	}
@@ -135,11 +135,11 @@ func (s *K8sService) GetDaemonSetYAML(clusterId uint, namespace, name string) (s
 	return string(b), nil
 }
 
-func (s *K8sService) GetDaemonSetObject(clusterId uint, namespace, name string) (*appsv1.DaemonSet, error) {
+func (s *K8sService) GetDaemonSetObject(clusterName string, namespace, name string) (*appsv1.DaemonSet, error) {
 	if err := s.ensureReady(); err != nil {
 		return nil, err
 	}
-	cluster, err := s.clusterService.GetByID(clusterId)
+	cluster, err := s.clusterService.GetByExactName(clusterName)
 	if err != nil {
 		return nil, err
 	}
@@ -150,11 +150,11 @@ func (s *K8sService) GetDaemonSetObject(clusterId uint, namespace, name string) 
 	return client.AppsV1().DaemonSets(namespace).Get(context.Background(), name, metav1.GetOptions{})
 }
 
-func (s *K8sService) UpdateDaemonSetByYAML(clusterId uint, namespace, name, rawYAML string) (*appsv1.DaemonSet, error) {
+func (s *K8sService) UpdateDaemonSetByYAML(clusterName string, namespace, name, rawYAML string) (*appsv1.DaemonSet, error) {
 	if err := s.ensureReady(); err != nil {
 		return nil, err
 	}
-	current, err := s.GetDaemonSetObject(clusterId, namespace, name)
+	current, err := s.GetDaemonSetObject(clusterName, namespace, name)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get current daemonset: %w", err)
 	}
@@ -170,14 +170,14 @@ func (s *K8sService) UpdateDaemonSetByYAML(clusterId uint, namespace, name, rawY
 	desired.Status = appsv1.DaemonSetStatus{}
 	desired.ManagedFields = nil
 
-	return s.UpdateDaemonSet(clusterId, namespace, &desired)
+	return s.UpdateDaemonSet(clusterName, namespace, &desired)
 }
 
-func (s *K8sService) RestartDaemonSet(clusterId uint, namespace, name string) (*appsv1.DaemonSet, error) {
+func (s *K8sService) RestartDaemonSet(clusterName string, namespace, name string) (*appsv1.DaemonSet, error) {
 	if err := s.ensureReady(); err != nil {
 		return nil, err
 	}
-	cluster, err := s.clusterService.GetByID(clusterId)
+	cluster, err := s.clusterService.GetByExactName(clusterName)
 	if err != nil {
 		return nil, err
 	}
@@ -191,11 +191,11 @@ func (s *K8sService) RestartDaemonSet(clusterId uint, namespace, name string) (*
 	return client.AppsV1().DaemonSets(namespace).Patch(context.Background(), name, types.StrategicMergePatchType, []byte(patch), metav1.PatchOptions{})
 }
 
-func (s *K8sService) DeleteDaemonSet(clusterId uint, namespace, name string) error {
+func (s *K8sService) DeleteDaemonSet(clusterName string, namespace, name string) error {
 	if err := s.ensureReady(); err != nil {
 		return err
 	}
-	cluster, err := s.clusterService.GetByID(clusterId)
+	cluster, err := s.clusterService.GetByExactName(clusterName)
 	if err != nil {
 		return err
 	}
@@ -207,11 +207,11 @@ func (s *K8sService) DeleteDaemonSet(clusterId uint, namespace, name string) err
 	return client.AppsV1().DaemonSets(namespace).Delete(context.Background(), name, metav1.DeleteOptions{})
 }
 
-func (s *K8sService) CreateDaemonSet(clusterId uint, namespace string, ds *appsv1.DaemonSet) (*appsv1.DaemonSet, error) {
+func (s *K8sService) CreateDaemonSet(clusterName string, namespace string, ds *appsv1.DaemonSet) (*appsv1.DaemonSet, error) {
 	if err := s.ensureReady(); err != nil {
 		return nil, err
 	}
-	cluster, err := s.clusterService.GetByID(clusterId)
+	cluster, err := s.clusterService.GetByExactName(clusterName)
 	if err != nil {
 		return nil, err
 	}
@@ -223,11 +223,11 @@ func (s *K8sService) CreateDaemonSet(clusterId uint, namespace string, ds *appsv
 	return client.AppsV1().DaemonSets(namespace).Create(context.Background(), ds, metav1.CreateOptions{})
 }
 
-func (s *K8sService) UpdateDaemonSet(clusterId uint, namespace string, ds *appsv1.DaemonSet) (*appsv1.DaemonSet, error) {
+func (s *K8sService) UpdateDaemonSet(clusterName string, namespace string, ds *appsv1.DaemonSet) (*appsv1.DaemonSet, error) {
 	if err := s.ensureReady(); err != nil {
 		return nil, err
 	}
-	cluster, err := s.clusterService.GetByID(clusterId)
+	cluster, err := s.clusterService.GetByExactName(clusterName)
 	if err != nil {
 		return nil, err
 	}

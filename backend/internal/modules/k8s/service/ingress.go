@@ -27,8 +27,8 @@ type IngressListResponse struct {
 	Items []IngressVO `json:"items"`
 }
 
-func (s *K8sService) ListIngresses(clusterId uint, namespace string, page, pageSize int, keyword string) (*IngressListResponse, error) {
-	cc, err := s.getClusterClient(clusterId)
+func (s *K8sService) ListIngresses(clusterName string, namespace string, page, pageSize int, keyword string) (*IngressListResponse, error) {
+	cc, err := s.getClusterClient(clusterName)
 	if err != nil {
 		return nil, err
 	}
@@ -39,16 +39,16 @@ func (s *K8sService) ListIngresses(clusterId uint, namespace string, page, pageS
 		if isIngressAPINotSupported(err) {
 			dynamicClient, derr := s.clientFactory.GetDynamicClient(cc.Cluster)
 			if derr != nil {
-				return nil, s.handleClientError(clusterId, derr)
+				return nil, s.handleClientError(clusterName, derr)
 			}
 			if data, ok, derr := listIngressesWithFallback(dynamicClient, namespace); derr == nil && ok {
 				allItems = data
 			} else if derr != nil {
-				return nil, s.handleClientError(clusterId, derr)
+				return nil, s.handleClientError(clusterName, derr)
 			}
 		}
 		if allItems == nil {
-			return nil, s.handleClientError(clusterId, err)
+			return nil, s.handleClientError(clusterName, err)
 		}
 	} else {
 		allItems = make([]IngressVO, 0, len(list.Items))
@@ -136,32 +136,32 @@ func ingressVOFromUnstructured(item unstructured.Unstructured) IngressVO {
 	}
 }
 
-func (s *K8sService) GetIngressDetail(clusterId uint, namespace, name string) (*networkingv1.Ingress, error) {
-	cc, err := s.getClusterClient(clusterId)
+func (s *K8sService) GetIngressDetail(clusterName string, namespace, name string) (*networkingv1.Ingress, error) {
+	cc, err := s.getClusterClient(clusterName)
 	if err != nil {
 		return nil, err
 	}
 	return cc.Client.NetworkingV1().Ingresses(namespace).Get(context.Background(), name, metav1.GetOptions{})
 }
 
-func (s *K8sService) CreateIngress(clusterId uint, namespace string, ingress *networkingv1.Ingress) (*networkingv1.Ingress, error) {
-	cc, err := s.getClusterClient(clusterId)
+func (s *K8sService) CreateIngress(clusterName string, namespace string, ingress *networkingv1.Ingress) (*networkingv1.Ingress, error) {
+	cc, err := s.getClusterClient(clusterName)
 	if err != nil {
 		return nil, err
 	}
 	return cc.Client.NetworkingV1().Ingresses(namespace).Create(context.Background(), ingress, metav1.CreateOptions{})
 }
 
-func (s *K8sService) UpdateIngress(clusterId uint, namespace string, ingress *networkingv1.Ingress) (*networkingv1.Ingress, error) {
-	cc, err := s.getClusterClient(clusterId)
+func (s *K8sService) UpdateIngress(clusterName string, namespace string, ingress *networkingv1.Ingress) (*networkingv1.Ingress, error) {
+	cc, err := s.getClusterClient(clusterName)
 	if err != nil {
 		return nil, err
 	}
 	return cc.Client.NetworkingV1().Ingresses(namespace).Update(context.Background(), ingress, metav1.UpdateOptions{})
 }
 
-func (s *K8sService) DeleteIngress(clusterId uint, namespace, name string) error {
-	cc, err := s.getClusterClient(clusterId)
+func (s *K8sService) DeleteIngress(clusterName string, namespace, name string) error {
+	cc, err := s.getClusterClient(clusterName)
 	if err != nil {
 		return err
 	}

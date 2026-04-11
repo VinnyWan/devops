@@ -398,13 +398,102 @@ const docTemplate = `{
             }
         },
         "/app/build-config": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "根据应用ID获取构建配置",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "应用管理"
+                ],
+                "summary": "获取构建配置",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "应用ID",
+                        "name": "app_id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/app/build-config/delete": {
             "post": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
                 ],
-                "description": "保存应用的构建配置",
+                "description": "删除应用的构建配置",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "应用管理"
+                ],
+                "summary": "删除构建配置",
+                "parameters": [
+                    {
+                        "description": "删除请求",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.DeleteRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/app/build-config/save": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "新增或更新应用的构建配置",
                 "consumes": [
                     "application/json"
                 ],
@@ -444,14 +533,223 @@ const docTemplate = `{
                 }
             }
         },
-        "/app/config": {
+        "/app/build-env/delete": {
             "post": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
                 ],
-                "description": "保存应用的基础配置信息",
+                "description": "删除构建环境版本",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "应用管理"
+                ],
+                "summary": "删除构建环境版本",
+                "parameters": [
+                    {
+                        "description": "删除请求",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.DeleteRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/app/build-env/list": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "获取所有构建环境版本",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "应用管理"
+                ],
+                "summary": "获取构建环境版本列表",
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/app/build-env/save": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "新增或编辑JDK/Maven/Golang/Python版本",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "应用管理"
+                ],
+                "summary": "保存构建环境版本",
+                "parameters": [
+                    {
+                        "description": "构建环境",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.BuildEnv"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/app/config": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "根据应用ID查询应用的完整配置信息",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "应用管理"
+                ],
+                "summary": "获取应用配置详情",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "应用ID",
+                        "name": "id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/app/config/delete": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "删除应用的基础配置信息",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "应用管理"
+                ],
+                "summary": "删除应用配置",
+                "parameters": [
+                    {
+                        "description": "删除请求",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.DeleteRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/app/config/save": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "新增或修改应用配置，id为空时新增，否则修改",
                 "consumes": [
                     "application/json"
                 ],
@@ -471,6 +769,263 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/model.AppConfig"
                         }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/app/container-config": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "根据应用ID和环境获取容器配置（CPU/内存、挂载目录、环境变量）",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "应用管理"
+                ],
+                "summary": "获取容器配置",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "应用ID",
+                        "name": "app_id",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "环境（dev/test/staging/prod），不传则返回第一个配置",
+                        "name": "environment",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/app/container-config/delete": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "删除应用的容器配置（兼容旧接口，删除所有环境配置）",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "应用管理"
+                ],
+                "summary": "删除容器配置",
+                "parameters": [
+                    {
+                        "description": "删除请求",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.DeleteRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/app/container-config/delete-env": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "删除应用指定环境的容器配置",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "应用管理"
+                ],
+                "summary": "删除指定环境的容器配置",
+                "parameters": [
+                    {
+                        "description": "删除请求",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.DeleteContainerConfigRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/app/container-config/env-presets": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "获取预设的环境变量模板",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "应用管理"
+                ],
+                "summary": "获取环境变量预设",
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/app/container-config/save": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "提交/更新CPU/内存、镜像、挂载目录、环境变量KV配置（按环境区分）",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "应用管理"
+                ],
+                "summary": "保存容器配置",
+                "parameters": [
+                    {
+                        "description": "容器配置",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.ContainerConfigRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/app/container-configs": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "获取应用所有环境的容器配置列表",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "应用管理"
+                ],
+                "summary": "获取应用所有环境的容器配置",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "应用ID",
+                        "name": "app_id",
+                        "in": "query",
+                        "required": true
                     }
                 ],
                 "responses": {
@@ -540,13 +1095,155 @@ const docTemplate = `{
             }
         },
         "/app/deploy-config": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "根据应用ID和环境获取部署配置（k8s集群、副本数）",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "应用管理"
+                ],
+                "summary": "获取部署配置",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "应用ID",
+                        "name": "app_id",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "环境（dev/test/staging/prod），不传则返回第一个配置",
+                        "name": "environment",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/app/deploy-config/delete": {
             "post": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
                 ],
-                "description": "保存应用的部署配置",
+                "description": "删除应用的部署配置（兼容旧接口，删除所有环境配置）",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "应用管理"
+                ],
+                "summary": "删除部署配置",
+                "parameters": [
+                    {
+                        "description": "删除请求",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.DeleteRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/app/deploy-config/delete-env": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "删除应用指定环境的部署配置",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "应用管理"
+                ],
+                "summary": "删除指定环境的部署配置",
+                "parameters": [
+                    {
+                        "description": "删除请求",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.DeleteDeployConfigRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/app/deploy-config/save": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "提交/更新k8s集群、副本数选择（按环境区分）",
                 "consumes": [
                     "application/json"
                 ],
@@ -564,8 +1261,50 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/model.DeployConfig"
+                            "$ref": "#/definitions/model.DeployConfigRequest"
                         }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/app/deploy-configs": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "获取应用所有环境的部署配置列表",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "应用管理"
+                ],
+                "summary": "获取应用所有环境的部署配置",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "应用ID",
+                        "name": "app_id",
+                        "in": "query",
+                        "required": true
                     }
                 ],
                 "responses": {
@@ -658,6 +1397,253 @@ const docTemplate = `{
                 }
             }
         },
+        "/app/enums/delete": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "删除枚举值（被使用的枚举无法删除）",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "应用管理"
+                ],
+                "summary": "删除枚举",
+                "parameters": [
+                    {
+                        "description": "删除请求",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.DeleteEnumRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/app/enums/grouped": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "获取按类型分组的枚举，用于前端下拉框",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "应用管理"
+                ],
+                "summary": "获取分组枚举",
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/app/enums/list": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "获取所有枚举或按类型筛选，支持管理页面查看所有（包括禁用的）",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "应用管理"
+                ],
+                "summary": "获取枚举列表",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "枚举类型筛选",
+                        "name": "enum_type",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "是否包含禁用的枚举",
+                        "name": "include_disabled",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/app/enums/save": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "新增或修改枚举值",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "应用管理"
+                ],
+                "summary": "保存枚举",
+                "parameters": [
+                    {
+                        "description": "枚举请求",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.EnumRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/app/enums/types": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "获取所有可用的枚举类型",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "应用管理"
+                ],
+                "summary": "获取枚举类型列表",
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/app/images/versions": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "从Harbor拉取对应应用的镜像版本列表",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "应用管理"
+                ],
+                "summary": "获取镜像版本列表",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "应用ID",
+                        "name": "app_id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/app/k8s/clusters": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "获取可用的K8s集群列表",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "应用管理"
+                ],
+                "summary": "获取K8s集群列表",
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/app/list": {
             "get": {
                 "security": [
@@ -665,7 +1651,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "获取应用列表",
+                "description": "获取应用列表，支持分页、模糊搜索、条件筛选",
                 "produces": [
                     "application/json"
                 ],
@@ -673,6 +1659,64 @@ const docTemplate = `{
                     "应用管理"
                 ],
                 "summary": "获取应用列表",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "页码，默认1",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页条数，默认10",
+                        "name": "size",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "搜索关键字（应用名称、负责人模糊匹配）",
+                        "name": "keyword",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "实例类型筛选（container/native）",
+                        "name": "instance_type",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "状态筛选（running/offline）",
+                        "name": "status",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/app/menu/options": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "获取应用管理下拉框的4个选项",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "应用管理"
+                ],
+                "summary": "获取应用管理菜单选项",
                 "responses": {
                     "200": {
                         "description": "成功",
@@ -732,7 +1776,143 @@ const docTemplate = `{
                 }
             }
         },
+        "/app/status/toggle": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "将应用状态在「运行中 ↔ 已下线」之间切换",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "应用管理"
+                ],
+                "summary": "应用状态切换",
+                "parameters": [
+                    {
+                        "description": "状态切换请求",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.StatusToggleRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/app/tech-stack": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "获取应用的技术栈配置",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "应用管理"
+                ],
+                "summary": "获取技术栈配置",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "应用ID",
+                        "name": "app_id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/app/tech-stack/delete": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "删除应用的技术栈配置",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "应用管理"
+                ],
+                "summary": "删除技术栈配置",
+                "parameters": [
+                    {
+                        "description": "删除请求",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.DeleteRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/app/tech-stack/save": {
             "post": {
                 "security": [
                     {
@@ -940,334 +2120,6 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "成功",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    }
-                }
-            }
-        },
-        "/app/{appId}/build-config": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "获取应用的构建配置",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "应用管理"
-                ],
-                "summary": "获取构建配置",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "应用ID",
-                        "name": "appId",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "成功",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "400": {
-                        "description": "参数错误",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    }
-                }
-            },
-            "delete": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "删除应用的构建配置",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "应用管理"
-                ],
-                "summary": "删除构建配置",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "应用ID",
-                        "name": "appId",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "成功",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "400": {
-                        "description": "参数错误",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    }
-                }
-            }
-        },
-        "/app/{appId}/config": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "获取应用的完整配置信息",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "应用管理"
-                ],
-                "summary": "获取应用配置",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "应用ID",
-                        "name": "appId",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "成功",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "400": {
-                        "description": "参数错误",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    }
-                }
-            },
-            "delete": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "删除应用的基础配置信息",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "应用管理"
-                ],
-                "summary": "删除应用配置",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "应用ID",
-                        "name": "appId",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "成功",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "400": {
-                        "description": "参数错误",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    }
-                }
-            }
-        },
-        "/app/{appId}/deploy-config": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "获取应用的部署配置",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "应用管理"
-                ],
-                "summary": "获取部署配置",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "应用ID",
-                        "name": "appId",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "成功",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "400": {
-                        "description": "参数错误",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    }
-                }
-            },
-            "delete": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "删除应用的部署配置",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "应用管理"
-                ],
-                "summary": "删除部署配置",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "应用ID",
-                        "name": "appId",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "成功",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "400": {
-                        "description": "参数错误",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    }
-                }
-            }
-        },
-        "/app/{appId}/tech-stack": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "获取应用的技术栈配置",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "应用管理"
-                ],
-                "summary": "获取技术栈配置",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "应用ID",
-                        "name": "appId",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "成功",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "400": {
-                        "description": "参数错误",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    }
-                }
-            },
-            "delete": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "删除应用的技术栈配置",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "应用管理"
-                ],
-                "summary": "删除技术栈配置",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "应用ID",
-                        "name": "appId",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "成功",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "400": {
-                        "description": "参数错误",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -2285,7 +3137,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "根据部门ID查询部门下用户（非管理员只能查询本部门）",
+                "description": "根据部门ID查询该部门及下级部门用户（结果受当前用户数据范围限制）",
                 "produces": [
                     "application/json"
                 ],
@@ -2768,7 +3620,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "根据集群ID获取详细信息",
+                "description": "根据集群名称获取详细信息",
                 "consumes": [
                     "application/json"
                 ],
@@ -2781,9 +3633,9 @@ const docTemplate = `{
                 "summary": "获取集群详情",
                 "parameters": [
                     {
-                        "type": "integer",
-                        "description": "集群ID",
-                        "name": "id",
+                        "type": "string",
+                        "description": "集群名称",
+                        "name": "name",
                         "in": "query",
                         "required": true
                     }
@@ -2839,9 +3691,9 @@ const docTemplate = `{
                 "summary": "获取事件列表",
                 "parameters": [
                     {
-                        "type": "integer",
-                        "description": "集群ID",
-                        "name": "id",
+                        "type": "string",
+                        "description": "集群名称",
+                        "name": "name",
                         "in": "query",
                         "required": true
                     },
@@ -3009,9 +3861,9 @@ const docTemplate = `{
                 "summary": "获取节点列表",
                 "parameters": [
                     {
-                        "type": "integer",
-                        "description": "集群ID",
-                        "name": "id",
+                        "type": "string",
+                        "description": "集群名称",
+                        "name": "name",
                         "in": "query",
                         "required": true
                     },
@@ -3191,9 +4043,9 @@ const docTemplate = `{
                 "summary": "获取网络资源统计",
                 "parameters": [
                     {
-                        "type": "integer",
-                        "description": "集群ID",
-                        "name": "id",
+                        "type": "string",
+                        "description": "集群名称",
+                        "name": "name",
                         "in": "query",
                         "required": true
                     }
@@ -3228,9 +4080,9 @@ const docTemplate = `{
                 "summary": "获取存储资源统计",
                 "parameters": [
                     {
-                        "type": "integer",
-                        "description": "集群ID",
-                        "name": "id",
+                        "type": "string",
+                        "description": "集群名称",
+                        "name": "name",
                         "in": "query",
                         "required": true
                     }
@@ -3265,9 +4117,9 @@ const docTemplate = `{
                 "summary": "获取工作负载统计",
                 "parameters": [
                     {
-                        "type": "integer",
-                        "description": "集群ID",
-                        "name": "id",
+                        "type": "string",
+                        "description": "集群名称",
+                        "name": "name",
                         "in": "query",
                         "required": true
                     }
@@ -3361,9 +4213,9 @@ const docTemplate = `{
                 "summary": "创建 ConfigMap",
                 "parameters": [
                     {
-                        "type": "integer",
-                        "description": "集群ID（可选，未传则使用默认集群）",
-                        "name": "clusterId",
+                        "type": "string",
+                        "description": "集群名称（可选，未传则使用默认集群）",
+                        "name": "clusterName",
                         "in": "query"
                     },
                     {
@@ -3413,7 +4265,7 @@ const docTemplate = `{
                 "summary": "删除 ConfigMap",
                 "parameters": [
                     {
-                        "description": "参数: {clusterId, namespace, name}",
+                        "description": "参数: {clusterName, namespace, name}",
                         "name": "request",
                         "in": "body",
                         "required": true,
@@ -3453,9 +4305,9 @@ const docTemplate = `{
                 "summary": "获取 ConfigMap 详情",
                 "parameters": [
                     {
-                        "type": "integer",
-                        "description": "集群ID（可选，未传则使用默认集群）",
-                        "name": "clusterId",
+                        "type": "string",
+                        "description": "集群名称（可选，未传则使用默认集群）",
+                        "name": "clusterName",
                         "in": "query"
                     },
                     {
@@ -3503,9 +4355,9 @@ const docTemplate = `{
                 "summary": "获取 ConfigMap 列表",
                 "parameters": [
                     {
-                        "type": "integer",
-                        "description": "集群ID（可选，未传则使用默认集群）",
-                        "name": "clusterId",
+                        "type": "string",
+                        "description": "集群名称（可选，未传则使用默认集群）",
+                        "name": "clusterName",
                         "in": "query"
                     },
                     {
@@ -3565,9 +4417,9 @@ const docTemplate = `{
                 "summary": "更新 ConfigMap",
                 "parameters": [
                     {
-                        "type": "integer",
-                        "description": "集群ID（可选，未传则使用默认集群）",
-                        "name": "clusterId",
+                        "type": "string",
+                        "description": "集群名称（可选，未传则使用默认集群）",
+                        "name": "clusterName",
                         "in": "query"
                     },
                     {
@@ -3617,9 +4469,9 @@ const docTemplate = `{
                 "summary": "创建 DaemonSet",
                 "parameters": [
                     {
-                        "type": "integer",
-                        "description": "集群ID（可选，未传则使用默认集群）",
-                        "name": "clusterId",
+                        "type": "string",
+                        "description": "集群名称（可选，未传则使用默认集群）",
+                        "name": "clusterName",
                         "in": "query"
                     },
                     {
@@ -3669,7 +4521,7 @@ const docTemplate = `{
                 "summary": "删除 DaemonSet",
                 "parameters": [
                     {
-                        "description": "参数: {clusterId, namespace, name}",
+                        "description": "参数: {clusterName, namespace, name}",
                         "name": "request",
                         "in": "body",
                         "required": true,
@@ -3708,9 +4560,9 @@ const docTemplate = `{
                 "summary": "获取 DaemonSet 详情",
                 "parameters": [
                     {
-                        "type": "integer",
-                        "description": "集群ID（可选，未传则使用默认集群）",
-                        "name": "clusterId",
+                        "type": "string",
+                        "description": "集群名称（可选，未传则使用默认集群）",
+                        "name": "clusterName",
                         "in": "query"
                     },
                     {
@@ -3758,9 +4610,9 @@ const docTemplate = `{
                 "summary": "获取 DaemonSet 列表",
                 "parameters": [
                     {
-                        "type": "integer",
-                        "description": "集群ID（可选，未传则使用默认集群）",
-                        "name": "clusterId",
+                        "type": "string",
+                        "description": "集群名称（可选，未传则使用默认集群）",
+                        "name": "clusterName",
                         "in": "query"
                     },
                     {
@@ -3820,7 +4672,7 @@ const docTemplate = `{
                 "summary": "重启 DaemonSet",
                 "parameters": [
                     {
-                        "description": "参数: {clusterId, namespace, name}",
+                        "description": "参数: {clusterName, namespace, name}",
                         "name": "request",
                         "in": "body",
                         "required": true,
@@ -3859,9 +4711,9 @@ const docTemplate = `{
                 "summary": "更新 DaemonSet",
                 "parameters": [
                     {
-                        "type": "integer",
-                        "description": "集群ID（可选，未传则使用默认集群）",
-                        "name": "clusterId",
+                        "type": "string",
+                        "description": "集群名称（可选，未传则使用默认集群）",
+                        "name": "clusterName",
                         "in": "query"
                     },
                     {
@@ -3911,9 +4763,9 @@ const docTemplate = `{
                 "summary": "获取 DaemonSet YAML",
                 "parameters": [
                     {
-                        "type": "integer",
-                        "description": "集群ID（可选，未传则使用默认集群）",
-                        "name": "clusterId",
+                        "type": "string",
+                        "description": "集群名称（可选，未传则使用默认集群）",
+                        "name": "clusterName",
                         "in": "query"
                     },
                     {
@@ -3961,9 +4813,9 @@ const docTemplate = `{
                 "summary": "通过 YAML 更新 DaemonSet",
                 "parameters": [
                     {
-                        "type": "integer",
-                        "description": "集群ID（可选，未传则使用默认集群）",
-                        "name": "clusterId",
+                        "type": "string",
+                        "description": "集群名称（可选，未传则使用默认集群）",
+                        "name": "clusterName",
                         "in": "query"
                     },
                     {
@@ -4020,9 +4872,9 @@ const docTemplate = `{
                 "summary": "创建 Deployment",
                 "parameters": [
                     {
-                        "type": "integer",
-                        "description": "集群ID（可选，未传则使用默认集群）",
-                        "name": "clusterId",
+                        "type": "string",
+                        "description": "集群名称（可选，未传则使用默认集群）",
+                        "name": "clusterName",
                         "in": "query"
                     },
                     {
@@ -4072,7 +4924,7 @@ const docTemplate = `{
                 "summary": "删除 Deployment",
                 "parameters": [
                     {
-                        "description": "参数: {clusterId, namespace, name}",
+                        "description": "参数: {clusterName, namespace, name}",
                         "name": "request",
                         "in": "body",
                         "required": true,
@@ -4111,9 +4963,9 @@ const docTemplate = `{
                 "summary": "获取 Deployment 详情",
                 "parameters": [
                     {
-                        "type": "integer",
-                        "description": "集群ID（可选，未传则使用默认集群）",
-                        "name": "clusterId",
+                        "type": "string",
+                        "description": "集群名称（可选，未传则使用默认集群）",
+                        "name": "clusterName",
                         "in": "query"
                     },
                     {
@@ -4161,9 +5013,9 @@ const docTemplate = `{
                 "summary": "获取 Deployment 列表",
                 "parameters": [
                     {
-                        "type": "integer",
-                        "description": "集群ID（可选，未传则使用默认集群）",
-                        "name": "clusterId",
+                        "type": "string",
+                        "description": "集群名称（可选，未传则使用默认集群）",
+                        "name": "clusterName",
                         "in": "query"
                     },
                     {
@@ -4223,9 +5075,9 @@ const docTemplate = `{
                 "summary": "根据 Deployment 获取 Pod 列表",
                 "parameters": [
                     {
-                        "type": "integer",
-                        "description": "集群ID（可选，未传则使用默认集群）",
-                        "name": "clusterId",
+                        "type": "string",
+                        "description": "集群名称（可选，未传则使用默认集群）",
+                        "name": "clusterName",
                         "in": "query"
                     },
                     {
@@ -4273,7 +5125,7 @@ const docTemplate = `{
                 "summary": "重启 Deployment",
                 "parameters": [
                     {
-                        "description": "参数: {clusterId, namespace, name}",
+                        "description": "参数: {clusterName, namespace, name}",
                         "name": "request",
                         "in": "body",
                         "required": true,
@@ -4312,7 +5164,7 @@ const docTemplate = `{
                 "summary": "扩缩容 Deployment",
                 "parameters": [
                     {
-                        "description": "参数: {clusterId, namespace, name, replicas}",
+                        "description": "参数: {clusterName, namespace, name, replicas}",
                         "name": "request",
                         "in": "body",
                         "required": true,
@@ -4351,9 +5203,9 @@ const docTemplate = `{
                 "summary": "更新 Deployment",
                 "parameters": [
                     {
-                        "type": "integer",
-                        "description": "集群ID（可选，未传则使用默认集群）",
-                        "name": "clusterId",
+                        "type": "string",
+                        "description": "集群名称（可选，未传则使用默认集群）",
+                        "name": "clusterName",
                         "in": "query"
                     },
                     {
@@ -4403,9 +5255,9 @@ const docTemplate = `{
                 "summary": "获取 Deployment YAML",
                 "parameters": [
                     {
-                        "type": "integer",
-                        "description": "集群ID（可选，未传则使用默认集群）",
-                        "name": "clusterId",
+                        "type": "string",
+                        "description": "集群名称（可选，未传则使用默认集群）",
+                        "name": "clusterName",
                         "in": "query"
                     },
                     {
@@ -4453,9 +5305,9 @@ const docTemplate = `{
                 "summary": "通过 YAML 更新 Deployment",
                 "parameters": [
                     {
-                        "type": "integer",
-                        "description": "集群ID（可选，未传则使用默认集群）",
-                        "name": "clusterId",
+                        "type": "string",
+                        "description": "集群名称（可选，未传则使用默认集群）",
+                        "name": "clusterName",
                         "in": "query"
                     },
                     {
@@ -4512,9 +5364,9 @@ const docTemplate = `{
                 "summary": "创建 Ingress",
                 "parameters": [
                     {
-                        "type": "integer",
-                        "description": "集群ID（可选，未传则使用默认集群）",
-                        "name": "clusterId",
+                        "type": "string",
+                        "description": "集群名称（可选，未传则使用默认集群）",
+                        "name": "clusterName",
                         "in": "query"
                     },
                     {
@@ -4564,7 +5416,7 @@ const docTemplate = `{
                 "summary": "删除 Ingress",
                 "parameters": [
                     {
-                        "description": "参数: {clusterId, namespace, name}",
+                        "description": "参数: {clusterName, namespace, name}",
                         "name": "request",
                         "in": "body",
                         "required": true,
@@ -4604,9 +5456,9 @@ const docTemplate = `{
                 "summary": "获取 Ingress 详情",
                 "parameters": [
                     {
-                        "type": "integer",
-                        "description": "集群ID（可选，未传则使用默认集群）",
-                        "name": "clusterId",
+                        "type": "string",
+                        "description": "集群名称（可选，未传则使用默认集群）",
+                        "name": "clusterName",
                         "in": "query"
                     },
                     {
@@ -4654,9 +5506,9 @@ const docTemplate = `{
                 "summary": "获取 Ingress 列表",
                 "parameters": [
                     {
-                        "type": "integer",
-                        "description": "集群ID（可选，未传则使用默认集群）",
-                        "name": "clusterId",
+                        "type": "string",
+                        "description": "集群名称（可选，未传则使用默认集群）",
+                        "name": "clusterName",
                         "in": "query"
                     },
                     {
@@ -4716,9 +5568,9 @@ const docTemplate = `{
                 "summary": "更新 Ingress",
                 "parameters": [
                     {
-                        "type": "integer",
-                        "description": "集群ID（可选，未传则使用默认集群）",
-                        "name": "clusterId",
+                        "type": "string",
+                        "description": "集群名称（可选，未传则使用默认集群）",
+                        "name": "clusterName",
                         "in": "query"
                     },
                     {
@@ -4768,9 +5620,9 @@ const docTemplate = `{
                 "summary": "获取 Namespace 列表",
                 "parameters": [
                     {
-                        "type": "integer",
-                        "description": "集群ID（可选，未传则使用默认集群）",
-                        "name": "clusterId",
+                        "type": "string",
+                        "description": "集群名称（可选，未传则使用默认集群）",
+                        "name": "clusterName",
                         "in": "query"
                     }
                 ],
@@ -4861,9 +5713,9 @@ const docTemplate = `{
                 "summary": "获取节点详情",
                 "parameters": [
                     {
-                        "type": "integer",
-                        "description": "集群ID",
-                        "name": "clusterId",
+                        "type": "string",
+                        "description": "集群名称",
+                        "name": "clusterName",
                         "in": "query",
                         "required": true
                     },
@@ -4950,9 +5802,9 @@ const docTemplate = `{
                 "summary": "获取节点事件",
                 "parameters": [
                     {
-                        "type": "integer",
-                        "description": "集群ID",
-                        "name": "clusterId",
+                        "type": "string",
+                        "description": "集群名称",
+                        "name": "clusterName",
                         "in": "query",
                         "required": true
                     },
@@ -5072,9 +5924,9 @@ const docTemplate = `{
                 "summary": "获取节点列表",
                 "parameters": [
                     {
-                        "type": "integer",
-                        "description": "集群ID",
-                        "name": "clusterId",
+                        "type": "string",
+                        "description": "集群名称",
+                        "name": "clusterName",
                         "in": "query",
                         "required": true
                     },
@@ -5147,9 +5999,9 @@ const docTemplate = `{
                 "summary": "创建 Pod",
                 "parameters": [
                     {
-                        "type": "integer",
-                        "description": "集群ID（可选，未传则使用默认集群）",
-                        "name": "clusterId",
+                        "type": "string",
+                        "description": "集群名称（可选，未传则使用默认集群）",
+                        "name": "clusterName",
                         "in": "query"
                     },
                     {
@@ -5199,7 +6051,7 @@ const docTemplate = `{
                 "summary": "删除 Pod",
                 "parameters": [
                     {
-                        "description": "参数: {clusterId, namespace, name}",
+                        "description": "参数: {clusterName, namespace, name}",
                         "name": "request",
                         "in": "body",
                         "required": true,
@@ -5245,9 +6097,9 @@ const docTemplate = `{
                 "summary": "获取 Pod 诊断信息",
                 "parameters": [
                     {
-                        "type": "integer",
-                        "description": "集群ID（可选，未传则使用默认集群）",
-                        "name": "clusterId",
+                        "type": "string",
+                        "description": "集群名称（可选，未传则使用默认集群）",
+                        "name": "clusterName",
                         "in": "query"
                     },
                     {
@@ -5272,9 +6124,9 @@ const docTemplate = `{
                         "required": true
                     },
                     {
-                        "type": "integer",
-                        "description": "集群ID（可选，未传则使用默认集群）",
-                        "name": "clusterId",
+                        "type": "string",
+                        "description": "集群名称（可选，未传则使用默认集群）",
+                        "name": "clusterName",
                         "in": "query"
                     },
                     {
@@ -5322,9 +6174,9 @@ const docTemplate = `{
                 "summary": "获取 Pod 详情",
                 "parameters": [
                     {
-                        "type": "integer",
-                        "description": "集群ID（可选，未传则使用默认集群）",
-                        "name": "clusterId",
+                        "type": "string",
+                        "description": "集群名称（可选，未传则使用默认集群）",
+                        "name": "clusterName",
                         "in": "query"
                     },
                     {
@@ -5372,9 +6224,9 @@ const docTemplate = `{
                 "summary": "检测Pod容器可用Shell",
                 "parameters": [
                     {
-                        "type": "integer",
-                        "description": "集群ID（可选，未传则使用默认集群）",
-                        "name": "clusterId",
+                        "type": "string",
+                        "description": "集群名称（可选，未传则使用默认集群）",
+                        "name": "clusterName",
                         "in": "query"
                     },
                     {
@@ -5428,9 +6280,9 @@ const docTemplate = `{
                 "summary": "获取 Pod 事件",
                 "parameters": [
                     {
-                        "type": "integer",
-                        "description": "集群ID（可选，未传则使用默认集群）",
-                        "name": "clusterId",
+                        "type": "string",
+                        "description": "集群名称（可选，未传则使用默认集群）",
+                        "name": "clusterName",
                         "in": "query"
                     },
                     {
@@ -5478,9 +6330,9 @@ const docTemplate = `{
                 "summary": "获取 Pod 列表",
                 "parameters": [
                     {
-                        "type": "integer",
-                        "description": "集群ID（可选，未传则使用默认集群）",
-                        "name": "clusterId",
+                        "type": "string",
+                        "description": "集群名称（可选，未传则使用默认集群）",
+                        "name": "clusterName",
                         "in": "query"
                     },
                     {
@@ -5546,9 +6398,9 @@ const docTemplate = `{
                 "summary": "获取 Pod 诊断信息",
                 "parameters": [
                     {
-                        "type": "integer",
-                        "description": "集群ID（可选，未传则使用默认集群）",
-                        "name": "clusterId",
+                        "type": "string",
+                        "description": "集群名称（可选，未传则使用默认集群）",
+                        "name": "clusterName",
                         "in": "query"
                     },
                     {
@@ -5573,9 +6425,9 @@ const docTemplate = `{
                         "required": true
                     },
                     {
-                        "type": "integer",
-                        "description": "集群ID（可选，未传则使用默认集群）",
-                        "name": "clusterId",
+                        "type": "string",
+                        "description": "集群名称（可选，未传则使用默认集群）",
+                        "name": "clusterName",
                         "in": "query"
                     },
                     {
@@ -5623,9 +6475,9 @@ const docTemplate = `{
                 "summary": "获取 Pod 日志",
                 "parameters": [
                     {
-                        "type": "integer",
-                        "description": "集群ID（可选，未传则使用默认集群）",
-                        "name": "clusterId",
+                        "type": "string",
+                        "description": "集群名称（可选，未传则使用默认集群）",
+                        "name": "clusterName",
                         "in": "query"
                     },
                     {
@@ -5680,9 +6532,9 @@ const docTemplate = `{
                 "summary": "Pod 终端（WebSocket）",
                 "parameters": [
                     {
-                        "type": "integer",
-                        "description": "集群ID（可选，未传则使用默认集群）",
-                        "name": "clusterId",
+                        "type": "string",
+                        "description": "集群名称（可选，未传则使用默认集群）",
+                        "name": "clusterName",
                         "in": "query"
                     },
                     {
@@ -5747,9 +6599,9 @@ const docTemplate = `{
                 "summary": "更新 Pod",
                 "parameters": [
                     {
-                        "type": "integer",
-                        "description": "集群ID（可选，未传则使用默认集群）",
-                        "name": "clusterId",
+                        "type": "string",
+                        "description": "集群名称（可选，未传则使用默认集群）",
+                        "name": "clusterName",
                         "in": "query"
                     },
                     {
@@ -5799,9 +6651,9 @@ const docTemplate = `{
                 "summary": "获取 Pod YAML",
                 "parameters": [
                     {
-                        "type": "integer",
-                        "description": "集群ID（可选，未传则使用默认集群）",
-                        "name": "clusterId",
+                        "type": "string",
+                        "description": "集群名称（可选，未传则使用默认集群）",
+                        "name": "clusterName",
                         "in": "query"
                     },
                     {
@@ -5849,9 +6701,9 @@ const docTemplate = `{
                 "summary": "通过 YAML 更新 Pod",
                 "parameters": [
                     {
-                        "type": "integer",
-                        "description": "集群ID（可选，未传则使用默认集群）",
-                        "name": "clusterId",
+                        "type": "string",
+                        "description": "集群名称（可选，未传则使用默认集群）",
+                        "name": "clusterName",
                         "in": "query"
                     },
                     {
@@ -5933,9 +6785,9 @@ const docTemplate = `{
                 "summary": "获取资源YAML",
                 "parameters": [
                     {
-                        "type": "integer",
-                        "description": "集群ID（可选，未传则使用默认集群）",
-                        "name": "clusterId",
+                        "type": "string",
+                        "description": "集群名称（可选，未传则使用默认集群）",
+                        "name": "clusterName",
                         "in": "query"
                     },
                     {
@@ -5989,9 +6841,9 @@ const docTemplate = `{
                 "summary": "创建 Service",
                 "parameters": [
                     {
-                        "type": "integer",
-                        "description": "集群ID（可选，未传则使用默认集群）",
-                        "name": "clusterId",
+                        "type": "string",
+                        "description": "集群名称（可选，未传则使用默认集群）",
+                        "name": "clusterName",
                         "in": "query"
                     },
                     {
@@ -6041,7 +6893,7 @@ const docTemplate = `{
                 "summary": "删除 Service",
                 "parameters": [
                     {
-                        "description": "参数: {clusterId, namespace, name}",
+                        "description": "参数: {clusterName, namespace, name}",
                         "name": "request",
                         "in": "body",
                         "required": true,
@@ -6078,12 +6930,12 @@ const docTemplate = `{
                 "tags": [
                     "K8s资源管理"
                 ],
-                "summary": "获取 Service 详情",
+                "summary": "获取 Service详情",
                 "parameters": [
                     {
-                        "type": "integer",
-                        "description": "集群ID（可选，未传则使用默认集群）",
-                        "name": "clusterId",
+                        "type": "string",
+                        "description": "集群名称（可选，未传则使用默认集群）",
+                        "name": "clusterName",
                         "in": "query"
                     },
                     {
@@ -6131,9 +6983,9 @@ const docTemplate = `{
                 "summary": "获取 Service 列表",
                 "parameters": [
                     {
-                        "type": "integer",
-                        "description": "集群ID（可选，未传则使用默认集群）",
-                        "name": "clusterId",
+                        "type": "string",
+                        "description": "集群名称（可选，未传则使用默认集群）",
+                        "name": "clusterName",
                         "in": "query"
                     },
                     {
@@ -6193,9 +7045,9 @@ const docTemplate = `{
                 "summary": "更新 Service",
                 "parameters": [
                     {
-                        "type": "integer",
-                        "description": "集群ID（可选，未传则使用默认集群）",
-                        "name": "clusterId",
+                        "type": "string",
+                        "description": "集群名称（可选，未传则使用默认集群）",
+                        "name": "clusterName",
                         "in": "query"
                     },
                     {
@@ -6245,9 +7097,9 @@ const docTemplate = `{
                 "summary": "创建 StatefulSet",
                 "parameters": [
                     {
-                        "type": "integer",
-                        "description": "集群ID（可选，未传则使用默认集群）",
-                        "name": "clusterId",
+                        "type": "string",
+                        "description": "集群名称（可选，未传则使用默认集群）",
+                        "name": "clusterName",
                         "in": "query"
                     },
                     {
@@ -6297,7 +7149,7 @@ const docTemplate = `{
                 "summary": "删除 StatefulSet",
                 "parameters": [
                     {
-                        "description": "参数: {clusterId, namespace, name}",
+                        "description": "参数: {clusterName, namespace, name}",
                         "name": "request",
                         "in": "body",
                         "required": true,
@@ -6336,9 +7188,9 @@ const docTemplate = `{
                 "summary": "获取 StatefulSet 详情",
                 "parameters": [
                     {
-                        "type": "integer",
-                        "description": "集群ID（可选，未传则使用默认集群）",
-                        "name": "clusterId",
+                        "type": "string",
+                        "description": "集群名称（可选，未传则使用默认集群）",
+                        "name": "clusterName",
                         "in": "query"
                     },
                     {
@@ -6386,9 +7238,9 @@ const docTemplate = `{
                 "summary": "获取 StatefulSet 列表",
                 "parameters": [
                     {
-                        "type": "integer",
-                        "description": "集群ID（可选，未传则使用默认集群）",
-                        "name": "clusterId",
+                        "type": "string",
+                        "description": "集群名称（可选，未传则使用默认集群）",
+                        "name": "clusterName",
                         "in": "query"
                     },
                     {
@@ -6448,7 +7300,7 @@ const docTemplate = `{
                 "summary": "重启 StatefulSet",
                 "parameters": [
                     {
-                        "description": "参数: {clusterId, namespace, name}",
+                        "description": "参数: {clusterName, namespace, name}",
                         "name": "request",
                         "in": "body",
                         "required": true,
@@ -6487,7 +7339,7 @@ const docTemplate = `{
                 "summary": "扩缩容 StatefulSet",
                 "parameters": [
                     {
-                        "description": "参数: {clusterId, namespace, name, replicas}",
+                        "description": "参数: {clusterName, namespace, name, replicas}",
                         "name": "request",
                         "in": "body",
                         "required": true,
@@ -6526,9 +7378,9 @@ const docTemplate = `{
                 "summary": "更新 StatefulSet",
                 "parameters": [
                     {
-                        "type": "integer",
-                        "description": "集群ID（可选，未传则使用默认集群）",
-                        "name": "clusterId",
+                        "type": "string",
+                        "description": "集群名称（可选，未传则使用默认集群）",
+                        "name": "clusterName",
                         "in": "query"
                     },
                     {
@@ -6578,9 +7430,9 @@ const docTemplate = `{
                 "summary": "获取 StatefulSet YAML",
                 "parameters": [
                     {
-                        "type": "integer",
-                        "description": "集群ID（可选，未传则使用默认集群）",
-                        "name": "clusterId",
+                        "type": "string",
+                        "description": "集群名称（可选，未传则使用默认集群）",
+                        "name": "clusterName",
                         "in": "query"
                     },
                     {
@@ -6628,9 +7480,9 @@ const docTemplate = `{
                 "summary": "通过 YAML 更新 StatefulSet",
                 "parameters": [
                     {
-                        "type": "integer",
-                        "description": "集群ID（可选，未传则使用默认集群）",
-                        "name": "clusterId",
+                        "type": "string",
+                        "description": "集群名称（可选，未传则使用默认集群）",
+                        "name": "clusterName",
                         "in": "query"
                     },
                     {
@@ -7604,6 +8456,168 @@ const docTemplate = `{
                 }
             }
         },
+        "/tenant/create": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "创建新租户",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "租户管理"
+                ],
+                "summary": "创建租户",
+                "parameters": [
+                    {
+                        "description": "租户信息",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/service.CreateTenantRequest"
+                        }
+                    }
+                ],
+                "responses": {}
+            }
+        },
+        "/tenant/detail": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "根据ID查询租户详情",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "租户管理"
+                ],
+                "summary": "租户详情",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "租户ID",
+                        "name": "id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {}
+            }
+        },
+        "/tenant/disable": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "将租户状态置为 inactive",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "租户管理"
+                ],
+                "summary": "停用租户",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "租户ID",
+                        "name": "id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {}
+            }
+        },
+        "/tenant/list": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "获取租户列表",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "租户管理"
+                ],
+                "summary": "租户列表",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页数量",
+                        "name": "pageSize",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "关键词",
+                        "name": "keyword",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "状态",
+                        "name": "status",
+                        "in": "query"
+                    }
+                ],
+                "responses": {}
+            }
+        },
+        "/tenant/update": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "更新租户信息",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "租户管理"
+                ],
+                "summary": "更新租户",
+                "parameters": [
+                    {
+                        "description": "租户信息",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/service.UpdateTenantRequest"
+                        }
+                    }
+                ],
+                "responses": {}
+            }
+        },
         "/user/assign-roles": {
             "post": {
                 "security": [
@@ -8395,12 +9409,12 @@ const docTemplate = `{
         "api.CordonNodeRequest": {
             "type": "object",
             "required": [
-                "clusterId",
+                "clusterName",
                 "name"
             ],
             "properties": {
-                "clusterId": {
-                    "type": "integer"
+                "clusterName": {
+                    "type": "string"
                 },
                 "cordon": {
                     "description": "true=不可调度, false=可调度",
@@ -8414,12 +9428,12 @@ const docTemplate = `{
         "api.DrainNodeRequest": {
             "type": "object",
             "required": [
-                "clusterId",
+                "clusterName",
                 "name"
             ],
             "properties": {
-                "clusterId": {
-                    "type": "integer"
+                "clusterName": {
+                    "type": "string"
                 },
                 "deleteLocalData": {
                     "type": "boolean"
@@ -8459,13 +9473,13 @@ const docTemplate = `{
         "api.UpdateLabelsRequest": {
             "type": "object",
             "required": [
-                "clusterId",
+                "clusterName",
                 "labels",
                 "name"
             ],
             "properties": {
-                "clusterId": {
-                    "type": "integer"
+                "clusterName": {
+                    "type": "string"
                 },
                 "labels": {
                     "type": "object",
@@ -8481,13 +9495,13 @@ const docTemplate = `{
         "api.UpdateTaintsRequest": {
             "type": "object",
             "required": [
-                "clusterId",
+                "clusterName",
                 "name",
                 "taints"
             ],
             "properties": {
-                "clusterId": {
-                    "type": "integer"
+                "clusterName": {
+                    "type": "string"
                 },
                 "name": {
                     "type": "string"
@@ -8505,36 +9519,60 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "appState": {
+                    "description": "应用状态：pending/online",
                     "type": "string"
                 },
                 "createdAt": {
                     "type": "string"
                 },
                 "description": {
+                    "description": "描述",
                     "type": "string"
                 },
                 "developers": {
+                    "description": "开发负责人",
                     "type": "string"
                 },
                 "domain": {
+                    "description": "域名",
                     "type": "string"
                 },
                 "gitAddress": {
+                    "description": "Git地址",
+                    "type": "string"
+                },
+                "healthCheck": {
+                    "description": "健康检查接口",
                     "type": "string"
                 },
                 "id": {
                     "type": "integer"
                 },
+                "instanceType": {
+                    "description": "实例类型：container/native",
+                    "type": "string"
+                },
                 "language": {
+                    "description": "开发语言",
                     "type": "string"
                 },
                 "name": {
                     "type": "string"
                 },
                 "owner": {
+                    "description": "运维负责人",
+                    "type": "string"
+                },
+                "port": {
+                    "description": "服务端口",
+                    "type": "integer"
+                },
+                "status": {
+                    "description": "运行状态：running/offline",
                     "type": "string"
                 },
                 "testers": {
+                    "description": "测试负责人",
                     "type": "string"
                 },
                 "updatedAt": {
@@ -8574,8 +9612,35 @@ const docTemplate = `{
                 }
             }
         },
-        "model.DeployConfig": {
+        "model.BuildEnv": {
             "type": "object",
+            "properties": {
+                "createdAt": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                },
+                "updatedAt": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "string"
+                }
+            }
+        },
+        "model.ContainerConfigRequest": {
+            "type": "object",
+            "required": [
+                "appId",
+                "environment"
+            ],
             "properties": {
                 "appId": {
                     "type": "integer"
@@ -8586,7 +9651,102 @@ const docTemplate = `{
                 "cpuRequest": {
                     "type": "string"
                 },
-                "createdAt": {
+                "envVars": {
+                    "type": "string"
+                },
+                "environment": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "image": {
+                    "type": "string"
+                },
+                "memoryLimit": {
+                    "type": "string"
+                },
+                "memoryRequest": {
+                    "type": "string"
+                },
+                "mountPaths": {
+                    "type": "string"
+                },
+                "namespace": {
+                    "type": "string"
+                }
+            }
+        },
+        "model.DeleteContainerConfigRequest": {
+            "type": "object",
+            "required": [
+                "appId",
+                "environment"
+            ],
+            "properties": {
+                "appId": {
+                    "type": "integer"
+                },
+                "environment": {
+                    "type": "string"
+                }
+            }
+        },
+        "model.DeleteDeployConfigRequest": {
+            "type": "object",
+            "required": [
+                "appId",
+                "environment"
+            ],
+            "properties": {
+                "appId": {
+                    "type": "integer"
+                },
+                "environment": {
+                    "type": "string"
+                }
+            }
+        },
+        "model.DeleteEnumRequest": {
+            "type": "object",
+            "required": [
+                "id"
+            ],
+            "properties": {
+                "id": {
+                    "type": "integer"
+                }
+            }
+        },
+        "model.DeleteRequest": {
+            "type": "object",
+            "required": [
+                "id"
+            ],
+            "properties": {
+                "id": {
+                    "description": "ID",
+                    "type": "integer"
+                }
+            }
+        },
+        "model.DeployConfigRequest": {
+            "type": "object",
+            "required": [
+                "appId",
+                "environment"
+            ],
+            "properties": {
+                "appId": {
+                    "type": "integer"
+                },
+                "clusterName": {
+                    "type": "string"
+                },
+                "cpuLimit": {
+                    "type": "string"
+                },
+                "cpuRequest": {
                     "type": "string"
                 },
                 "envVars": {
@@ -8604,11 +9764,39 @@ const docTemplate = `{
                 "memoryRequest": {
                     "type": "string"
                 },
-                "servicePort": {
+                "replicas": {
                     "type": "integer"
                 },
-                "updatedAt": {
+                "servicePort": {
+                    "type": "integer"
+                }
+            }
+        },
+        "model.EnumRequest": {
+            "type": "object",
+            "required": [
+                "enumKey",
+                "enumType",
+                "enumValue"
+            ],
+            "properties": {
+                "enumKey": {
                     "type": "string"
+                },
+                "enumType": {
+                    "type": "string"
+                },
+                "enumValue": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "isActive": {
+                    "type": "boolean"
+                },
+                "sortOrder": {
+                    "type": "integer"
                 }
             }
         },
@@ -8636,6 +9824,23 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "updatedAt": {
+                    "type": "string"
+                }
+            }
+        },
+        "model.StatusToggleRequest": {
+            "type": "object",
+            "required": [
+                "id",
+                "status"
+            ],
+            "properties": {
+                "id": {
+                    "description": "应用ID",
+                    "type": "integer"
+                },
+                "status": {
+                    "description": "目标状态：running/offline",
                     "type": "string"
                 }
             }
@@ -8812,6 +10017,9 @@ const docTemplate = `{
                 "name"
             ],
             "properties": {
+                "dataScope": {
+                    "type": "string"
+                },
                 "description": {
                     "type": "string"
                 },
@@ -8823,10 +10031,56 @@ const docTemplate = `{
                 }
             }
         },
+        "service.CreateTenantRequest": {
+            "type": "object",
+            "required": [
+                "code",
+                "name"
+            ],
+            "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "contactEmail": {
+                    "type": "string"
+                },
+                "contactName": {
+                    "type": "string"
+                },
+                "contactPhone": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "expiresAt": {
+                    "type": "string"
+                },
+                "logo": {
+                    "type": "string"
+                },
+                "maxDepartments": {
+                    "type": "integer"
+                },
+                "maxRoles": {
+                    "type": "integer"
+                },
+                "maxUsers": {
+                    "type": "integer"
+                },
+                "modules": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
         "service.LoginRequest": {
             "type": "object",
             "required": [
                 "password",
+                "tenantCode",
                 "username"
             ],
             "properties": {
@@ -8835,6 +10089,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "password": {
+                    "type": "string"
+                },
+                "tenantCode": {
                     "type": "string"
                 },
                 "username": {
@@ -9161,6 +10418,9 @@ const docTemplate = `{
                 "id"
             ],
             "properties": {
+                "dataScope": {
+                    "type": "string"
+                },
                 "description": {
                     "type": "string"
                 },
@@ -9178,6 +10438,53 @@ const docTemplate = `{
                     "items": {
                         "type": "integer"
                     }
+                }
+            }
+        },
+        "service.UpdateTenantRequest": {
+            "type": "object",
+            "required": [
+                "id"
+            ],
+            "properties": {
+                "contactEmail": {
+                    "type": "string"
+                },
+                "contactName": {
+                    "type": "string"
+                },
+                "contactPhone": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "expiresAt": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "logo": {
+                    "type": "string"
+                },
+                "maxDepartments": {
+                    "type": "integer"
+                },
+                "maxRoles": {
+                    "type": "integer"
+                },
+                "maxUsers": {
+                    "type": "integer"
+                },
+                "modules": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
                 }
             }
         },

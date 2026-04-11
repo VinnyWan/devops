@@ -79,11 +79,11 @@ type DeploymentListResponse struct {
 	Items []DeploymentListVO `json:"items"`
 }
 
-func (s *K8sService) ListDeployments(clusterId uint, namespace string, page, pageSize int, keyword string) (*DeploymentListResponse, error) {
+func (s *K8sService) ListDeployments(clusterName string, namespace string, page, pageSize int, keyword string) (*DeploymentListResponse, error) {
 	if err := s.ensureReady(); err != nil {
 		return nil, err
 	}
-	cluster, err := s.clusterService.GetByID(clusterId)
+	cluster, err := s.clusterService.GetByExactName(clusterName)
 	if err != nil {
 		return nil, err
 	}
@@ -96,7 +96,7 @@ func (s *K8sService) ListDeployments(clusterId uint, namespace string, page, pag
 	// namespace 为空时查询所有命名空间
 	list, err := client.AppsV1().Deployments(namespace).List(context.Background(), metav1.ListOptions{})
 	if err != nil {
-		s.clientFactory.RemoveClient(clusterId)
+		s.clientFactory.RemoveClient(cluster.Name)
 		return nil, err
 	}
 
@@ -154,8 +154,8 @@ func (s *K8sService) ListDeployments(clusterId uint, namespace string, page, pag
 	return &DeploymentListResponse{Total: total, Items: result}, nil
 }
 
-func (s *K8sService) GetDeploymentDetail(clusterId uint, namespace, name string) (*DeploymentVO, error) {
-	cluster, err := s.clusterService.GetByID(clusterId)
+func (s *K8sService) GetDeploymentDetail(clusterName string, namespace, name string) (*DeploymentVO, error) {
+	cluster, err := s.clusterService.GetByExactName(clusterName)
 	if err != nil {
 		return nil, err
 	}
@@ -207,8 +207,8 @@ func (s *K8sService) GetDeploymentDetail(clusterId uint, namespace, name string)
 	}, nil
 }
 
-func (s *K8sService) DeleteDeployment(clusterId uint, namespace, name string) error {
-	cluster, err := s.clusterService.GetByID(clusterId)
+func (s *K8sService) DeleteDeployment(clusterName string, namespace, name string) error {
+	cluster, err := s.clusterService.GetByExactName(clusterName)
 	if err != nil {
 		return err
 	}
@@ -221,8 +221,8 @@ func (s *K8sService) DeleteDeployment(clusterId uint, namespace, name string) er
 	return client.AppsV1().Deployments(namespace).Delete(context.Background(), name, metav1.DeleteOptions{})
 }
 
-func (s *K8sService) CreateDeployment(clusterId uint, namespace string, deployment *appsv1.Deployment) (*appsv1.Deployment, error) {
-	cluster, err := s.clusterService.GetByID(clusterId)
+func (s *K8sService) CreateDeployment(clusterName string, namespace string, deployment *appsv1.Deployment) (*appsv1.Deployment, error) {
+	cluster, err := s.clusterService.GetByExactName(clusterName)
 	if err != nil {
 		return nil, err
 	}
@@ -235,8 +235,8 @@ func (s *K8sService) CreateDeployment(clusterId uint, namespace string, deployme
 	return client.AppsV1().Deployments(namespace).Create(context.Background(), deployment, metav1.CreateOptions{})
 }
 
-func (s *K8sService) UpdateDeployment(clusterId uint, namespace string, deployment *appsv1.Deployment) (*appsv1.Deployment, error) {
-	cluster, err := s.clusterService.GetByID(clusterId)
+func (s *K8sService) UpdateDeployment(clusterName string, namespace string, deployment *appsv1.Deployment) (*appsv1.Deployment, error) {
+	cluster, err := s.clusterService.GetByExactName(clusterName)
 	if err != nil {
 		return nil, err
 	}

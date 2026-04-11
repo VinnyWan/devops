@@ -13,21 +13,29 @@ import (
 // @Tags 集群管理
 // @Accept json
 // @Produce json
-// @Param id query int true "集群ID"
+// @Param name query string true "集群名称"
 // @Success 200 {object} Response "成功"
 // @Failure 400 {object} map[string]interface{} "参数错误"
 // @Failure 500 {object} map[string]interface{} "服务器错误"
 // @Security BearerAuth
 // @Router /k8s/cluster/stats/workload [get]
 func ClusterWorkloadStats(c *gin.Context) {
-	idStr := c.Query("id")
-	if idStr == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "id 不能为空"})
+	name := c.Query("name")
+	if name == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "name 不能为空"})
 		return
 	}
-	id, err := strconv.ParseUint(idStr, 10, 32)
+
+	tenantID, err := getCurrentTenantID(c)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "无效的集群ID"})
+		c.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": err.Error()})
+		return
+	}
+
+	clusterSvc := getService()
+	cluster, err := clusterSvc.GetByExactNameInTenant(tenantID, name)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"message": "集群不存在", "error": err.Error()})
 		return
 	}
 
@@ -37,7 +45,7 @@ func ClusterWorkloadStats(c *gin.Context) {
 		return
 	}
 
-	counts, err := svc.GetWorkloadCounts(uint(id))
+	counts, err := svc.GetWorkloadCounts(cluster.Name)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "获取统计失败", "error": err.Error()})
 		return
@@ -56,19 +64,27 @@ func ClusterWorkloadStats(c *gin.Context) {
 // @Tags 集群管理
 // @Accept json
 // @Produce json
-// @Param id query int true "集群ID"
+// @Param name query string true "集群名称"
 // @Success 200 {object} Response "成功"
 // @Security BearerAuth
 // @Router /k8s/cluster/stats/network [get]
 func ClusterNetworkStats(c *gin.Context) {
-	idStr := c.Query("id")
-	if idStr == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "id 不能为空"})
+	name := c.Query("name")
+	if name == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "name 不能为空"})
 		return
 	}
-	id, err := strconv.ParseUint(idStr, 10, 32)
+
+	tenantID, err := getCurrentTenantID(c)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "无效的集群ID"})
+		c.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": err.Error()})
+		return
+	}
+
+	clusterSvc := getService()
+	cluster, err := clusterSvc.GetByExactNameInTenant(tenantID, name)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"message": "集群不存在", "error": err.Error()})
 		return
 	}
 
@@ -78,7 +94,7 @@ func ClusterNetworkStats(c *gin.Context) {
 		return
 	}
 
-	counts, err := svc.GetNetworkCounts(uint(id))
+	counts, err := svc.GetNetworkCounts(cluster.Name)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "获取统计失败", "error": err.Error()})
 		return
@@ -97,19 +113,27 @@ func ClusterNetworkStats(c *gin.Context) {
 // @Tags 集群管理
 // @Accept json
 // @Produce json
-// @Param id query int true "集群ID"
+// @Param name query string true "集群名称"
 // @Success 200 {object} Response "成功"
 // @Security BearerAuth
 // @Router /k8s/cluster/stats/storage [get]
 func ClusterStorageStats(c *gin.Context) {
-	idStr := c.Query("id")
-	if idStr == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "id 不能为空"})
+	name := c.Query("name")
+	if name == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "name 不能为空"})
 		return
 	}
-	id, err := strconv.ParseUint(idStr, 10, 32)
+
+	tenantID, err := getCurrentTenantID(c)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "无效的集群ID"})
+		c.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": err.Error()})
+		return
+	}
+
+	clusterSvc := getService()
+	cluster, err := clusterSvc.GetByExactNameInTenant(tenantID, name)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"message": "集群不存在", "error": err.Error()})
 		return
 	}
 
@@ -119,7 +143,7 @@ func ClusterStorageStats(c *gin.Context) {
 		return
 	}
 
-	counts, err := svc.GetStorageCounts(uint(id))
+	counts, err := svc.GetStorageCounts(cluster.Name)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "获取统计失败", "error": err.Error()})
 		return
@@ -138,7 +162,7 @@ func ClusterStorageStats(c *gin.Context) {
 // @Tags 集群管理
 // @Accept json
 // @Produce json
-// @Param id query int true "集群ID"
+// @Param name query string true "集群名称"
 // @Param page query int false "页码" default(1)
 // @Param pageSize query int false "每页数量" default(10)
 // @Param name query string false "节点名称搜索"
@@ -146,20 +170,28 @@ func ClusterStorageStats(c *gin.Context) {
 // @Security BearerAuth
 // @Router /k8s/cluster/nodes [get]
 func ClusterNodes(c *gin.Context) {
-	idStr := c.Query("id")
-	if idStr == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "id 不能为空"})
+	clusterName := c.Query("name")
+	if clusterName == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "name 不能为空"})
 		return
 	}
-	id, err := strconv.ParseUint(idStr, 10, 32)
+
+	tenantID, err := getCurrentTenantID(c)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "无效的集群ID"})
+		c.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": err.Error()})
+		return
+	}
+
+	clusterSvc := getService()
+	cluster, err := clusterSvc.GetByExactNameInTenant(tenantID, clusterName)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"message": "集群不存在", "error": err.Error()})
 		return
 	}
 
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("pageSize", "10"))
-	name := c.Query("name")
+	nodeName := c.Query("nodeName")
 
 	svc, err := getK8sService()
 	if err != nil {
@@ -167,7 +199,7 @@ func ClusterNodes(c *gin.Context) {
 		return
 	}
 
-	result, err := svc.GetNodeList(uint(id), page, pageSize, name)
+	result, err := svc.GetNodeList(cluster.Name, page, pageSize, nodeName)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "获取节点列表失败", "error": err.Error()})
 		return
@@ -186,21 +218,29 @@ func ClusterNodes(c *gin.Context) {
 // @Tags 集群管理
 // @Accept json
 // @Produce json
-// @Param id query int true "集群ID"
+// @Param name query string true "集群名称"
 // @Param page query int false "页码" default(1)
 // @Param pageSize query int false "每页数量" default(10)
 // @Success 200 {object} Response "成功"
 // @Security BearerAuth
 // @Router /k8s/cluster/events [get]
 func ClusterEvents(c *gin.Context) {
-	idStr := c.Query("id")
-	if idStr == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "id 不能为空"})
+	name := c.Query("name")
+	if name == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "name 不能为空"})
 		return
 	}
-	id, err := strconv.ParseUint(idStr, 10, 32)
+
+	tenantID, err := getCurrentTenantID(c)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "无效的集群ID"})
+		c.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": err.Error()})
+		return
+	}
+
+	clusterSvc := getService()
+	cluster, err := clusterSvc.GetByExactNameInTenant(tenantID, name)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"message": "集群不存在", "error": err.Error()})
 		return
 	}
 
@@ -213,7 +253,7 @@ func ClusterEvents(c *gin.Context) {
 		return
 	}
 
-	result, err := svc.GetEventList(uint(id), page, pageSize)
+	result, err := svc.GetEventList(cluster.Name, page, pageSize)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "获取事件列表失败", "error": err.Error()})
 		return

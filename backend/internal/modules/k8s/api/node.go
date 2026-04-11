@@ -3,7 +3,6 @@ package api
 import (
 	"encoding/json"
 	"net/http"
-	"strconv"
 
 	"github.com/gin-gonic/gin"
 	corev1 "k8s.io/api/core/v1"
@@ -13,12 +12,12 @@ import (
 
 // ListNodeRequest 节点列表请求参数
 type ListNodeRequest struct {
-	ClusterID uint   `form:"clusterId" binding:"required"`
-	Page      int    `form:"page,default=1"`
-	PageSize  int    `form:"pageSize,default=10"`
-	Name      string `form:"name"`
-	Status    string `form:"status"` // Ready, NotReady
-	Role      string `form:"role"`   // master, worker
+	ClusterName string `form:"clusterName" binding:"required"`
+	Page        int    `form:"page,default=1"`
+	PageSize    int    `form:"pageSize,default=10"`
+	Name        string `form:"name"`
+	Status      string `form:"status"` // Ready, NotReady
+	Role        string `form:"role"`   // master, worker
 }
 
 // NodeList 获取节点列表
@@ -27,7 +26,7 @@ type ListNodeRequest struct {
 // @Tags K8s节点管理
 // @Accept json
 // @Produce json
-// @Param clusterId query int true "集群ID"
+// @Param clusterName query string true "集群名称"
 // @Param page query int false "页码" default(1)
 // @Param pageSize query int false "每页数量" default(10)
 // @Param name query string false "节点名称模糊搜索"
@@ -50,7 +49,7 @@ func NodeList(c *gin.Context) {
 		return
 	}
 
-	resp, err := svc.ListNodes(req.ClusterID, req.Page, req.PageSize, req.Name, req.Status, req.Role)
+	resp, err := svc.ListNodes(req.ClusterName, req.Page, req.PageSize, req.Name, req.Status, req.Role)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, Response{Code: 500, Message: "获取节点列表失败: " + err.Error()})
 		return
@@ -65,22 +64,20 @@ func NodeList(c *gin.Context) {
 // @Tags K8s节点管理
 // @Accept json
 // @Produce json
-// @Param clusterId query int true "集群ID"
+// @Param clusterName query string true "集群名称"
 // @Param name query string true "节点名称"
 // @Success 200 {object} service.NodeDetail "成功"
 // @Failure 400 {object} Response "参数错误"
 // @Security BearerAuth
 // @Router /k8s/node/detail [get]
 func GetNodeDetail(c *gin.Context) {
-	clusterIdStr := c.Query("clusterId")
+	clusterName := c.Query("clusterName")
 	name := c.Query("name")
 
-	if clusterIdStr == "" || name == "" {
-		c.JSON(http.StatusBadRequest, Response{Code: 400, Message: "clusterId 和 name 不能为空"})
+	if clusterName == "" || name == "" {
+		c.JSON(http.StatusBadRequest, Response{Code: 400, Message: "clusterName 和 name 不能为空"})
 		return
 	}
-
-	clusterID, _ := strconv.ParseUint(clusterIdStr, 10, 32)
 
 	svc, err := getK8sService()
 	if err != nil {
@@ -88,7 +85,7 @@ func GetNodeDetail(c *gin.Context) {
 		return
 	}
 
-	detail, err := svc.GetNodeDetail(uint(clusterID), name)
+	detail, err := svc.GetNodeDetail(clusterName, name)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, Response{Code: 500, Message: "获取节点详情失败: " + err.Error()})
 		return
@@ -99,9 +96,9 @@ func GetNodeDetail(c *gin.Context) {
 
 // CordonNodeRequest 调度管理请求
 type CordonNodeRequest struct {
-	ClusterID uint   `json:"clusterId" binding:"required"`
-	Name      string `json:"name" binding:"required"`
-	Cordon    bool   `json:"cordon"` // true=不可调度, false=可调度
+	ClusterName string `json:"clusterName" binding:"required"`
+	Name        string `json:"name" binding:"required"`
+	Cordon      bool   `json:"cordon"` // true=不可调度, false=可调度
 }
 
 // CordonNode 设置/取消节点调度
@@ -128,7 +125,7 @@ func CordonNode(c *gin.Context) {
 		return
 	}
 
-	if err := svc.CordonNode(req.ClusterID, req.Name, req.Cordon); err != nil {
+	if err := svc.CordonNode(req.ClusterName, req.Name, req.Cordon); err != nil {
 		c.JSON(http.StatusInternalServerError, Response{Code: 500, Message: "设置调度状态失败: " + err.Error()})
 		return
 	}
@@ -142,7 +139,7 @@ func CordonNode(c *gin.Context) {
 
 // DrainNodeRequest 节点驱逐请求
 type DrainNodeRequest struct {
-	ClusterID          uint   `json:"clusterId" binding:"required"`
+	ClusterName        string `json:"clusterName" binding:"required"`
 	Name               string `json:"name" binding:"required"`
 	GracePeriodSeconds int    `json:"gracePeriodSeconds"`
 	Force              bool   `json:"force"`
@@ -180,7 +177,7 @@ func DrainNode(c *gin.Context) {
 		DeleteLocalData:    req.DeleteLocalData,
 	}
 
-	if err := svc.DrainNode(req.ClusterID, req.Name, opts); err != nil {
+	if err := svc.DrainNode(req.ClusterName, req.Name, opts); err != nil {
 		c.JSON(http.StatusInternalServerError, Response{Code: 500, Message: "节点驱逐失败: " + err.Error()})
 		return
 	}
@@ -190,9 +187,9 @@ func DrainNode(c *gin.Context) {
 
 // UpdateLabelsRequest 更新标签请求
 type UpdateLabelsRequest struct {
-	ClusterID uint              `json:"clusterId" binding:"required"`
-	Name      string            `json:"name" binding:"required"`
-	Labels    map[string]string `json:"labels" binding:"required"`
+	ClusterName string            `json:"clusterName" binding:"required"`
+	Name        string            `json:"name" binding:"required"`
+	Labels      map[string]string `json:"labels" binding:"required"`
 }
 
 // UpdateNodeLabels 更新节点标签
@@ -219,7 +216,7 @@ func UpdateNodeLabels(c *gin.Context) {
 	}
 
 	// 使用 Revised 版本 (Retry Update)
-	if err := svc.UpdateNodeLabels_Revised(req.ClusterID, req.Name, req.Labels); err != nil {
+	if err := svc.UpdateNodeLabels_Revised(req.ClusterName, req.Name, req.Labels); err != nil {
 		c.JSON(http.StatusInternalServerError, Response{Code: 500, Message: "更新标签失败: " + err.Error()})
 		return
 	}
@@ -229,9 +226,9 @@ func UpdateNodeLabels(c *gin.Context) {
 
 // UpdateTaintsRequest 更新污点请求
 type UpdateTaintsRequest struct {
-	ClusterID uint          `json:"clusterId" binding:"required"`
-	Name      string        `json:"name" binding:"required"`
-	Taints    []interface{} `json:"taints" binding:"required"`
+	ClusterName string        `json:"clusterName" binding:"required"`
+	Name        string        `json:"name" binding:"required"`
+	Taints      []interface{} `json:"taints" binding:"required"`
 }
 
 // UpdateNodeTaints 更新节点污点
@@ -262,7 +259,7 @@ func UpdateNodeTaints(c *gin.Context) {
 	taintsBytes, _ := json.Marshal(req.Taints)
 	json.Unmarshal(taintsBytes, &taints)
 
-	if err := svc.UpdateNodeTaints_Revised(req.ClusterID, req.Name, taints); err != nil {
+	if err := svc.UpdateNodeTaints_Revised(req.ClusterName, req.Name, taints); err != nil {
 		c.JSON(http.StatusInternalServerError, Response{Code: 500, Message: "更新污点失败: " + err.Error()})
 		return
 	}
@@ -276,21 +273,19 @@ func UpdateNodeTaints(c *gin.Context) {
 // @Tags K8s节点管理
 // @Accept json
 // @Produce json
-// @Param clusterId query int true "集群ID"
+// @Param clusterName query string true "集群名称"
 // @Param name query string true "节点名称"
 // @Success 200 {object} Response "成功"
 // @Security BearerAuth
 // @Router /k8s/node/events [get]
 func GetNodeEvents(c *gin.Context) {
-	clusterIdStr := c.Query("clusterId")
+	clusterName := c.Query("clusterName")
 	name := c.Query("name")
 
-	if clusterIdStr == "" || name == "" {
-		c.JSON(http.StatusBadRequest, Response{Code: 400, Message: "clusterId 和 name 不能为空"})
+	if clusterName == "" || name == "" {
+		c.JSON(http.StatusBadRequest, Response{Code: 400, Message: "clusterName 和 name 不能为空"})
 		return
 	}
-
-	clusterID, _ := strconv.ParseUint(clusterIdStr, 10, 32)
 
 	svc, err := getK8sService()
 	if err != nil {
@@ -298,7 +293,7 @@ func GetNodeEvents(c *gin.Context) {
 		return
 	}
 
-	events, err := svc.GetNodeEvents(uint(clusterID), name)
+	events, err := svc.GetNodeEvents(clusterName, name)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, Response{Code: 500, Message: "获取事件失败: " + err.Error()})
 		return

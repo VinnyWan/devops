@@ -174,7 +174,7 @@ func (q *terminalSizeQueue) Next() *remotecommand.TerminalSize {
 // @Tags K8s资源管理
 // @Accept json
 // @Produce json
-// @Param clusterId query int false "集群ID（可选，未传则使用默认集群）"
+// @Param clusterName query string false "集群名称（可选，未传则使用默认集群）"
 // @Param namespace query string true "命名空间"
 // @Param pod query string true "Pod名称"
 // @Param container query string false "容器名称（可选，默认第一个容器）"
@@ -191,7 +191,7 @@ func DetectPodShell(c *gin.Context) {
 		return
 	}
 
-	clusterID, err := resolveClusterID(c)
+	clusterName, err := resolveClusterName(c)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 		return
@@ -203,7 +203,7 @@ func DetectPodShell(c *gin.Context) {
 		return
 	}
 
-	result, err := svc.DetectContainerShell(clusterID, namespace, podName, container)
+	result, err := svc.DetectContainerShell(clusterName, namespace, podName, container)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": fmt.Sprintf("检测shell失败: %v", err)})
 		return
@@ -216,7 +216,7 @@ func DetectPodShell(c *gin.Context) {
 // @Summary Pod 终端（WebSocket）
 // @Description WebSocket 进入 Pod 命令行（shell=bash/sh，可选 container，支持 resize）
 // @Tags K8s资源管理
-// @Param clusterId query int false "集群ID（可选，未传则使用默认集群）"
+// @Param clusterName query string false "集群名称（可选，未传则使用默认集群）"
 // @Param namespace query string true "命名空间"
 // @Param pod query string true "Pod 名称"
 // @Param container query string false "容器名称（可选）"
@@ -238,7 +238,7 @@ func PodTerminal(c *gin.Context) {
 		return
 	}
 
-	clusterID, err := resolveClusterID(c)
+	clusterName, err := resolveClusterName(c)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 		return
@@ -252,7 +252,7 @@ func PodTerminal(c *gin.Context) {
 
 	// 若未指定容器，自动选择 Pod 的第一个容器
 	if container == "" {
-		podDetail, err := svc.GetPodObject(clusterID, namespace, podName)
+		podDetail, err := svc.GetPodObject(clusterName, namespace, podName)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"message": fmt.Sprintf("获取Pod信息失败: %v", err)})
 			return
@@ -272,7 +272,7 @@ func PodTerminal(c *gin.Context) {
 	defer conn.Close()
 
 	// 获取executor，支持bash到sh的自动降级
-	executor, actualShell, err := svc.CreatePodExecutor(clusterID, namespace, podName, container, shell)
+	executor, actualShell, err := svc.CreatePodExecutor(clusterName, namespace, podName, container, shell)
 	if err != nil {
 		_ = conn.WriteJSON(K8sMessage{Operation: "error", Data: fmt.Sprintf("创建executor失败: %v", err)})
 		return

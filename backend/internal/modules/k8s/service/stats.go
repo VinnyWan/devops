@@ -13,13 +13,18 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-// getClient 获取 K8s 客户端
-func (s *K8sService) getClient(clusterID uint) (*kubernetes.Clientset, error) {
-	cluster, err := s.clusterService.GetByID(clusterID)
+// getClientByName 根据集群名称获取 K8s 客户端
+func (s *K8sService) getClientByName(clusterName string) (*kubernetes.Clientset, error) {
+	cluster, err := s.clusterService.GetByExactName(clusterName)
 	if err != nil {
 		return nil, err
 	}
 	return s.clientFactory.GetClient(cluster)
+}
+
+// getClient 根据集群名称获取 K8s 客户端
+func (s *K8sService) getClient(clusterName string) (*kubernetes.Clientset, error) {
+	return s.getClientByName(clusterName)
 }
 
 // WorkloadCounts 工作负载统计
@@ -32,8 +37,8 @@ type WorkloadCounts struct {
 }
 
 // GetWorkloadCounts 获取工作负载统计
-func (s *K8sService) GetWorkloadCounts(clusterID uint) (*WorkloadCounts, error) {
-	client, err := s.getClient(clusterID)
+func (s *K8sService) GetWorkloadCounts(clusterName string) (*WorkloadCounts, error) {
+	client, err := s.getClient(clusterName)
 	if err != nil {
 		return nil, err
 	}
@@ -145,8 +150,8 @@ type NetworkCounts struct {
 }
 
 // GetNetworkCounts 获取网络资源统计
-func (s *K8sService) GetNetworkCounts(clusterID uint) (*NetworkCounts, error) {
-	client, err := s.getClient(clusterID)
+func (s *K8sService) GetNetworkCounts(clusterName string) (*NetworkCounts, error) {
+	client, err := s.getClient(clusterName)
 	if err != nil {
 		return nil, err
 	}
@@ -178,8 +183,8 @@ type StorageCounts struct {
 }
 
 // GetStorageCounts 获取存储资源统计
-func (s *K8sService) GetStorageCounts(clusterID uint) (*StorageCounts, error) {
-	client, err := s.getClient(clusterID)
+func (s *K8sService) GetStorageCounts(clusterName string) (*StorageCounts, error) {
+	client, err := s.getClient(clusterName)
 	if err != nil {
 		return nil, err
 	}
@@ -224,8 +229,8 @@ type NodeListResponse_Simple struct {
 }
 
 // GetNodeList 获取节点列表
-func (s *K8sService) GetNodeList(clusterID uint, page, pageSize int, name string) (*NodeListResponse_Simple, error) {
-	client, err := s.getClient(clusterID)
+func (s *K8sService) GetNodeList(clusterName string, page, pageSize int, name string) (*NodeListResponse_Simple, error) {
+	client, err := s.getClient(clusterName)
 	if err != nil {
 		return nil, err
 	}
@@ -335,8 +340,8 @@ type EventListResponse struct {
 }
 
 // GetEventList 获取事件列表
-func (s *K8sService) GetEventList(clusterID uint, page, pageSize int) (*EventListResponse, error) {
-	client, err := s.getClient(clusterID)
+func (s *K8sService) GetEventList(clusterName string, page, pageSize int) (*EventListResponse, error) {
+	client, err := s.getClient(clusterName)
 	if err != nil {
 		return nil, err
 	}

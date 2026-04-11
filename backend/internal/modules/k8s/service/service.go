@@ -23,15 +23,15 @@ type ServiceListResponse struct {
 	Items []ServiceVO `json:"items"`
 }
 
-func (s *K8sService) ListServices(clusterId uint, namespace string, page, pageSize int, keyword string) (*ServiceListResponse, error) {
-	cc, err := s.getClusterClient(clusterId)
+func (s *K8sService) ListServices(clusterName string, namespace string, page, pageSize int, keyword string) (*ServiceListResponse, error) {
+	cc, err := s.getClusterClient(clusterName)
 	if err != nil {
 		return nil, err
 	}
 
 	list, err := cc.Client.CoreV1().Services(namespace).List(context.Background(), metav1.ListOptions{})
 	if err != nil {
-		return nil, s.handleClientError(clusterId, err)
+		return nil, s.handleClientError(clusterName, err)
 	}
 
 	filtered := filterByKeywordFields(list.Items, keyword, func(item corev1.Service) []string {
@@ -65,8 +65,8 @@ func (s *K8sService) ListServices(clusterId uint, namespace string, page, pageSi
 	return &ServiceListResponse{Total: total, Items: result}, nil
 }
 
-func (s *K8sService) GetServiceDetail(clusterId uint, namespace, name string) (*ServiceVO, error) {
-	cc, err := s.getClusterClient(clusterId)
+func (s *K8sService) GetServiceDetail(clusterName string, namespace, name string) (*ServiceVO, error) {
+	cc, err := s.getClusterClient(clusterName)
 	if err != nil {
 		return nil, err
 	}
@@ -92,24 +92,24 @@ func (s *K8sService) GetServiceDetail(clusterId uint, namespace, name string) (*
 	}, nil
 }
 
-func (s *K8sService) DeleteService(clusterId uint, namespace, name string) error {
-	cc, err := s.getClusterClient(clusterId)
+func (s *K8sService) DeleteService(clusterName string, namespace, name string) error {
+	cc, err := s.getClusterClient(clusterName)
 	if err != nil {
 		return err
 	}
 	return cc.Client.CoreV1().Services(namespace).Delete(context.Background(), name, metav1.DeleteOptions{})
 }
 
-func (s *K8sService) CreateService(clusterId uint, namespace string, svc *corev1.Service) (*corev1.Service, error) {
-	cc, err := s.getClusterClient(clusterId)
+func (s *K8sService) CreateService(clusterName string, namespace string, svc *corev1.Service) (*corev1.Service, error) {
+	cc, err := s.getClusterClient(clusterName)
 	if err != nil {
 		return nil, err
 	}
 	return cc.Client.CoreV1().Services(namespace).Create(context.Background(), svc, metav1.CreateOptions{})
 }
 
-func (s *K8sService) UpdateService(clusterId uint, namespace string, svc *corev1.Service) (*corev1.Service, error) {
-	cc, err := s.getClusterClient(clusterId)
+func (s *K8sService) UpdateService(clusterName string, namespace string, svc *corev1.Service) (*corev1.Service, error) {
+	cc, err := s.getClusterClient(clusterName)
 	if err != nil {
 		return nil, err
 	}

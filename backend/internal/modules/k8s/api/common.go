@@ -67,21 +67,65 @@ func getK8sService() (*service.K8sService, error) {
 	return k8sServiceInstance, nil
 }
 
-// K8sListRequest K8s 资源列表通用请求参数
-type K8sListRequest struct {
-	ClusterID uint   `form:"clusterId"`
-	Namespace string `form:"namespace"`
-	Page      int    `form:"page,default=1"`
-	PageSize  int    `form:"pageSize,default=10"`
-	Keyword   string `form:"keyword"`
+// GetClusterService 获取集群服务实例，供其他模块复用当前初始化结果
+func GetClusterService() (*service.ClusterService, error) {
+	k8sMu.Lock()
+	defer k8sMu.Unlock()
+
+	if clusterServiceInstance != nil {
+		return clusterServiceInstance, nil
+	}
+	if k8sDB == nil {
+		return nil, errors.New("数据库未初始化，请先调用 SetK8sDB")
+	}
+
+	clusterServiceInstance = service.NewClusterService(k8sDB)
+	return clusterServiceInstance, nil
 }
 
-// resolveListClusterID 从 K8sListRequest 解析集群ID，为0时回退到默认集群
-func resolveListClusterID(c *gin.Context, id uint) (uint, error) {
-	if id != 0 {
-		return id, nil
+// K8sListRequest K8s 资源列表通用请求参数
+type K8sListRequest struct {
+	ClusterName string `form:"clusterName"`
+	Namespace   string `form:"namespace"`
+	Page        int    `form:"page,default=1"`
+	PageSize    int    `form:"pageSize,default=10"`
+	Keyword     string `form:"keyword"`
+}
+
+func getCurrentTenantID(c *gin.Context) (uint, error) {
+	tenantIDValue, exists := c.Get("tenantID")
+	if !exists {
+		return 0, errors.New("未认证：无法获取租户信息")
 	}
-	return resolveClusterID(c)
+	tenantID, ok := tenantIDValue.(uint)
+	if !ok || tenantID == 0 {
+		return 0, errors.New("未认证：租户信息无效")
+	}
+	return tenantID, nil
+}
+
+// resolveListClusterName 从 K8sListRequest 解析集群名称，为空时回退到默认集群
+func resolveListClusterName(c *gin.Context, name string) (string, error) {
+	tenantID, err := getCurrentTenantID(c)
+	if err != nil {
+		return "", err
+	}
+
+	clusterSvc := getService()
+	if clusterSvc == nil {
+		return "", errors.New("集群服务未初始化")
+	}
+
+	if name != "" {
+		if _, err := clusterSvc.GetByExactNameInTenant(tenantID, name); err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return "", errors.New("clusterName 不存在或无权限")
+			}
+			return "", err
+		}
+		return name, nil
+	}
+	return resolveClusterName(c)
 }
 
 func parseNamespaceAndAll(rawNamespace string, rawAll string) (string, bool, error) {
@@ -131,27 +175,34 @@ func handleK8sError(c *gin.Context, err error) {
 	}
 }
 
-func resolveClusterID(c *gin.Context) (uint, error) {
-	raw := strings.TrimSpace(c.Query("clusterId"))
-	if raw != "" {
-		clusterId, err := strconv.ParseUint(raw, 10, 32)
-		if err != nil {
-			return 0, errors.New("无效的 clusterId")
-		}
-		return uint(clusterId), nil
+func resolveClusterName(c *gin.Context) (string, error) {
+	tenantID, err := getCurrentTenantID(c)
+	if err != nil {
+		return "", err
 	}
 
 	clusterSvc := getService()
 	if clusterSvc == nil {
-		return 0, errors.New("集群服务未初始化")
+		return "", errors.New("集群服务未初始化")
 	}
 
-	cluster, err := clusterSvc.GetDefaultOrFirst()
+	raw := strings.TrimSpace(c.Query("clusterName"))
+	if raw != "" {
+		if _, err := clusterSvc.GetByExactNameInTenant(tenantID, raw); err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return "", errors.New("clusterName 不存在或无权限")
+			}
+			return "", err
+		}
+		return raw, nil
+	}
+
+	cluster, err := clusterSvc.GetDefaultOrFirstInTenant(tenantID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return 0, errors.New("clusterId 不能为空且未配置默认集群")
+			return "", errors.New("clusterName 不能为空且未配置默认集群")
 		}
-		return 0, err
+		return "", err
 	}
-	return cluster.ID, nil
+	return cluster.Name, nil
 }

@@ -14,7 +14,7 @@ import (
 // @Tags K8s资源管理
 // @Accept json
 // @Produce json
-// @Param clusterId query int false "集群ID（可选，未传则使用默认集群）"
+// @Param clusterName query string false "集群名称（可选，未传则使用默认集群）"
 // @Param namespace query string false "命名空间（为空时查询所有命名空间）"
 // @Param page query int false "页码" default(1)
 // @Param pageSize query int false "每页数量" default(10)
@@ -29,7 +29,7 @@ func ListPods(c *gin.Context) {
 		return
 	}
 
-	clusterID, err := resolveListClusterID(c, req.ClusterID)
+	clusterName, err := resolveListClusterName(c, req.ClusterName)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, Response{Code: 400, Message: err.Error()})
 		return
@@ -41,7 +41,7 @@ func ListPods(c *gin.Context) {
 		return
 	}
 
-	resp, err := svc.ListPods(clusterID, req.Namespace, req.Page, req.PageSize, req.Keyword)
+	resp, err := svc.ListPods(clusterName, req.Namespace, req.Page, req.PageSize, req.Keyword)
 	if err != nil {
 		handleK8sError(c, err)
 		return
@@ -56,7 +56,7 @@ func ListPods(c *gin.Context) {
 // @Tags K8s资源管理
 // @Accept json
 // @Produce json
-// @Param clusterId query int false "集群ID（可选，未传则使用默认集群）"
+// @Param clusterName query string false "集群名称（可选，未传则使用默认集群）"
 // @Param namespace query string true "命名空间"
 // @Param name query string true "资源名称"
 // @Success 200 {object} Response "成功"
@@ -71,7 +71,7 @@ func GetPodDetail(c *gin.Context) {
 		return
 	}
 
-	clusterID, err := resolveClusterID(c)
+	clusterName, err := resolveClusterName(c)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 		return
@@ -83,7 +83,7 @@ func GetPodDetail(c *gin.Context) {
 		return
 	}
 
-	data, err := service.GetPodDetail(clusterID, namespace, name)
+	data, err := service.GetPodDetail(clusterName, namespace, name)
 	if err != nil {
 		handleK8sError(c, err)
 		return
@@ -98,7 +98,7 @@ func GetPodDetail(c *gin.Context) {
 // @Tags K8s资源管理
 // @Accept json
 // @Produce json
-// @Param clusterId query int false "集群ID（可选，未传则使用默认集群）"
+// @Param clusterName query string false "集群名称（可选，未传则使用默认集群）"
 // @Param namespace query string true "命名空间"
 // @Param pod body K8sObject true "Pod 对象"
 // @Success 200 {object} Response "成功"
@@ -112,7 +112,7 @@ func CreatePod(c *gin.Context) {
 		return
 	}
 
-	clusterID, err := resolveClusterID(c)
+	clusterName, err := resolveClusterName(c)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 		return
@@ -130,7 +130,7 @@ func CreatePod(c *gin.Context) {
 		return
 	}
 
-	data, err := service.CreatePod(clusterID, namespace, &pod)
+	data, err := service.CreatePod(clusterName, namespace, &pod)
 	if err != nil {
 		handleK8sError(c, err)
 		return
@@ -145,7 +145,7 @@ func CreatePod(c *gin.Context) {
 // @Tags K8s资源管理
 // @Accept json
 // @Produce json
-// @Param clusterId query int false "集群ID（可选，未传则使用默认集群）"
+// @Param clusterName query string false "集群名称（可选，未传则使用默认集群）"
 // @Param namespace query string true "命名空间"
 // @Param pod body K8sObject true "Pod 对象"
 // @Success 200 {object} Response "成功"
@@ -159,7 +159,7 @@ func UpdatePod(c *gin.Context) {
 		return
 	}
 
-	clusterID, err := resolveClusterID(c)
+	clusterName, err := resolveClusterName(c)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 		return
@@ -177,7 +177,7 @@ func UpdatePod(c *gin.Context) {
 		return
 	}
 
-	data, err := service.UpdatePod(clusterID, namespace, &pod)
+	data, err := service.UpdatePod(clusterName, namespace, &pod)
 	if err != nil {
 		handleK8sError(c, err)
 		return
@@ -192,15 +192,15 @@ func UpdatePod(c *gin.Context) {
 // @Tags K8s资源管理
 // @Accept json
 // @Produce json
-// @Param request body map[string]interface{} true "参数: {clusterId, namespace, name}"
+// @Param request body map[string]interface{} true "参数: {clusterName, namespace, name}"
 // @Success 200 {object} Response "成功"
 // @Security BearerAuth
 // @Router /k8s/pod/delete [post]
 func DeletePod(c *gin.Context) {
 	var req struct {
-		ClusterID uint   `json:"clusterId"`
-		Namespace string `json:"namespace" binding:"required"`
-		Name      string `json:"name" binding:"required"`
+		ClusterName string `json:"clusterName"`
+		Namespace   string `json:"namespace" binding:"required"`
+		Name        string `json:"name" binding:"required"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -214,16 +214,16 @@ func DeletePod(c *gin.Context) {
 		return
 	}
 
-	clusterID := req.ClusterID
-	if clusterID == 0 {
-		clusterID, err = resolveClusterID(c)
+	clusterName := req.ClusterName
+	if clusterName == "" {
+		clusterName, err = resolveClusterName(c)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 			return
 		}
 	}
 
-	if err := service.DeletePod(clusterID, req.Namespace, req.Name); err != nil {
+	if err := service.DeletePod(clusterName, req.Namespace, req.Name); err != nil {
 		handleK8sError(c, err)
 		return
 	}
@@ -237,7 +237,7 @@ func DeletePod(c *gin.Context) {
 // @Tags K8s资源管理
 // @Accept json
 // @Produce json
-// @Param clusterId query int false "集群ID（可选，未传则使用默认集群）"
+// @Param clusterName query string false "集群名称（可选，未传则使用默认集群）"
 // @Param namespace query string true "命名空间"
 // @Param ownerType query string true "控制器类型 (Deployment/StatefulSet/DaemonSet)"
 // @Param ownerName query string true "控制器名称"
@@ -250,7 +250,7 @@ func DeletePod(c *gin.Context) {
 // @Tags K8s资源管理
 // @Accept json
 // @Produce json
-// @Param clusterId query int false "集群ID（可选，未传则使用默认集群）"
+// @Param clusterName query string false "集群名称（可选，未传则使用默认集群）"
 // @Param namespace query string true "命名空间"
 // @Param name query string true "Pod 名称"
 // @Success 200 {object} Response "成功"
@@ -265,7 +265,7 @@ func DescribePod(c *gin.Context) {
 		return
 	}
 
-	clusterID, err := resolveClusterID(c)
+	clusterName, err := resolveClusterName(c)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 		return
@@ -277,7 +277,7 @@ func DescribePod(c *gin.Context) {
 		return
 	}
 
-	data, err := svc.DescribePod(clusterID, namespace, name)
+	data, err := svc.DescribePod(clusterName, namespace, name)
 	if err != nil {
 		handleK8sError(c, err)
 		return
@@ -296,7 +296,7 @@ func ListPodsByOwner(c *gin.Context) {
 		return
 	}
 
-	clusterID, err := resolveClusterID(c)
+	clusterName, err := resolveClusterName(c)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 		return
@@ -308,7 +308,7 @@ func ListPodsByOwner(c *gin.Context) {
 		return
 	}
 
-	data, err := service.ListPodsByOwner(clusterID, namespace, ownerType, ownerName)
+	data, err := service.ListPodsByOwner(clusterName, namespace, ownerType, ownerName)
 	if err != nil {
 		handleK8sError(c, err)
 		return
@@ -323,7 +323,7 @@ func ListPodsByOwner(c *gin.Context) {
 // @Tags K8s资源管理
 // @Accept json
 // @Produce json
-// @Param clusterId query int false "集群ID（可选，未传则使用默认集群）"
+// @Param clusterName query string false "集群名称（可选，未传则使用默认集群）"
 // @Param namespace query string true "命名空间"
 // @Param name query string true "Pod 名称"
 // @Success 200 {object} Response "成功"
@@ -338,7 +338,7 @@ func GetPodEvents(c *gin.Context) {
 		return
 	}
 
-	clusterID, err := resolveClusterID(c)
+	clusterName, err := resolveClusterName(c)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 		return
@@ -350,7 +350,7 @@ func GetPodEvents(c *gin.Context) {
 		return
 	}
 
-	events, err := svc.GetPodEvents(clusterID, namespace, name)
+	events, err := svc.GetPodEvents(clusterName, namespace, name)
 	if err != nil {
 		handleK8sError(c, err)
 		return
@@ -365,7 +365,7 @@ func GetPodEvents(c *gin.Context) {
 // @Tags K8s资源管理
 // @Accept json
 // @Produce json
-// @Param clusterId query int false "集群ID（可选，未传则使用默认集群）"
+// @Param clusterName query string false "集群名称（可选，未传则使用默认集群）"
 // @Param namespace query string true "命名空间"
 // @Param name query string true "Pod 名称"
 // @Param container query string false "容器名称（可选，未指定时使用第一个容器）"
@@ -384,7 +384,7 @@ func GetPodLogs(c *gin.Context) {
 		return
 	}
 
-	clusterID, err := resolveClusterID(c)
+	clusterName, err := resolveClusterName(c)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 		return
@@ -396,7 +396,7 @@ func GetPodLogs(c *gin.Context) {
 		return
 	}
 
-	logs, err := service.GetPodLogs(clusterID, namespace, name, container, int64(tailLines))
+	logs, err := service.GetPodLogs(clusterName, namespace, name, container, int64(tailLines))
 	if err != nil {
 		handleK8sError(c, err)
 		return
@@ -411,7 +411,7 @@ func GetPodLogs(c *gin.Context) {
 // @Tags K8s资源管理
 // @Accept json
 // @Produce json
-// @Param clusterId query int false "集群ID（可选，未传则使用默认集群）"
+// @Param clusterName query string false "集群名称（可选，未传则使用默认集群）"
 // @Param namespace query string true "命名空间"
 // @Param name query string true "Pod 名称"
 // @Success 200 {object} Response "成功"
@@ -425,7 +425,7 @@ func GetPodYAML(c *gin.Context) {
 		return
 	}
 
-	clusterID, err := resolveClusterID(c)
+	clusterName, err := resolveClusterName(c)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 		return
@@ -437,7 +437,7 @@ func GetPodYAML(c *gin.Context) {
 		return
 	}
 
-	raw, err := service.GetPodYAML(clusterID, namespace, name)
+	raw, err := service.GetPodYAML(clusterName, namespace, name)
 	if err != nil {
 		handleK8sError(c, err)
 		return
@@ -452,7 +452,7 @@ func GetPodYAML(c *gin.Context) {
 // @Tags K8s资源管理
 // @Accept json
 // @Produce json
-// @Param clusterId query int false "集群ID（可选，未传则使用默认集群）"
+// @Param clusterName query string false "集群名称（可选，未传则使用默认集群）"
 // @Param namespace query string true "命名空间"
 // @Param name query string true "Pod 名称"
 // @Param request body object true "参数: {yaml}" example({"yaml":"apiVersion: v1\nkind: Pod\nmetadata:\n  name: nginx\n  namespace: default\n..."})
@@ -475,7 +475,7 @@ func UpdatePodYAML(c *gin.Context) {
 		return
 	}
 
-	clusterID, err := resolveClusterID(c)
+	clusterName, err := resolveClusterName(c)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 		return
@@ -487,7 +487,7 @@ func UpdatePodYAML(c *gin.Context) {
 		return
 	}
 
-	updated, err := service.UpdatePodByYAML(clusterID, namespace, name, req.YAML)
+	updated, err := service.UpdatePodByYAML(clusterName, namespace, name, req.YAML)
 	if err != nil {
 		handleK8sError(c, err)
 		return

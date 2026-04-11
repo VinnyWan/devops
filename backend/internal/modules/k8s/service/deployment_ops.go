@@ -11,11 +11,11 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
-func (s *K8sService) GetDeploymentObject(clusterId uint, namespace, name string) (*appsv1.Deployment, error) {
+func (s *K8sService) GetDeploymentObject(clusterName string, namespace, name string) (*appsv1.Deployment, error) {
 	if err := s.ensureReady(); err != nil {
 		return nil, err
 	}
-	cluster, err := s.clusterService.GetByID(clusterId)
+	cluster, err := s.clusterService.GetByExactName(clusterName)
 	if err != nil {
 		return nil, err
 	}
@@ -26,8 +26,8 @@ func (s *K8sService) GetDeploymentObject(clusterId uint, namespace, name string)
 	return client.AppsV1().Deployments(namespace).Get(context.Background(), name, metav1.GetOptions{})
 }
 
-func (s *K8sService) GetDeploymentYAML(clusterId uint, namespace, name string) (string, error) {
-	obj, err := s.GetDeploymentObject(clusterId, namespace, name)
+func (s *K8sService) GetDeploymentYAML(clusterName string, namespace, name string) (string, error) {
+	obj, err := s.GetDeploymentObject(clusterName, namespace, name)
 	if err != nil {
 		return "", err
 	}
@@ -38,11 +38,11 @@ func (s *K8sService) GetDeploymentYAML(clusterId uint, namespace, name string) (
 	return string(b), nil
 }
 
-func (s *K8sService) UpdateDeploymentByYAML(clusterId uint, namespace, name, rawYAML string) (*appsv1.Deployment, error) {
+func (s *K8sService) UpdateDeploymentByYAML(clusterName string, namespace, name, rawYAML string) (*appsv1.Deployment, error) {
 	if err := s.ensureReady(); err != nil {
 		return nil, err
 	}
-	current, err := s.GetDeploymentObject(clusterId, namespace, name)
+	current, err := s.GetDeploymentObject(clusterName, namespace, name)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get current deployment: %w", err)
 	}
@@ -72,14 +72,14 @@ func (s *K8sService) UpdateDeploymentByYAML(clusterId uint, namespace, name, raw
 	desired.Status = appsv1.DeploymentStatus{}
 	desired.ManagedFields = nil
 
-	return s.UpdateDeployment(clusterId, namespace, &desired)
+	return s.UpdateDeployment(clusterName, namespace, &desired)
 }
 
-func (s *K8sService) RestartDeployment(clusterId uint, namespace, name string) (*appsv1.Deployment, error) {
+func (s *K8sService) RestartDeployment(clusterName string, namespace, name string) (*appsv1.Deployment, error) {
 	if err := s.ensureReady(); err != nil {
 		return nil, err
 	}
-	cluster, err := s.clusterService.GetByID(clusterId)
+	cluster, err := s.clusterService.GetByExactName(clusterName)
 	if err != nil {
 		return nil, err
 	}
@@ -93,11 +93,11 @@ func (s *K8sService) RestartDeployment(clusterId uint, namespace, name string) (
 	return client.AppsV1().Deployments(namespace).Patch(context.Background(), name, types.StrategicMergePatchType, []byte(patch), metav1.PatchOptions{})
 }
 
-func (s *K8sService) ScaleDeployment(clusterId uint, namespace, name string, replicas int32) (*appsv1.Deployment, error) {
+func (s *K8sService) ScaleDeployment(clusterName string, namespace, name string, replicas int32) (*appsv1.Deployment, error) {
 	if err := s.ensureReady(); err != nil {
 		return nil, err
 	}
-	cluster, err := s.clusterService.GetByID(clusterId)
+	cluster, err := s.clusterService.GetByExactName(clusterName)
 	if err != nil {
 		return nil, err
 	}

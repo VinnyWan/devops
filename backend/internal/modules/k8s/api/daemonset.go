@@ -13,7 +13,7 @@ import (
 // @Tags K8s资源管理
 // @Accept json
 // @Produce json
-// @Param clusterId query int false "集群ID（可选，未传则使用默认集群）"
+// @Param clusterName query string false "集群名称（可选，未传则使用默认集群）"
 // @Param namespace query string false "命名空间（为空时查询所有命名空间）"
 // @Param page query int false "页码" default(1)
 // @Param pageSize query int false "每页数量" default(10)
@@ -28,7 +28,7 @@ func ListDaemonSets(c *gin.Context) {
 		return
 	}
 
-	clusterID, err := resolveListClusterID(c, req.ClusterID)
+	clusterName, err := resolveListClusterName(c, req.ClusterName)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, Response{Code: 400, Message: err.Error()})
 		return
@@ -40,7 +40,7 @@ func ListDaemonSets(c *gin.Context) {
 		return
 	}
 
-	resp, err := svc.ListDaemonSets(clusterID, req.Namespace, req.Page, req.PageSize, req.Keyword)
+	resp, err := svc.ListDaemonSets(clusterName, req.Namespace, req.Page, req.PageSize, req.Keyword)
 	if err != nil {
 		handleK8sError(c, err)
 		return
@@ -55,7 +55,7 @@ func ListDaemonSets(c *gin.Context) {
 // @Tags K8s资源管理
 // @Accept json
 // @Produce json
-// @Param clusterId query int false "集群ID（可选，未传则使用默认集群）"
+// @Param clusterName query string false "集群名称（可选，未传则使用默认集群）"
 // @Param namespace query string true "命名空间"
 // @Param name query string true "资源名称"
 // @Success 200 {object} Response "成功"
@@ -70,7 +70,7 @@ func GetDaemonSetDetail(c *gin.Context) {
 		return
 	}
 
-	clusterID, err := resolveClusterID(c)
+	clusterName, err := resolveClusterName(c)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 		return
@@ -82,7 +82,7 @@ func GetDaemonSetDetail(c *gin.Context) {
 		return
 	}
 
-	data, err := service.GetDaemonSetDetail(clusterID, namespace, name)
+	data, err := service.GetDaemonSetDetail(clusterName, namespace, name)
 	if err != nil {
 		handleK8sError(c, err)
 		return
@@ -97,7 +97,7 @@ func GetDaemonSetDetail(c *gin.Context) {
 // @Tags K8s资源管理
 // @Accept json
 // @Produce json
-// @Param clusterId query int false "集群ID（可选，未传则使用默认集群）"
+// @Param clusterName query string false "集群名称（可选，未传则使用默认集群）"
 // @Param namespace query string true "命名空间"
 // @Param name query string true "资源名称"
 // @Success 200 {object} Response "成功"
@@ -111,7 +111,7 @@ func GetDaemonSetYAML(c *gin.Context) {
 		return
 	}
 
-	clusterID, err := resolveClusterID(c)
+	clusterName, err := resolveClusterName(c)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 		return
@@ -123,7 +123,7 @@ func GetDaemonSetYAML(c *gin.Context) {
 		return
 	}
 
-	raw, err := svc.GetDaemonSetYAML(clusterID, namespace, name)
+	raw, err := svc.GetDaemonSetYAML(clusterName, namespace, name)
 	if err != nil {
 		handleK8sError(c, err)
 		return
@@ -138,7 +138,7 @@ func GetDaemonSetYAML(c *gin.Context) {
 // @Tags K8s资源管理
 // @Accept json
 // @Produce json
-// @Param clusterId query int false "集群ID（可选，未传则使用默认集群）"
+// @Param clusterName query string false "集群名称（可选，未传则使用默认集群）"
 // @Param namespace query string true "命名空间"
 // @Param name query string true "资源名称"
 // @Param request body object true "参数: {yaml}"
@@ -161,7 +161,7 @@ func UpdateDaemonSetYAML(c *gin.Context) {
 		return
 	}
 
-	clusterID, err := resolveClusterID(c)
+	clusterName, err := resolveClusterName(c)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 		return
@@ -173,7 +173,7 @@ func UpdateDaemonSetYAML(c *gin.Context) {
 		return
 	}
 
-	updated, err := svc.UpdateDaemonSetByYAML(clusterID, namespace, name, req.YAML)
+	updated, err := svc.UpdateDaemonSetByYAML(clusterName, namespace, name, req.YAML)
 	if err != nil {
 		handleK8sError(c, err)
 		return
@@ -187,15 +187,15 @@ func UpdateDaemonSetYAML(c *gin.Context) {
 // @Tags K8s资源管理
 // @Accept json
 // @Produce json
-// @Param request body object true "参数: {clusterId, namespace, name}"
+// @Param request body object true "参数: {clusterName, namespace, name}"
 // @Success 200 {object} Response "成功"
 // @Security BearerAuth
 // @Router /k8s/daemonset/restart [post]
 func RestartDaemonSet(c *gin.Context) {
 	var req struct {
-		ClusterID uint   `json:"clusterId"`
-		Namespace string `json:"namespace" binding:"required"`
-		Name      string `json:"name" binding:"required"`
+		ClusterName string `json:"clusterName"`
+		Namespace   string `json:"namespace" binding:"required"`
+		Name        string `json:"name" binding:"required"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -209,16 +209,16 @@ func RestartDaemonSet(c *gin.Context) {
 		return
 	}
 
-	clusterID := req.ClusterID
-	if clusterID == 0 {
-		clusterID, err = resolveClusterID(c)
+	clusterName := req.ClusterName
+	if clusterName == "" {
+		clusterName, err = resolveClusterName(c)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 			return
 		}
 	}
 
-	updated, err := svc.RestartDaemonSet(clusterID, req.Namespace, req.Name)
+	updated, err := svc.RestartDaemonSet(clusterName, req.Namespace, req.Name)
 	if err != nil {
 		handleK8sError(c, err)
 		return
@@ -232,15 +232,15 @@ func RestartDaemonSet(c *gin.Context) {
 // @Tags K8s资源管理
 // @Accept json
 // @Produce json
-// @Param request body object true "参数: {clusterId, namespace, name}"
+// @Param request body object true "参数: {clusterName, namespace, name}"
 // @Success 200 {object} Response "成功"
 // @Security BearerAuth
 // @Router /k8s/daemonset/delete [post]
 func DeleteDaemonSet(c *gin.Context) {
 	var req struct {
-		ClusterID uint   `json:"clusterId"`
-		Namespace string `json:"namespace" binding:"required"`
-		Name      string `json:"name" binding:"required"`
+		ClusterName string `json:"clusterName"`
+		Namespace   string `json:"namespace" binding:"required"`
+		Name        string `json:"name" binding:"required"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -254,16 +254,16 @@ func DeleteDaemonSet(c *gin.Context) {
 		return
 	}
 
-	clusterID := req.ClusterID
-	if clusterID == 0 {
-		clusterID, err = resolveClusterID(c)
+	clusterName := req.ClusterName
+	if clusterName == "" {
+		clusterName, err = resolveClusterName(c)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 			return
 		}
 	}
 
-	if err := service.DeleteDaemonSet(clusterID, req.Namespace, req.Name); err != nil {
+	if err := service.DeleteDaemonSet(clusterName, req.Namespace, req.Name); err != nil {
 		handleK8sError(c, err)
 		return
 	}
@@ -277,7 +277,7 @@ func DeleteDaemonSet(c *gin.Context) {
 // @Tags K8s资源管理
 // @Accept json
 // @Produce json
-// @Param clusterId query int false "集群ID（可选，未传则使用默认集群）"
+// @Param clusterName query string false "集群名称（可选，未传则使用默认集群）"
 // @Param namespace query string true "命名空间"
 // @Param daemonset body K8sObject true "DaemonSet 对象"
 // @Success 200 {object} Response "成功"
@@ -291,7 +291,7 @@ func CreateDaemonSet(c *gin.Context) {
 		return
 	}
 
-	clusterID, err := resolveClusterID(c)
+	clusterName, err := resolveClusterName(c)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 		return
@@ -309,7 +309,7 @@ func CreateDaemonSet(c *gin.Context) {
 		return
 	}
 
-	data, err := service.CreateDaemonSet(clusterID, namespace, &daemonset)
+	data, err := service.CreateDaemonSet(clusterName, namespace, &daemonset)
 	if err != nil {
 		handleK8sError(c, err)
 		return
@@ -324,7 +324,7 @@ func CreateDaemonSet(c *gin.Context) {
 // @Tags K8s资源管理
 // @Accept json
 // @Produce json
-// @Param clusterId query int false "集群ID（可选，未传则使用默认集群）"
+// @Param clusterName query string false "集群名称（可选，未传则使用默认集群）"
 // @Param namespace query string true "命名空间"
 // @Param daemonset body K8sObject true "DaemonSet 对象"
 // @Success 200 {object} Response "成功"
@@ -338,7 +338,7 @@ func UpdateDaemonSet(c *gin.Context) {
 		return
 	}
 
-	clusterID, err := resolveClusterID(c)
+	clusterName, err := resolveClusterName(c)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 		return
@@ -356,7 +356,7 @@ func UpdateDaemonSet(c *gin.Context) {
 		return
 	}
 
-	data, err := service.UpdateDaemonSet(clusterID, namespace, &daemonset)
+	data, err := service.UpdateDaemonSet(clusterName, namespace, &daemonset)
 	if err != nil {
 		handleK8sError(c, err)
 		return

@@ -72,11 +72,11 @@ type EventInfoVO struct {
 }
 
 // GetPodObject 获取原始 Pod 对象
-func (s *K8sService) GetPodObject(clusterId uint, namespace, name string) (*corev1.Pod, error) {
+func (s *K8sService) GetPodObject(clusterName string, namespace, name string) (*corev1.Pod, error) {
 	if err := s.ensureReady(); err != nil {
 		return nil, err
 	}
-	cluster, err := s.clusterService.GetByID(clusterId)
+	cluster, err := s.clusterService.GetByExactName(clusterName)
 	if err != nil {
 		return nil, err
 	}
@@ -88,11 +88,11 @@ func (s *K8sService) GetPodObject(clusterId uint, namespace, name string) (*core
 }
 
 // DescribePod 聚合 Pod 的完整诊断信息（Pod + Events 并发获取）
-func (s *K8sService) DescribePod(clusterId uint, namespace, name string) (*PodDescribeVO, error) {
+func (s *K8sService) DescribePod(clusterName string, namespace, name string) (*PodDescribeVO, error) {
 	if err := s.ensureReady(); err != nil {
 		return nil, err
 	}
-	cluster, err := s.clusterService.GetByID(clusterId)
+	cluster, err := s.clusterService.GetByExactName(clusterName)
 	if err != nil {
 		return nil, err
 	}

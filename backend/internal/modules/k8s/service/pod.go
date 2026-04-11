@@ -42,11 +42,11 @@ type PodListResponse struct {
 	Items []PodListVO `json:"items"`
 }
 
-func (s *K8sService) ListPods(clusterId uint, namespace string, page, pageSize int, keyword string) (*PodListResponse, error) {
+func (s *K8sService) ListPods(clusterName string, namespace string, page, pageSize int, keyword string) (*PodListResponse, error) {
 	if err := s.ensureReady(); err != nil {
 		return nil, err
 	}
-	cluster, err := s.clusterService.GetByID(clusterId)
+	cluster, err := s.clusterService.GetByExactName(clusterName)
 	if err != nil {
 		return nil, err
 	}
@@ -58,7 +58,7 @@ func (s *K8sService) ListPods(clusterId uint, namespace string, page, pageSize i
 
 	list, err := client.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{})
 	if err != nil {
-		s.clientFactory.RemoveClient(clusterId)
+		s.clientFactory.RemoveClient(cluster.Name)
 		return nil, err
 	}
 
@@ -106,8 +106,8 @@ func (s *K8sService) ListPods(clusterId uint, namespace string, page, pageSize i
 	return &PodListResponse{Total: total, Items: result}, nil
 }
 
-func (s *K8sService) GetPodDetail(clusterId uint, namespace, name string) (*PodVO, error) {
-	cluster, err := s.clusterService.GetByID(clusterId)
+func (s *K8sService) GetPodDetail(clusterName string, namespace, name string) (*PodVO, error) {
+	cluster, err := s.clusterService.GetByExactName(clusterName)
 	if err != nil {
 		return nil, err
 	}
@@ -145,8 +145,8 @@ func (s *K8sService) GetPodDetail(clusterId uint, namespace, name string) (*PodV
 	}, nil
 }
 
-func (s *K8sService) DeletePod(clusterId uint, namespace, name string) error {
-	cluster, err := s.clusterService.GetByID(clusterId)
+func (s *K8sService) DeletePod(clusterName string, namespace, name string) error {
+	cluster, err := s.clusterService.GetByExactName(clusterName)
 	if err != nil {
 		return err
 	}
@@ -159,8 +159,8 @@ func (s *K8sService) DeletePod(clusterId uint, namespace, name string) error {
 	return client.CoreV1().Pods(namespace).Delete(context.Background(), name, metav1.DeleteOptions{})
 }
 
-func (s *K8sService) CreatePod(clusterId uint, namespace string, pod *corev1.Pod) (*corev1.Pod, error) {
-	cluster, err := s.clusterService.GetByID(clusterId)
+func (s *K8sService) CreatePod(clusterName string, namespace string, pod *corev1.Pod) (*corev1.Pod, error) {
+	cluster, err := s.clusterService.GetByExactName(clusterName)
 	if err != nil {
 		return nil, err
 	}
@@ -174,11 +174,11 @@ func (s *K8sService) CreatePod(clusterId uint, namespace string, pod *corev1.Pod
 }
 
 // GetPodLogs 获取 Pod 日志
-func (s *K8sService) GetPodLogs(clusterId uint, namespace, name, container string, tailLines int64) (string, error) {
+func (s *K8sService) GetPodLogs(clusterName string, namespace, name, container string, tailLines int64) (string, error) {
 	if err := s.ensureReady(); err != nil {
 		return "", err
 	}
-	cluster, err := s.clusterService.GetByID(clusterId)
+	cluster, err := s.clusterService.GetByExactName(clusterName)
 	if err != nil {
 		return "", err
 	}
@@ -216,8 +216,8 @@ func (s *K8sService) GetPodLogs(clusterId uint, namespace, name, container strin
 	return string(logs), nil
 }
 
-func (s *K8sService) UpdatePod(clusterId uint, namespace string, pod *corev1.Pod) (*corev1.Pod, error) {
-	cluster, err := s.clusterService.GetByID(clusterId)
+func (s *K8sService) UpdatePod(clusterName string, namespace string, pod *corev1.Pod) (*corev1.Pod, error) {
+	cluster, err := s.clusterService.GetByExactName(clusterName)
 	if err != nil {
 		return nil, err
 	}
@@ -230,11 +230,11 @@ func (s *K8sService) UpdatePod(clusterId uint, namespace string, pod *corev1.Pod
 	return client.CoreV1().Pods(namespace).Update(context.Background(), pod, metav1.UpdateOptions{})
 }
 
-func (s *K8sService) GetPodYAML(clusterId uint, namespace, name string) (string, error) {
+func (s *K8sService) GetPodYAML(clusterName string, namespace, name string) (string, error) {
 	if err := s.ensureReady(); err != nil {
 		return "", err
 	}
-	obj, err := s.GetPodObject(clusterId, namespace, name)
+	obj, err := s.GetPodObject(clusterName, namespace, name)
 	if err != nil {
 		return "", err
 	}
@@ -245,11 +245,11 @@ func (s *K8sService) GetPodYAML(clusterId uint, namespace, name string) (string,
 	return string(b), nil
 }
 
-func (s *K8sService) UpdatePodByYAML(clusterId uint, namespace, name, rawYAML string) (*corev1.Pod, error) {
+func (s *K8sService) UpdatePodByYAML(clusterName string, namespace, name, rawYAML string) (*corev1.Pod, error) {
 	if err := s.ensureReady(); err != nil {
 		return nil, err
 	}
-	current, err := s.GetPodObject(clusterId, namespace, name)
+	current, err := s.GetPodObject(clusterName, namespace, name)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get current pod: %w", err)
 	}
@@ -279,15 +279,15 @@ func (s *K8sService) UpdatePodByYAML(clusterId uint, namespace, name, rawYAML st
 	desired.Status = corev1.PodStatus{}
 	desired.ManagedFields = nil
 
-	return s.UpdatePod(clusterId, namespace, &desired)
+	return s.UpdatePod(clusterName, namespace, &desired)
 }
 
 // ListPodsByOwner 根据控制器类型和名称获取 Pod 列表
-func (s *K8sService) ListPodsByOwner(clusterId uint, namespace string, ownerType string, ownerName string) ([]PodListVO, error) {
+func (s *K8sService) ListPodsByOwner(clusterName string, namespace string, ownerType string, ownerName string) ([]PodListVO, error) {
 	if err := s.ensureReady(); err != nil {
 		return nil, err
 	}
-	cluster, err := s.clusterService.GetByID(clusterId)
+	cluster, err := s.clusterService.GetByExactName(clusterName)
 	if err != nil {
 		return nil, err
 	}
@@ -369,8 +369,8 @@ func calculateAge(createdAt time.Time) string {
 }
 
 // GetPodEvents 获取 Pod 事件
-func (s *K8sService) GetPodEvents(clusterID uint, namespace, name string) ([]EventInfo, error) {
-	client, err := s.getClient(clusterID)
+func (s *K8sService) GetPodEvents(clusterName string, namespace, name string) ([]EventInfo, error) {
+	client, err := s.getClient(clusterName)
 	if err != nil {
 		return nil, err
 	}

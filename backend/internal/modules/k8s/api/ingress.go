@@ -13,7 +13,7 @@ import (
 // @Tags K8s资源管理
 // @Accept json
 // @Produce json
-// @Param clusterId query int false "集群ID（可选，未传则使用默认集群）"
+// @Param clusterName query string false "集群名称（可选，未传则使用默认集群）"
 // @Param namespace query string false "命名空间（为空时查询所有命名空间）"
 // @Param page query int false "页码" default(1)
 // @Param pageSize query int false "每页数量" default(10)
@@ -28,7 +28,7 @@ func ListIngresses(c *gin.Context) {
 		return
 	}
 
-	clusterID, err := resolveListClusterID(c, req.ClusterID)
+	clusterName, err := resolveListClusterName(c, req.ClusterName)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, Response{Code: 400, Message: err.Error()})
 		return
@@ -40,7 +40,7 @@ func ListIngresses(c *gin.Context) {
 		return
 	}
 
-	resp, err := svc.ListIngresses(clusterID, req.Namespace, req.Page, req.PageSize, req.Keyword)
+	resp, err := svc.ListIngresses(clusterName, req.Namespace, req.Page, req.PageSize, req.Keyword)
 	if err != nil {
 		handleK8sError(c, err)
 		return
@@ -55,7 +55,7 @@ func ListIngresses(c *gin.Context) {
 // @Tags K8s资源管理
 // @Accept json
 // @Produce json
-// @Param clusterId query int false "集群ID（可选，未传则使用默认集群）"
+// @Param clusterName query string false "集群名称（可选，未传则使用默认集群）"
 // @Param namespace query string true "命名空间"
 // @Param name query string true "资源名称"
 // @Success 200 {object} Response "成功"
@@ -70,7 +70,7 @@ func GetIngressDetail(c *gin.Context) {
 		return
 	}
 
-	clusterID, err := resolveClusterID(c)
+	clusterName, err := resolveClusterName(c)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 		return
@@ -82,7 +82,7 @@ func GetIngressDetail(c *gin.Context) {
 		return
 	}
 
-	data, err := service.GetIngressDetail(clusterID, namespace, name)
+	data, err := service.GetIngressDetail(clusterName, namespace, name)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
 		return
@@ -97,7 +97,7 @@ func GetIngressDetail(c *gin.Context) {
 // @Tags K8s资源管理
 // @Accept json
 // @Produce json
-// @Param clusterId query int false "集群ID（可选，未传则使用默认集群）"
+// @Param clusterName query string false "集群名称（可选，未传则使用默认集群）"
 // @Param namespace query string true "命名空间"
 // @Param ingress body K8sObject true "Ingress 对象"
 // @Success 200 {object} Response "成功"
@@ -111,7 +111,7 @@ func CreateIngress(c *gin.Context) {
 		return
 	}
 
-	clusterID, err := resolveClusterID(c)
+	clusterName, err := resolveClusterName(c)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 		return
@@ -129,7 +129,7 @@ func CreateIngress(c *gin.Context) {
 		return
 	}
 
-	data, err := service.CreateIngress(clusterID, namespace, &ingress)
+	data, err := service.CreateIngress(clusterName, namespace, &ingress)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
 		return
@@ -144,7 +144,7 @@ func CreateIngress(c *gin.Context) {
 // @Tags K8s资源管理
 // @Accept json
 // @Produce json
-// @Param clusterId query int false "集群ID（可选，未传则使用默认集群）"
+// @Param clusterName query string false "集群名称（可选，未传则使用默认集群）"
 // @Param namespace query string true "命名空间"
 // @Param ingress body K8sObject true "Ingress 对象"
 // @Success 200 {object} Response "成功"
@@ -158,7 +158,7 @@ func UpdateIngress(c *gin.Context) {
 		return
 	}
 
-	clusterID, err := resolveClusterID(c)
+	clusterName, err := resolveClusterName(c)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 		return
@@ -176,7 +176,7 @@ func UpdateIngress(c *gin.Context) {
 		return
 	}
 
-	data, err := service.UpdateIngress(clusterID, namespace, &ingress)
+	data, err := service.UpdateIngress(clusterName, namespace, &ingress)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
 		return
@@ -191,15 +191,15 @@ func UpdateIngress(c *gin.Context) {
 // @Tags K8s资源管理
 // @Accept json
 // @Produce json
-// @Param request body map[string]interface{} true "参数: {clusterId, namespace, name}"
+// @Param request body map[string]interface{} true "参数: {clusterName, namespace, name}"
 // @Success 200 {object} Response "成功"
 // @Security BearerAuth
 // @Router /k8s/ingress/delete [post]
 func DeleteIngress(c *gin.Context) {
 	var req struct {
-		ClusterID uint   `json:"clusterId"`
-		Namespace string `json:"namespace" binding:"required"`
-		Name      string `json:"name" binding:"required"`
+		ClusterName string `json:"clusterName"`
+		Namespace   string `json:"namespace" binding:"required"`
+		Name        string `json:"name" binding:"required"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -213,16 +213,16 @@ func DeleteIngress(c *gin.Context) {
 		return
 	}
 
-	clusterID := req.ClusterID
-	if clusterID == 0 {
-		clusterID, err = resolveClusterID(c)
+	clusterName := req.ClusterName
+	if clusterName == "" {
+		clusterName, err = resolveClusterName(c)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 			return
 		}
 	}
 
-	if err := service.DeleteIngress(clusterID, req.Namespace, req.Name); err != nil {
+	if err := service.DeleteIngress(clusterName, req.Namespace, req.Name); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
 		return
 	}

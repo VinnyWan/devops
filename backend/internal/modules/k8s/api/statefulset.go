@@ -13,7 +13,7 @@ import (
 // @Tags K8s资源管理
 // @Accept json
 // @Produce json
-// @Param clusterId query int false "集群ID（可选，未传则使用默认集群）"
+// @Param clusterName query string false "集群名称（可选，未传则使用默认集群）"
 // @Param namespace query string false "命名空间（为空时查询所有命名空间）"
 // @Param page query int false "页码" default(1)
 // @Param pageSize query int false "每页数量" default(10)
@@ -28,7 +28,7 @@ func ListStatefulSets(c *gin.Context) {
 		return
 	}
 
-	clusterID, err := resolveListClusterID(c, req.ClusterID)
+	clusterName, err := resolveListClusterName(c, req.ClusterName)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, Response{Code: 400, Message: err.Error()})
 		return
@@ -40,7 +40,7 @@ func ListStatefulSets(c *gin.Context) {
 		return
 	}
 
-	resp, err := svc.ListStatefulSets(clusterID, req.Namespace, req.Page, req.PageSize, req.Keyword)
+	resp, err := svc.ListStatefulSets(clusterName, req.Namespace, req.Page, req.PageSize, req.Keyword)
 	if err != nil {
 		handleK8sError(c, err)
 		return
@@ -55,7 +55,7 @@ func ListStatefulSets(c *gin.Context) {
 // @Tags K8s资源管理
 // @Accept json
 // @Produce json
-// @Param clusterId query int false "集群ID（可选，未传则使用默认集群）"
+// @Param clusterName query string false "集群名称（可选，未传则使用默认集群）"
 // @Param namespace query string true "命名空间"
 // @Param name query string true "资源名称"
 // @Success 200 {object} Response "成功"
@@ -70,7 +70,7 @@ func GetStatefulSetDetail(c *gin.Context) {
 		return
 	}
 
-	clusterID, err := resolveClusterID(c)
+	clusterName, err := resolveClusterName(c)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 		return
@@ -82,7 +82,7 @@ func GetStatefulSetDetail(c *gin.Context) {
 		return
 	}
 
-	data, err := service.GetStatefulSetDetail(clusterID, namespace, name)
+	data, err := service.GetStatefulSetDetail(clusterName, namespace, name)
 	if err != nil {
 		handleK8sError(c, err)
 		return
@@ -97,7 +97,7 @@ func GetStatefulSetDetail(c *gin.Context) {
 // @Tags K8s资源管理
 // @Accept json
 // @Produce json
-// @Param clusterId query int false "集群ID（可选，未传则使用默认集群）"
+// @Param clusterName query string false "集群名称（可选，未传则使用默认集群）"
 // @Param namespace query string true "命名空间"
 // @Param name query string true "资源名称"
 // @Success 200 {object} Response "成功"
@@ -111,7 +111,7 @@ func GetStatefulSetYAML(c *gin.Context) {
 		return
 	}
 
-	clusterID, err := resolveClusterID(c)
+	clusterName, err := resolveClusterName(c)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 		return
@@ -123,7 +123,7 @@ func GetStatefulSetYAML(c *gin.Context) {
 		return
 	}
 
-	raw, err := svc.GetStatefulSetYAML(clusterID, namespace, name)
+	raw, err := svc.GetStatefulSetYAML(clusterName, namespace, name)
 	if err != nil {
 		handleK8sError(c, err)
 		return
@@ -138,7 +138,7 @@ func GetStatefulSetYAML(c *gin.Context) {
 // @Tags K8s资源管理
 // @Accept json
 // @Produce json
-// @Param clusterId query int false "集群ID（可选，未传则使用默认集群）"
+// @Param clusterName query string false "集群名称（可选，未传则使用默认集群）"
 // @Param namespace query string true "命名空间"
 // @Param name query string true "资源名称"
 // @Param request body object true "参数: {yaml}"
@@ -161,7 +161,7 @@ func UpdateStatefulSetYAML(c *gin.Context) {
 		return
 	}
 
-	clusterID, err := resolveClusterID(c)
+	clusterName, err := resolveClusterName(c)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 		return
@@ -173,7 +173,7 @@ func UpdateStatefulSetYAML(c *gin.Context) {
 		return
 	}
 
-	updated, err := svc.UpdateStatefulSetByYAML(clusterID, namespace, name, req.YAML)
+	updated, err := svc.UpdateStatefulSetByYAML(clusterName, namespace, name, req.YAML)
 	if err != nil {
 		handleK8sError(c, err)
 		return
@@ -187,15 +187,15 @@ func UpdateStatefulSetYAML(c *gin.Context) {
 // @Tags K8s资源管理
 // @Accept json
 // @Produce json
-// @Param request body object true "参数: {clusterId, namespace, name}"
+// @Param request body object true "参数: {clusterName, namespace, name}"
 // @Success 200 {object} Response "成功"
 // @Security BearerAuth
 // @Router /k8s/statefulset/restart [post]
 func RestartStatefulSet(c *gin.Context) {
 	var req struct {
-		ClusterID uint   `json:"clusterId"`
-		Namespace string `json:"namespace" binding:"required"`
-		Name      string `json:"name" binding:"required"`
+		ClusterName string `json:"clusterName"`
+		Namespace   string `json:"namespace" binding:"required"`
+		Name        string `json:"name" binding:"required"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -209,16 +209,16 @@ func RestartStatefulSet(c *gin.Context) {
 		return
 	}
 
-	clusterID := req.ClusterID
-	if clusterID == 0 {
-		clusterID, err = resolveClusterID(c)
+	clusterName := req.ClusterName
+	if clusterName == "" {
+		clusterName, err = resolveClusterName(c)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 			return
 		}
 	}
 
-	updated, err := svc.RestartStatefulSet(clusterID, req.Namespace, req.Name)
+	updated, err := svc.RestartStatefulSet(clusterName, req.Namespace, req.Name)
 	if err != nil {
 		handleK8sError(c, err)
 		return
@@ -232,16 +232,16 @@ func RestartStatefulSet(c *gin.Context) {
 // @Tags K8s资源管理
 // @Accept json
 // @Produce json
-// @Param request body object true "参数: {clusterId, namespace, name, replicas}"
+// @Param request body object true "参数: {clusterName, namespace, name, replicas}"
 // @Success 200 {object} Response "成功"
 // @Security BearerAuth
 // @Router /k8s/statefulset/scale [post]
 func ScaleStatefulSet(c *gin.Context) {
 	var req struct {
-		ClusterID uint   `json:"clusterId"`
-		Namespace string `json:"namespace" binding:"required"`
-		Name      string `json:"name" binding:"required"`
-		Replicas  *int32 `json:"replicas" binding:"required"`
+		ClusterName string `json:"clusterName"`
+		Namespace   string `json:"namespace" binding:"required"`
+		Name        string `json:"name" binding:"required"`
+		Replicas    *int32 `json:"replicas" binding:"required"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -260,16 +260,16 @@ func ScaleStatefulSet(c *gin.Context) {
 		return
 	}
 
-	clusterID := req.ClusterID
-	if clusterID == 0 {
-		clusterID, err = resolveClusterID(c)
+	clusterName := req.ClusterName
+	if clusterName == "" {
+		clusterName, err = resolveClusterName(c)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 			return
 		}
 	}
 
-	updated, err := svc.ScaleStatefulSet(clusterID, req.Namespace, req.Name, *req.Replicas)
+	updated, err := svc.ScaleStatefulSet(clusterName, req.Namespace, req.Name, *req.Replicas)
 	if err != nil {
 		handleK8sError(c, err)
 		return
@@ -283,15 +283,15 @@ func ScaleStatefulSet(c *gin.Context) {
 // @Tags K8s资源管理
 // @Accept json
 // @Produce json
-// @Param request body object true "参数: {clusterId, namespace, name}"
+// @Param request body object true "参数: {clusterName, namespace, name}"
 // @Success 200 {object} Response "成功"
 // @Security BearerAuth
 // @Router /k8s/statefulset/delete [post]
 func DeleteStatefulSet(c *gin.Context) {
 	var req struct {
-		ClusterID uint   `json:"clusterId"`
-		Namespace string `json:"namespace" binding:"required"`
-		Name      string `json:"name" binding:"required"`
+		ClusterName string `json:"clusterName"`
+		Namespace   string `json:"namespace" binding:"required"`
+		Name        string `json:"name" binding:"required"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -305,16 +305,16 @@ func DeleteStatefulSet(c *gin.Context) {
 		return
 	}
 
-	clusterID := req.ClusterID
-	if clusterID == 0 {
-		clusterID, err = resolveClusterID(c)
+	clusterName := req.ClusterName
+	if clusterName == "" {
+		clusterName, err = resolveClusterName(c)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 			return
 		}
 	}
 
-	if err := service.DeleteStatefulSet(clusterID, req.Namespace, req.Name); err != nil {
+	if err := service.DeleteStatefulSet(clusterName, req.Namespace, req.Name); err != nil {
 		handleK8sError(c, err)
 		return
 	}
@@ -328,7 +328,7 @@ func DeleteStatefulSet(c *gin.Context) {
 // @Tags K8s资源管理
 // @Accept json
 // @Produce json
-// @Param clusterId query int false "集群ID（可选，未传则使用默认集群）"
+// @Param clusterName query string false "集群名称（可选，未传则使用默认集群）"
 // @Param namespace query string true "命名空间"
 // @Param statefulset body K8sObject true "StatefulSet 对象"
 // @Success 200 {object} Response "成功"
@@ -342,7 +342,7 @@ func CreateStatefulSet(c *gin.Context) {
 		return
 	}
 
-	clusterID, err := resolveClusterID(c)
+	clusterName, err := resolveClusterName(c)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 		return
@@ -360,7 +360,7 @@ func CreateStatefulSet(c *gin.Context) {
 		return
 	}
 
-	data, err := service.CreateStatefulSet(clusterID, namespace, &statefulset)
+	data, err := service.CreateStatefulSet(clusterName, namespace, &statefulset)
 	if err != nil {
 		handleK8sError(c, err)
 		return
@@ -375,7 +375,7 @@ func CreateStatefulSet(c *gin.Context) {
 // @Tags K8s资源管理
 // @Accept json
 // @Produce json
-// @Param clusterId query int false "集群ID（可选，未传则使用默认集群）"
+// @Param clusterName query string false "集群名称（可选，未传则使用默认集群）"
 // @Param namespace query string true "命名空间"
 // @Param statefulset body K8sObject true "StatefulSet 对象"
 // @Success 200 {object} Response "成功"
@@ -389,7 +389,7 @@ func UpdateStatefulSet(c *gin.Context) {
 		return
 	}
 
-	clusterID, err := resolveClusterID(c)
+	clusterName, err := resolveClusterName(c)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 		return
@@ -407,7 +407,7 @@ func UpdateStatefulSet(c *gin.Context) {
 		return
 	}
 
-	data, err := service.UpdateStatefulSet(clusterID, namespace, &statefulset)
+	data, err := service.UpdateStatefulSet(clusterName, namespace, &statefulset)
 	if err != nil {
 		handleK8sError(c, err)
 		return

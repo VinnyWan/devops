@@ -14,6 +14,9 @@ import (
 // getService 获取服务实例（延迟初始化）
 func getService() *service.ClusterService {
 	clusterOnce.Do(func() {
+		if k8sDB == nil {
+			return
+		}
 		clusterServiceInstance = service.NewClusterService(k8sDB)
 	})
 	return clusterServiceInstance
@@ -61,6 +64,12 @@ type ClusterListResponse struct {
 // @Security BearerAuth
 // @Router /k8s/cluster/list [get]
 func ClusterList(c *gin.Context) {
+	tenantID, err := getCurrentTenantID(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": err.Error()})
+		return
+	}
+
 	// 获取分页参数
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("pageSize", "10"))
@@ -71,7 +80,7 @@ func ClusterList(c *gin.Context) {
 		keyword = name
 	}
 
-	clusters, total, err := getService().List(page, pageSize, env, keyword)
+	clusters, total, err := getService().ListInTenant(tenantID, page, pageSize, env, keyword)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"message": "获取集群列表失败",
@@ -112,11 +121,11 @@ func ClusterList(c *gin.Context) {
 
 // Detail 获取集群详情
 // @Summary 获取集群详情
-// @Description 根据集群ID获取详细信息
+// @Description 根据集群名称获取详细信息
 // @Tags 集群管理
 // @Accept json
 // @Produce json
-// @Param id query int true "集群ID"
+// @Param name query string true "集群名称"
 // @Success 200 {object} ClusterResponse "成功"
 // @Failure 400 {object} map[string]interface{} "参数错误"
 // @Failure 404 {object} map[string]interface{} "集群不存在"
@@ -124,23 +133,21 @@ func ClusterList(c *gin.Context) {
 // @Security BearerAuth
 // @Router /k8s/cluster/detail [get]
 func ClusterDetail(c *gin.Context) {
-	idStr := c.Query("id")
-	if idStr == "" {
+	tenantID, tenantErr := getCurrentTenantID(c)
+	if tenantErr != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": tenantErr.Error()})
+		return
+	}
+
+	name := c.Query("name")
+	if name == "" {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"message": "id 不能为空",
+			"message": "name 不能为空",
 		})
 		return
 	}
 
-	id, err := strconv.ParseUint(idStr, 10, 32)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"message": "无效的集群ID",
-		})
-		return
-	}
-
-	cluster, err := getService().GetByID(uint(id))
+	cluster, err := getService().GetByExactNameInTenant(tenantID, name)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			c.JSON(http.StatusNotFound, gin.H{
@@ -187,7 +194,13 @@ func ClusterDetail(c *gin.Context) {
 // @Security BearerAuth
 // @Router /k8s/cluster/default [get]
 func ClusterDefault(c *gin.Context) {
-	cluster, err := getService().GetDefaultOrFirst()
+	tenantID, err := getCurrentTenantID(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": err.Error()})
+		return
+	}
+
+	cluster, err := getService().GetDefaultOrFirstInTenant(tenantID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			c.JSON(http.StatusNotFound, gin.H{
@@ -237,6 +250,12 @@ func ClusterDefault(c *gin.Context) {
 // @Security BearerAuth
 // @Router /k8s/cluster/set-default [post]
 func ClusterSetDefault(c *gin.Context) {
+	tenantID, tenantErr := getCurrentTenantID(c)
+	if tenantErr != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": tenantErr.Error()})
+		return
+	}
+
 	var req struct {
 		ID uint `json:"id" binding:"required"`
 	}
@@ -249,7 +268,7 @@ func ClusterSetDefault(c *gin.Context) {
 		return
 	}
 
-	if err := getService().SetDefault(req.ID); err != nil {
+	if err := getService().SetDefaultInTenant(tenantID, req.ID); err != nil {
 		if err.Error() == "集群不存在" {
 			c.JSON(http.StatusNotFound, gin.H{"message": err.Error()})
 			return
@@ -306,6 +325,12 @@ type ClusterHealthResponse struct {
 // @Security BearerAuth
 // @Router /k8s/cluster/create [post]
 func ClusterCreate(c *gin.Context) {
+	tenantID, tenantErr := getCurrentTenantID(c)
+	if tenantErr != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": tenantErr.Error()})
+		return
+	}
+
 	var req struct {
 		Name       string `json:"name" binding:"required"`
 		AuthType   string `json:"authType" binding:"required,oneof=kubeconfig token"`
@@ -340,7 +365,7 @@ func ClusterCreate(c *gin.Context) {
 		Env:        req.Env,
 	}
 
-	result, err := getService().Create(createReq)
+	result, err := getService().CreateInTenant(tenantID, createReq)
 	if err != nil {
 		_ = c.Error(err)
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -375,6 +400,12 @@ func ClusterCreate(c *gin.Context) {
 // @Security BearerAuth
 // @Router /k8s/cluster/update [post]
 func ClusterUpdate(c *gin.Context) {
+	tenantID, tenantErr := getCurrentTenantID(c)
+	if tenantErr != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": tenantErr.Error()})
+		return
+	}
+
 	var req struct {
 		ID         uint   `json:"id"`
 		Name       string `json:"name"`
@@ -425,7 +456,7 @@ func ClusterUpdate(c *gin.Context) {
 		Env:        req.Env,
 	}
 
-	result, err := getService().Update(updateReq)
+	result, err := getService().UpdateInTenant(tenantID, updateReq)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"message": "更新集群失败",
@@ -458,6 +489,12 @@ func ClusterUpdate(c *gin.Context) {
 // @Security BearerAuth
 // @Router /k8s/cluster/delete [post]
 func ClusterDelete(c *gin.Context) {
+	tenantID, tenantErr := getCurrentTenantID(c)
+	if tenantErr != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": tenantErr.Error()})
+		return
+	}
+
 	var req struct {
 		ID uint `json:"id" binding:"required"`
 	}
@@ -470,7 +507,7 @@ func ClusterDelete(c *gin.Context) {
 		return
 	}
 
-	err := getService().Delete(req.ID)
+	err := getService().DeleteInTenant(tenantID, req.ID)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"message": "删除集群失败",
@@ -497,6 +534,12 @@ func ClusterDelete(c *gin.Context) {
 // @Security BearerAuth
 // @Router /k8s/cluster/health [get]
 func ClusterHealthCheck(c *gin.Context) {
+	tenantID, tenantErr := getCurrentTenantID(c)
+	if tenantErr != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": tenantErr.Error()})
+		return
+	}
+
 	var req struct {
 		ID uint `form:"id" binding:"required"`
 	}
@@ -509,7 +552,7 @@ func ClusterHealthCheck(c *gin.Context) {
 		return
 	}
 
-	status, err := getService().HealthCheck(req.ID)
+	status, err := getService().HealthCheckInTenant(tenantID, req.ID)
 	if err != nil {
 		c.JSON(http.StatusOK, gin.H{
 			"code":    200,
@@ -550,6 +593,12 @@ func ClusterHealthCheck(c *gin.Context) {
 // @Security BearerAuth
 // @Router /k8s/cluster/search [get]
 func ClusterSearch(c *gin.Context) {
+	tenantID, tenantErr := getCurrentTenantID(c)
+	if tenantErr != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": tenantErr.Error()})
+		return
+	}
+
 	name := c.Query("name")
 	env := c.Query("env")
 
@@ -563,7 +612,7 @@ func ClusterSearch(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("pageSize", "10"))
 
-	clusters, total, err := getService().Search(name, env, page, pageSize)
+	clusters, total, err := getService().SearchInTenant(tenantID, name, env, page, pageSize)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"message": "查询集群失败",

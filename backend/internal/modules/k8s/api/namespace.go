@@ -12,14 +12,14 @@ import (
 // @Tags K8s资源管理
 // @Accept json
 // @Produce json
-// @Param clusterId query int false "集群ID（可选，未传则使用默认集群）"
+// @Param clusterName query string false "集群名称（可选，未传则使用默认集群）"
 // @Success 200 {object} Response "成功"
 // @Failure 400 {object} Response "参数错误"
 // @Failure 500 {object} Response "服务器错误"
 // @Security BearerAuth
 // @Router /k8s/namespaces/list [get]
 func NamespaceList(c *gin.Context) {
-	clusterID, err := resolveClusterID(c)
+	clusterName, err := resolveClusterName(c)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"message": err.Error(),
@@ -36,7 +36,7 @@ func NamespaceList(c *gin.Context) {
 		return
 	}
 
-	data, err := service.ListNamespaces(clusterID)
+	data, err := service.ListNamespaces(clusterName)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"message": "获取 Namespace 失败",

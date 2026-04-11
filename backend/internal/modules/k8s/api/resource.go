@@ -10,7 +10,7 @@ import (
 
 // GetResourceYAMLRequest 获取资源YAML请求
 type GetResourceYAMLRequest struct {
-	ClusterID    uint   `form:"clusterId" json:"clusterId"`
+	ClusterName  string `form:"clusterName" json:"clusterName"`
 	ResourceType string `form:"resourceType" json:"resourceType" binding:"required"` // pod, deployment, service 等
 	Namespace    string `form:"namespace" json:"namespace"`                          // 命名空间
 	Name         string `form:"name" json:"name" binding:"required"`                 // 资源名称
@@ -22,7 +22,7 @@ type GetResourceYAMLRequest struct {
 // @Tags K8s资源管理
 // @Accept json
 // @Produce json
-// @Param clusterId query int false "集群ID（可选，未传则使用默认集群）"
+// @Param clusterName query string false "集群名称（可选，未传则使用默认集群）"
 // @Param resourceType query string true "资源类型（pod/deployment/service/ingress等）"
 // @Param namespace query string false "命名空间（集群级别资源可不传）"
 // @Param name query string true "资源名称"
@@ -36,7 +36,7 @@ func GetResourceYAML(c *gin.Context) {
 		return
 	}
 
-	clusterID, err := resolveListClusterID(c, req.ClusterID)
+	clusterName, err := resolveListClusterName(c, req.ClusterName)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, Response{Code: 400, Message: err.Error()})
 		return
@@ -48,7 +48,7 @@ func GetResourceYAML(c *gin.Context) {
 		return
 	}
 
-	yaml, err := svc.GetResourceYAML(clusterID, req.ResourceType, req.Namespace, req.Name)
+	yaml, err := svc.GetResourceYAML(clusterName, req.ResourceType, req.Namespace, req.Name)
 	if err != nil {
 		handleK8sError(c, err)
 		return

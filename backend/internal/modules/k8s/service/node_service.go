@@ -62,15 +62,15 @@ type NodeDetail struct {
 }
 
 // ListNodes 获取节点列表
-func (s *K8sService) ListNodes(clusterID uint, page, pageSize int, name string, status string, role string) (*NodeListResponse, error) {
-	client, err := s.getClient(clusterID)
+func (s *K8sService) ListNodes(clusterName string, page, pageSize int, name string, status string, role string) (*NodeListResponse, error) {
+	client, err := s.getClient(clusterName)
 	if err != nil {
 		return nil, err
 	}
 
 	// 获取 Metrics Client (允许失败，用于降级)
 	var metricsClient *metrics.Clientset
-	cluster, err := s.clusterService.GetByID(clusterID)
+	cluster, err := s.clusterService.GetByExactName(clusterName)
 	if err == nil {
 		metricsClient, _ = s.clientFactory.GetMetricsClient(cluster)
 	}
@@ -271,9 +271,9 @@ func (s *K8sService) ListNodes(clusterID uint, page, pageSize int, name string, 
 }
 
 // GetNodeDetail 获取节点详情
-func (s *K8sService) GetNodeDetail(clusterID uint, name string) (*NodeDetail, error) {
+func (s *K8sService) GetNodeDetail(clusterName string, name string) (*NodeDetail, error) {
 	// 复用列表逻辑获取基础信息（含 Metrics）
-	listResp, err := s.ListNodes(clusterID, 1, 1, name, "", "")
+	listResp, err := s.ListNodes(clusterName, 1, 1, name, "", "")
 	if err != nil {
 		return nil, err
 	}
@@ -283,7 +283,7 @@ func (s *K8sService) GetNodeDetail(clusterID uint, name string) (*NodeDetail, er
 
 	baseItem := listResp.Items[0]
 
-	client, err := s.getClient(clusterID)
+	client, err := s.getClient(clusterName)
 	if err != nil {
 		return nil, err
 	}
@@ -303,8 +303,8 @@ func (s *K8sService) GetNodeDetail(clusterID uint, name string) (*NodeDetail, er
 }
 
 // CordonNode 设置/取消调度
-func (s *K8sService) CordonNode(clusterID uint, name string, cordon bool) error {
-	client, err := s.getClient(clusterID)
+func (s *K8sService) CordonNode(clusterName string, name string, cordon bool) error {
+	client, err := s.getClient(clusterName)
 	if err != nil {
 		return err
 	}
@@ -329,8 +329,8 @@ type DrainOptions struct {
 	DeleteLocalData    bool `json:"deleteLocalData"`
 }
 
-func (s *K8sService) DrainNode(clusterID uint, name string, opts DrainOptions) error {
-	client, err := s.getClient(clusterID)
+func (s *K8sService) DrainNode(clusterName string, name string, opts DrainOptions) error {
+	client, err := s.getClient(clusterName)
 	if err != nil {
 		return err
 	}
@@ -338,7 +338,7 @@ func (s *K8sService) DrainNode(clusterID uint, name string, opts DrainOptions) e
 	ctx := context.Background()
 
 	// 1. Cordon 节点
-	if err := s.CordonNode(clusterID, name, true); err != nil {
+	if err := s.CordonNode(clusterName, name, true); err != nil {
 		return fmt.Errorf("设置不可调度失败: %w", err)
 	}
 
@@ -396,8 +396,8 @@ func (s *K8sService) DrainNode(clusterID uint, name string, opts DrainOptions) e
 }
 
 // UpdateNodeLabels 更新标签
-func (s *K8sService) UpdateNodeLabels(clusterID uint, name string, labels map[string]string) error {
-	client, err := s.getClient(clusterID)
+func (s *K8sService) UpdateNodeLabels(clusterName string, name string, labels map[string]string) error {
+	client, err := s.getClient(clusterName)
 	if err != nil {
 		return err
 	}
@@ -421,8 +421,8 @@ func (s *K8sService) UpdateNodeLabels(clusterID uint, name string, labels map[st
 }
 
 // UpdateNodeTaints 更新污点
-func (s *K8sService) UpdateNodeTaints(clusterID uint, name string, taints []corev1.Taint) error {
-	client, err := s.getClient(clusterID)
+func (s *K8sService) UpdateNodeTaints(clusterName string, name string, taints []corev1.Taint) error {
+	client, err := s.getClient(clusterName)
 	if err != nil {
 		return err
 	}
@@ -445,8 +445,8 @@ func (s *K8sService) UpdateNodeTaints(clusterID uint, name string, taints []core
 }
 
 // GetNodeEvents 获取节点事件
-func (s *K8sService) GetNodeEvents(clusterID uint, nodeName string) ([]EventInfo, error) {
-	client, err := s.getClient(clusterID)
+func (s *K8sService) GetNodeEvents(clusterName string, nodeName string) ([]EventInfo, error) {
+	client, err := s.getClient(clusterName)
 	if err != nil {
 		return nil, err
 	}
@@ -522,8 +522,8 @@ func createMergePatch(original, modified interface{}) ([]byte, error) {
 // 修正 UpdateNodeLabels 和 UpdateNodeTaints 为使用 Update 方法
 // 覆盖原方法实现
 
-func (s *K8sService) UpdateNodeLabels_Revised(clusterID uint, name string, labels map[string]string) error {
-	client, err := s.getClient(clusterID)
+func (s *K8sService) UpdateNodeLabels_Revised(clusterName string, name string, labels map[string]string) error {
+	client, err := s.getClient(clusterName)
 	if err != nil {
 		return err
 	}
@@ -541,8 +541,8 @@ func (s *K8sService) UpdateNodeLabels_Revised(clusterID uint, name string, label
 	return retryErr
 }
 
-func (s *K8sService) UpdateNodeTaints_Revised(clusterID uint, name string, taints []corev1.Taint) error {
-	client, err := s.getClient(clusterID)
+func (s *K8sService) UpdateNodeTaints_Revised(clusterName string, name string, taints []corev1.Taint) error {
+	client, err := s.getClient(clusterName)
 	if err != nil {
 		return err
 	}
