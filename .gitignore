@@ -1,5 +1,7 @@
 .DS_Store
+._*
 server
+.claude/
 
 # Backend
 backend/CLAUDE.md
@@ -17,16 +19,13 @@ backend/.idea/
 backend/.vscode/
 backend/*.swp
 backend/*.swo
-backend/.DS_Store
 backend/logs/
 backend/*.log
 backend/config/config.yaml
 
 # Frontend
 frontend/CLAUDE.md
-frontend/.claude
-frontend/.claude/*
-frontend/# Logs
+frontend/.claude/
 frontend/logs
 frontend/*.log
 frontend/npm-debug.log*
@@ -38,26 +37,16 @@ frontend/node_modules
 frontend/dist
 frontend/dist-ssr
 frontend/*.local
-frontend/# Editor directories and files
+frontend/.env.local
+frontend/.env.*.local
 frontend/.vscode/*
 frontend/!.vscode/extensions.json
 frontend/.idea
-frontend/.DS_Store
 frontend/*.suo
 frontend/*.ntvs*
 frontend/*.njsproj
 frontend/*.sln
 frontend/*.sw?
-frontend/*.claude
-frontend/*.claude/*
-frontend/node_modules/*
-frontend/node_modules
-frontend/.gitignore
-frontend/README.md
-frontend/dist
-frontend/.omc
-frontend/.vscode
-frontend/docs
-frontend/docs/*
-images/*
+
+# Images
 images/

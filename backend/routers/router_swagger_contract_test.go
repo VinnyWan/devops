@@ -29,6 +29,7 @@ type openapiDoc struct {
 func setupRouterForSwaggerTest() *gin.Engine {
 	v := viper.New()
 	v.Set("server.mode", "test")
+	v.Set("server.enableSwagger", true)
 	v.Set("cors.allow_origins", []string{"http://localhost:3000"})
 	config.Cfg = v
 	logger.Log = zap.NewNop()

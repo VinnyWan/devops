@@ -18,10 +18,10 @@ const (
 // User 用户模型
 type User struct {
 	ID         uint   `gorm:"primaryKey"`
-	TenantID   *uint  `gorm:"index" json:"tenantId"` // 租户ID
-	Username   string `gorm:"size:100;not null;index:idx_tenant_username" json:"username"`
+	TenantID   *uint  `gorm:"index;uniqueIndex:uk_users_tenant_username;uniqueIndex:uk_users_tenant_email" json:"tenantId"` // 租户ID
+	Username   string `gorm:"size:100;not null;uniqueIndex:uk_users_tenant_username" json:"username"`
 	Password   string `gorm:"size:255" json:"-"`
-	Email      string `gorm:"size:255;index:idx_tenant_email" json:"email"`
+	Email      string `gorm:"size:255;uniqueIndex:uk_users_tenant_email" json:"email"`
 	Name       string `gorm:"size:100;index" json:"name"`
 	ExternalID string `gorm:"size:255" json:"externalId"`
 

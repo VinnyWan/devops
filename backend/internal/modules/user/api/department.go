@@ -39,16 +39,19 @@ func getDeptService() *service.DepartmentService {
 // @Failure 403 {object} map[string]interface{} "权限不足"
 // @Router /department/create [post]
 func CreateDepartment(c *gin.Context) {
+	tenantID := GetCurrentTenantID(c)
+	operatorID := GetCurrentUserID(c)
+
 	var req service.CreateDepartmentRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
 		return
 	}
 
-	dept, err := getDeptService().Create(c.Request.Context(), &req)
+	dept, err := getDeptService().Create(c.Request.Context(), tenantID, operatorID, &req)
 	if err != nil {
 		logger.Log.Error("Failed to create department", zap.Error(err))
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		writeModuleError(c, err, http.StatusInternalServerError)
 		return
 	}
 
@@ -66,15 +69,18 @@ func CreateDepartment(c *gin.Context) {
 // @Success 200 {object} map[string]interface{} "更新成功"
 // @Router /department/update [post]
 func UpdateDepartment(c *gin.Context) {
+	tenantID := GetCurrentTenantID(c)
+	operatorID := GetCurrentUserID(c)
+
 	var req service.UpdateDepartmentRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
 		return
 	}
 
-	if err := getDeptService().Update(c.Request.Context(), &req); err != nil {
+	if err := getDeptService().Update(c.Request.Context(), tenantID, operatorID, &req); err != nil {
 		logger.Log.Error("Failed to update department", zap.Error(err))
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		writeModuleError(c, err, http.StatusInternalServerError)
 		return
 	}
 
@@ -91,6 +97,9 @@ func UpdateDepartment(c *gin.Context) {
 // @Success 200 {object} map[string]interface{} "删除成功"
 // @Router /department/delete [post]
 func DeleteDepartment(c *gin.Context) {
+	tenantID := GetCurrentTenantID(c)
+	operatorID := GetCurrentUserID(c)
+
 	idStr := c.Query("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
@@ -98,9 +107,9 @@ func DeleteDepartment(c *gin.Context) {
 		return
 	}
 
-	if err := getDeptService().Delete(c.Request.Context(), uint(id)); err != nil {
+	if err := getDeptService().Delete(c.Request.Context(), tenantID, operatorID, uint(id)); err != nil {
 		logger.Log.Error("Failed to delete department", zap.Error(err))
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		writeModuleError(c, err, http.StatusInternalServerError)
 		return
 	}
 
@@ -117,10 +126,13 @@ func DeleteDepartment(c *gin.Context) {
 // @Success 200 {object} map[string]interface{} "部门列表"
 // @Router /department/list [get]
 func ListDepartments(c *gin.Context) {
-	tree, err := getDeptService().GetTree(c.Request.Context(), c.Query("keyword"))
+	tenantID := GetCurrentTenantID(c)
+	operatorID := GetCurrentUserID(c)
+
+	tree, err := getDeptService().GetTree(c.Request.Context(), tenantID, operatorID, c.Query("keyword"))
 	if err != nil {
 		logger.Log.Error("Failed to list departments", zap.Error(err))
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		writeModuleError(c, err, http.StatusInternalServerError)
 		return
 	}
 
@@ -138,6 +150,9 @@ func ListDepartments(c *gin.Context) {
 // @Success 200 {object} map[string]interface{} "分配成功"
 // @Router /department/assign-roles [post]
 func AssignDeptRoles(c *gin.Context) {
+	tenantID := GetCurrentTenantID(c)
+	operatorID := GetCurrentUserID(c)
+
 	var req struct {
 		DeptID  uint   `json:"deptId" binding:"required"`
 		RoleIDs []uint `json:"roleIds" binding:"required"`
@@ -147,9 +162,9 @@ func AssignDeptRoles(c *gin.Context) {
 		return
 	}
 
-	if err := getDeptService().AssignRoles(c.Request.Context(), req.DeptID, req.RoleIDs); err != nil {
+	if err := getDeptService().AssignRoles(c.Request.Context(), tenantID, operatorID, req.DeptID, req.RoleIDs); err != nil {
 		logger.Log.Error("Failed to assign department roles", zap.Error(err))
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		writeModuleError(c, err, http.StatusInternalServerError)
 		return
 	}
 

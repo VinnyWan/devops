@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"time"
 
+	"devops-platform/config"
 	"devops-platform/internal/pkg/redis"
 
 	"github.com/gin-gonic/gin"
@@ -79,8 +80,10 @@ func InitRouter() *gin.Engine {
 		})
 	})
 
-	// Swagger 路由 - 使用默认配置
-	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+	// Swagger 路由（可配置开关）
+	if config.Cfg == nil || config.Cfg.GetBool("server.enableSwagger") {
+		r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+	}
 
 	// 注册 v1 路由
 	v1.Register(r)

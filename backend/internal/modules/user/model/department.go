@@ -9,8 +9,8 @@ import (
 // Department 部门模型
 type Department struct {
 	ID        uint           `gorm:"primarykey" json:"id"`
-	TenantID  *uint          `gorm:"index" json:"tenantId"` // 租户ID
-	Name      string         `gorm:"size:100;not null;index:idx_tenant_dept_name" json:"name"`
+	TenantID  *uint          `gorm:"index;uniqueIndex:uk_departments_tenant_name" json:"tenantId"` // 租户ID
+	Name      string         `gorm:"size:100;not null;uniqueIndex:uk_departments_tenant_name" json:"name"`
 	ParentID  *uint          `json:"parentId"` // 上级部门ID，根部门为NULL
 	Tenant    *Tenant        `json:"tenant,omitempty"`
 	Roles     []Role         `gorm:"many2many:department_roles;" json:"roles,omitempty"`

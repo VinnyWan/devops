@@ -1,18 +1,88 @@
 # Agents.md / CLAUDE.md（Claude Code 代理配置模板）
 
+# 应用运行环境
+Windows 11 的系统
+
 # 对话要求
 - 全部对话必须以中文进行展示
 - 所有的输出和改动必现简洁明了
 
 ## 项目规划
 - backend目录为后端 golang 项目 gin的web框架项目
-- frontend目录为前端 vue3 项目
+- frontend目录为前端 vue3 + element-plus 项目
 - 后端backend在每次进行代码修改之后，都需要生成swagger文档，swagger的目录在devops/backend/docs/swagger中
 
-## skills 规定
-- backend 文件夹中任何改动都必须使用 everything-claude-code 这个skill
-- frontend 文件夹中任何改动都必须使用 ui-ux-pro-max 这个skill
-- 以上为固定规则
+## gstack
+
+使用 gstack 的 /browse 进行所有网页浏览。不要使用 mcp__claude-in-chrome__* 工具。
+可用技能：/office-hours, /plan-ceo-review, /plan-eng-review, /plan-design-review, /design-consultation, /design-shotgun, /design-html, /review, /ship, /land-and-deploy, /canary, /benchmark, /browse, /open-gstack-browser, /qa, /qa-only, /design-review, /setup-browser-cookies, /setup-deploy, /retro, /investigate, /document-release, /codex, /cso, /autoplan, /pair-agent, /careful, /freeze, /guard, /unfreeze, /gstack-upgrade, /learn。
+
+## 技术栈详情
+
+### 后端 (Backend)
+- **语言**: Go 1.24.0
+- **Web框架**: Gin
+- **ORM**: GORM (支持 MySQL 和 SQLite)
+- **API文档**: Swaggo (Swagger/OpenAPI)
+- **认证**: OAuth2, OIDC, LDAP
+- **K8s客户端**: client-go v0.31.4
+- **配置管理**: Viper, Nacos
+- **日志**: Zap + Lumberjack
+- **缓存**: Redis (go-redis/v9)
+- **权限**: Casbin
+
+### 前端 (Frontend)
+- **框架**: Vue 3.5.30
+- **UI库**: Element Plus 2.13.6
+- **状态管理**: Pinia 3.0.4
+- **路由**: Vue Router 4.6.4
+- **HTTP客户端**: Axios 1.14.0
+- **构建工具**: Vite 8.0.1
+- **自动导入**: unplugin-auto-import, unplugin-vue-components
+
+## 项目结构
+
+### 后端目录结构
+```
+backend/
+├── cmd/server/          # 主程序入口
+├── config/              # 配置文件和配置加载
+├── internal/
+│   ├── bootstrap/       # 初始化逻辑 (DB, Redis, K8s, Casbin)
+│   ├── middleware/      # 中间件 (认证, 审计, 权限, CORS)
+│   ├── modules/         # 业务模块
+│   │   ├── user/        # 用户、角色、部门、权限、审计
+│   │   ├── k8s/         # K8s资源管理 (集群、节点、工作负载)
+│   │   ├── app/         # 应用管理
+│   │   ├── alert/       # 告警中心
+│   │   ├── cicd/        # CI/CD
+│   │   ├── harbor/      # Harbor镜像仓库
+│   │   ├── log/         # 日志中心
+│   │   └── monitor/     # 监控中心
+│   └── pkg/             # 公共工具包
+├── routers/             # 路由定义
+├── docs/                # API文档 (Swagger/OpenAPI)
+└── scripts/             # 脚本工具
+```
+
+### 前端目录结构
+```
+frontend/
+├── src/
+│   ├── api/             # API请求封装
+│   ├── components/      # 公共组件
+│   │   ├── K8s/         # K8s相关组件
+│   │   └── Layout/      # 布局组件
+│   ├── views/           # 页面视图
+│   │   ├── k8s/         # K8s管理页面
+│   │   ├── System/      # 系统管理
+│   │   ├── Dashboard/   # 仪表盘
+│   │   └── Login/       # 登录
+│   ├── stores/          # Pinia状态管理
+│   ├── router/          # 路由配置
+│   └── utils/           # 工具函数
+└── public/              # 静态资源
+```
 
 ## Workflow Orchestration（工作流编排）
 
@@ -64,4 +134,54 @@
 - **简洁优先**：每次变更尽量简单，只影响最小代码。
 - **绝不偷懒**：找到根因，不用临时修复，坚持资深开发者标准。
 - **最小影响**：只修改必要部分，避免引入新 bug。
+
+## 开发规范
+
+### 后端开发规范
+1. **代码组织**：每个模块按 `api -> service -> repository -> model` 分层
+2. **API注释**：所有API handler必须添加Swagger注释 (`@Summary`, `@Tags`, `@Accept`, `@Produce`, `@Param`, `@Success`, `@Failure`, `@Router`)
+3. **错误处理**：使用 `internal/pkg/obserr` 统一错误处理
+4. **测试**：service层需要编写单元测试 (`*_test.go`)
+5. **Swagger生成**：修改API后执行 `swag init` 或 `make swagger` 更新文档
+6. **命名规范**：
+   - 文件名：小写下划线 (`user_service.go`)
+   - 结构体：大驼峰 (`UserService`)
+   - 方法：大驼峰导出，小驼峰私有
+   - 常量：全大写下划线 (`MAX_RETRY_COUNT`)
+
+### 前端开发规范
+1. **组件命名**：大驼峰 (`ClusterSelector.vue`)
+2. **API封装**：所有后端请求封装在 `src/api/` 目录
+3. **状态管理**：全局状态使用Pinia stores
+4. **样式**：使用 Element Plus 主题变量，避免硬编码颜色
+5. **路由**：懒加载页面组件
+6. **类型安全**：尽量使用明确的类型定义
+
+### Git提交规范
+- `feat`: 新功能
+- `fix`: Bug修复
+- `refactor`: 重构
+- `docs`: 文档更新
+- `style`: 代码格式调整
+- `test`: 测试相关
+- `chore`: 构建/工具链相关
+
+## 常用命令
+
+### 后端
+```bash
+cd backend
+go mod tidy                    # 整理依赖
+go test ./...                  # 运行所有测试
+swag init                      # 生成Swagger文档
+go run cmd/server/main.go      # 启动服务
+```
+
+### 前端
+```bash
+cd frontend
+npm install                    # 安装依赖
+npm run dev                    # 启动开发服务器
+npm run build                  # 构建生产版本
+```
 

@@ -24,6 +24,7 @@ import (
 type AuthService struct {
 	userRepo   *repository.UserRepo
 	roleRepo   *repository.RoleRepo
+	tenantRepo *repository.TenantRepo
 	sessionSvc *SessionService
 }
 
@@ -31,15 +32,17 @@ func NewAuthService(db *gorm.DB) *AuthService {
 	return &AuthService{
 		userRepo:   repository.NewUserRepo(db),
 		roleRepo:   repository.NewRoleRepo(db),
+		tenantRepo: repository.NewTenantRepo(db),
 		sessionSvc: NewSessionService(),
 	}
 }
 
 // LoginRequest 登录请求
 type LoginRequest struct {
-	Username string `json:"username" binding:"required"`
-	Password string `json:"password" binding:"required"`
-	AuthType string `json:"authType"` // local, ldap
+	TenantCode string `json:"tenantCode" binding:"required"`
+	Username   string `json:"username" binding:"required"`
+	Password   string `json:"password" binding:"required"`
+	AuthType   string `json:"authType"` // local, ldap
 }
 
 // LoginResponse 登录响应
@@ -50,21 +53,35 @@ type LoginResponse struct {
 
 // Login 用户登录
 func (s *AuthService) Login(ctx context.Context, req *LoginRequest, ip, userAgent string) (*LoginResponse, error) {
+	tenantCode := strings.ToLower(strings.TrimSpace(req.TenantCode))
+	if tenantCode == "" {
+		return nil, errors.New("tenantCode is required")
+	}
+	tenant, err := s.tenantRepo.GetByCode(tenantCode)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errors.New("tenant not found")
+		}
+		return nil, err
+	}
+	if tenant.Status != "active" {
+		return nil, errors.New("tenant is not active")
+	}
+
 	authType := model.AuthType(req.AuthType)
 	if authType == "" {
 		authType = model.AuthTypeLocal
 	}
 
 	var user *model.User
-	var err error
 
 	switch authType {
 	case model.AuthTypeLocal:
-		user, err = s.loginLocal(req.Username, req.Password)
+		user, err = s.loginLocal(tenant.ID, req.Username, req.Password)
 	case model.AuthTypeLDAP:
-		user, err = s.loginLDAP(req.Username, req.Password)
+		return nil, errors.New("ldap login is temporarily disabled in tenant mode")
 	case model.AuthTypeOIDC:
-		return nil, errors.New("use OIDC callback endpoint for login")
+		return nil, errors.New("oidc login is temporarily disabled in tenant mode")
 	default:
 		return nil, errors.New("invalid auth type")
 	}
@@ -74,10 +91,10 @@ func (s *AuthService) Login(ctx context.Context, req *LoginRequest, ip, userAgen
 	}
 
 	// 更新最后登录时间
-	_ = s.userRepo.UpdateLastLoginTime(user.ID)
+	_ = s.userRepo.UpdateLastLoginTimeInTenant(tenant.ID, user.ID)
 
 	// 创建 Session
-	sessionID, err := s.sessionSvc.CreateSession(ctx, user.ID, user.Username, string(authType), ip, userAgent)
+	sessionID, err := s.sessionSvc.CreateSession(ctx, user.ID, user.Username, tenant.ID, tenant.Code, string(authType), ip, userAgent)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create session: %w", err)
 	}
@@ -89,8 +106,8 @@ func (s *AuthService) Login(ctx context.Context, req *LoginRequest, ip, userAgen
 }
 
 // loginLocal 本地认证登录
-func (s *AuthService) loginLocal(username, password string) (*model.User, error) {
-	user, err := s.userRepo.GetByUsername(username)
+func (s *AuthService) loginLocal(tenantID uint, username, password string) (*model.User, error) {
+	user, err := s.userRepo.GetByUsernameInTenant(tenantID, username)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.New("invalid username or password")
@@ -121,6 +138,10 @@ func (s *AuthService) loginLocal(username, password string) (*model.User, error)
 
 // loginLDAP LDAP认证登录
 func (s *AuthService) loginLDAP(username, password string) (*model.User, error) {
+	if config.Cfg == nil || !config.Cfg.GetBool("auth.enable_external") {
+		return nil, errors.New("ldap login is temporarily disabled in tenant mode")
+	}
+
 	if !config.Cfg.GetBool("ldap.enable") {
 		return nil, errors.New("LDAP is not enabled")
 	}
@@ -259,6 +280,10 @@ func oidcStateKey(state string) string {
 }
 
 func (s *AuthService) GetOIDCAuthURL(ctx context.Context) (string, string, error) {
+	if config.Cfg == nil || !config.Cfg.GetBool("auth.enable_external") {
+		return "", "", errors.New("oidc login is temporarily disabled in tenant mode")
+	}
+
 	if !config.Cfg.GetBool("oidc.enable") {
 		return "", "", errors.New("OIDC is not enabled")
 	}
@@ -286,6 +311,10 @@ func (s *AuthService) GetOIDCAuthURL(ctx context.Context) (string, string, error
 }
 
 func (s *AuthService) LoginOIDC(ctx context.Context, code, state, ip, userAgent string) (*LoginResponse, error) {
+	if config.Cfg == nil || !config.Cfg.GetBool("auth.enable_external") {
+		return nil, errors.New("oidc login is temporarily disabled in tenant mode")
+	}
+
 	if !config.Cfg.GetBool("oidc.enable") {
 		return nil, errors.New("OIDC is not enabled")
 	}
@@ -344,46 +373,47 @@ func (s *AuthService) LoginOIDC(ctx context.Context, code, state, ip, userAgent 
 		username = claims.Sub
 	}
 
-	// Sync user
-	// 查找或创建本地用户
+	// OIDC 多租户模式下仅允许登录已预置且已绑定租户的用户。
 	user, err := s.userRepo.GetByUsername(username)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, err
 	}
-
 	if user == nil {
-		// 创建新用户
-		user = &model.User{
-			Username:   username,
-			Email:      claims.Email,
-			Name:       claims.Name,
-			AuthType:   model.AuthTypeOIDC,
-			ExternalID: claims.Sub,
-			Status:     "active",
-			CreatedAt:  time.Now(),
-			UpdatedAt:  time.Now(),
-		}
-		if err := s.userRepo.Create(user); err != nil {
-			return nil, fmt.Errorf("failed to create OIDC user: %w", err)
-		}
-	} else {
-		// 更新用户信息
-		updates := map[string]interface{}{
-			"email":       claims.Email,
-			"name":        claims.Name,
-			"external_id": claims.Sub,
-			"auth_type":   model.AuthTypeOIDC,
-			"updated_at":  time.Now(),
-		}
-		if err := s.userRepo.UpdateByID(user.ID, updates); err != nil {
-			return nil, fmt.Errorf("failed to update OIDC user: %w", err)
-		}
-		// 重新获取最新数据
-		user, _ = s.userRepo.GetByID(user.ID)
+		return nil, errors.New("oidc user is not bound to any tenant")
 	}
 
-	// Create Session
-	sessionID, err := s.sessionSvc.CreateSession(ctx, user.ID, user.Username, string(model.AuthTypeOIDC), ip, userAgent)
+	if user.TenantID == nil || *user.TenantID == 0 {
+		return nil, errors.New("oidc user is not bound to any tenant")
+	}
+
+	tenant, err := s.tenantRepo.GetByID(*user.TenantID)
+	if err != nil {
+		return nil, fmt.Errorf("tenant lookup failed: %w", err)
+	}
+	if tenant.Status != "active" {
+		return nil, errors.New("tenant is not active")
+	}
+	if tenant.ExpiresAt != nil && tenant.ExpiresAt.Before(time.Now()) {
+		return nil, errors.New("tenant has expired")
+	}
+
+	updates := map[string]interface{}{
+		"email":       claims.Email,
+		"name":        claims.Name,
+		"external_id": claims.Sub,
+		"auth_type":   model.AuthTypeOIDC,
+		"updated_at":  time.Now(),
+	}
+	if err := s.userRepo.UpdateByIDInTenant(tenant.ID, user.ID, updates); err != nil {
+		return nil, fmt.Errorf("failed to update OIDC user: %w", err)
+	}
+
+	user, err = s.userRepo.GetByIDInTenant(tenant.ID, user.ID)
+	if err != nil {
+		return nil, fmt.Errorf("reload oidc user failed: %w", err)
+	}
+
+	sessionID, err := s.sessionSvc.CreateSession(ctx, user.ID, user.Username, tenant.ID, tenant.Code, string(model.AuthTypeOIDC), ip, userAgent)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create session: %w", err)
 	}

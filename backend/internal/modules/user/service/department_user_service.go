@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 
 	"devops-platform/internal/modules/user/model"
 	"devops-platform/internal/modules/user/repository"
@@ -15,10 +14,15 @@ import (
 type DepartmentUserService struct {
 	userRepo *repository.UserRepo
 	deptRepo *repository.DepartmentRepo
+	scopeSvc *AccessScopeService
 }
 
 func NewDepartmentUserService(userRepo *repository.UserRepo, deptRepo *repository.DepartmentRepo) *DepartmentUserService {
-	return &DepartmentUserService{userRepo: userRepo, deptRepo: deptRepo}
+	return &DepartmentUserService{
+		userRepo: userRepo,
+		deptRepo: deptRepo,
+		scopeSvc: NewAccessScopeService(userRepo, deptRepo),
+	}
 }
 
 type CreateDeptUserRequest struct {
@@ -42,18 +46,59 @@ type TransferUserDepartmentRequest struct {
 	ToDepartmentID uint `json:"toDepartmentId" binding:"required"`
 }
 
-func (s *DepartmentUserService) List(operatorID uint, deptID uint, page, pageSize int, keyword string) ([]model.User, int64, error) {
-	targetDeptID, err := s.resolveTargetDeptID(operatorID, deptID)
+func (s *DepartmentUserService) List(tenantID uint, operatorID uint, deptID uint, page, pageSize int, keyword string) ([]model.User, int64, error) {
+	scope, err := s.scopeSvc.Resolve(context.Background(), tenantID, operatorID)
 	if err != nil {
 		return nil, 0, err
 	}
-	return s.userRepo.ListByDepartment(targetDeptID, page, pageSize, keyword)
+	if deptID != 0 {
+		if !scope.AllowsAll() && !scope.AllowsDepartmentID(deptID) {
+			return nil, 0, ErrScopeForbidden
+		}
+		if _, err := s.deptRepo.GetByIDInTenant(tenantID, deptID); err != nil {
+			return nil, 0, err
+		}
+		targetDepartmentIDs, err := s.resolveListDepartmentIDs(tenantID, deptID, scope)
+		if err != nil {
+			return nil, 0, err
+		}
+		return s.userRepo.ListByDepartmentIDsInTenant(tenantID, targetDepartmentIDs, page, pageSize, keyword)
+	}
+	if scope.AllowsAll() {
+		return s.userRepo.ListInTenant(tenantID, page, pageSize, keyword)
+	}
+	return s.userRepo.ListByDepartmentIDsInTenant(tenantID, scope.DepartmentIDs, page, pageSize, keyword)
 }
 
-func (s *DepartmentUserService) Create(operatorID uint, req *CreateDeptUserRequest) (*model.User, error) {
+func (s *DepartmentUserService) resolveListDepartmentIDs(tenantID uint, deptID uint, scope *DataAccessScope) ([]uint, error) {
+	departments, err := s.deptRepo.ListHierarchyInTenant(tenantID)
+	if err != nil {
+		return nil, err
+	}
+
+	targetDepartmentIDs := collectDepartmentTreeIDs(deptID, departments)
+	if scope == nil || scope.AllowsAll() {
+		return targetDepartmentIDs, nil
+	}
+
+	allowed := make(map[uint]struct{}, len(scope.DepartmentIDs))
+	for _, departmentID := range scope.DepartmentIDs {
+		allowed[departmentID] = struct{}{}
+	}
+
+	filtered := make([]uint, 0, len(targetDepartmentIDs))
+	for _, departmentID := range targetDepartmentIDs {
+		if _, ok := allowed[departmentID]; ok {
+			filtered = append(filtered, departmentID)
+		}
+	}
+	return filtered, nil
+}
+
+func (s *DepartmentUserService) Create(tenantID uint, operatorID uint, req *CreateDeptUserRequest) (*model.User, error) {
 	targetDeptID := req.DepartmentID
 	if targetDeptID == 0 {
-		operator, err := s.userRepo.GetByID(operatorID)
+		operator, err := s.userRepo.GetByIDInTenant(tenantID, operatorID)
 		if err != nil {
 			return nil, err
 		}
@@ -63,7 +108,7 @@ func (s *DepartmentUserService) Create(operatorID uint, req *CreateDeptUserReque
 		targetDeptID = *operator.DepartmentID
 	}
 
-	if err := s.checkDeptManager(operatorID, targetDeptID); err != nil {
+	if err := s.scopeSvc.EnsureDepartmentAccess(context.Background(), tenantID, operatorID, targetDeptID); err != nil {
 		return nil, err
 	}
 
@@ -71,14 +116,14 @@ func (s *DepartmentUserService) Create(operatorID uint, req *CreateDeptUserReque
 		return nil, err
 	}
 
-	if existing, err := s.userRepo.GetByUsername(req.Username); err == nil && existing != nil {
+	if existing, err := s.userRepo.GetByUsernameInTenant(tenantID, req.Username); err == nil && existing != nil {
 		return nil, errors.New("username already exists")
 	}
-	if existing, err := s.userRepo.GetByEmail(req.Email); err == nil && existing != nil {
+	if existing, err := s.userRepo.GetByEmailInTenant(tenantID, req.Email); err == nil && existing != nil {
 		return nil, errors.New("email already exists")
 	}
 
-	if _, err := s.deptRepo.GetByID(targetDeptID); err != nil {
+	if _, err := s.deptRepo.GetByIDInTenant(tenantID, targetDeptID); err != nil {
 		return nil, fmt.Errorf("department not found: %w", err)
 	}
 
@@ -94,6 +139,7 @@ func (s *DepartmentUserService) Create(operatorID uint, req *CreateDeptUserReque
 
 	deptID := targetDeptID
 	user := &model.User{
+		TenantID:     &tenantID,
 		Username:     req.Username,
 		Password:     hashedPassword,
 		Email:        req.Email,
@@ -111,8 +157,8 @@ func (s *DepartmentUserService) Create(operatorID uint, req *CreateDeptUserReque
 	return user, nil
 }
 
-func (s *DepartmentUserService) Update(operatorID uint, req *UpdateDeptUserRequest) error {
-	existing, err := s.userRepo.GetByID(req.ID)
+func (s *DepartmentUserService) Update(tenantID uint, operatorID uint, req *UpdateDeptUserRequest) error {
+	existing, err := s.userRepo.GetByIDInTenant(tenantID, req.ID)
 	if err != nil {
 		return err
 	}
@@ -121,7 +167,7 @@ func (s *DepartmentUserService) Update(operatorID uint, req *UpdateDeptUserReque
 		return errors.New("user has no department")
 	}
 
-	if err := s.checkDeptManager(operatorID, *existing.DepartmentID); err != nil {
+	if err := s.scopeSvc.EnsureUserAccess(context.Background(), tenantID, operatorID, existing.ID); err != nil {
 		return err
 	}
 
@@ -138,33 +184,33 @@ func (s *DepartmentUserService) Update(operatorID uint, req *UpdateDeptUserReque
 	if err := s.userRepo.Update(existing); err != nil {
 		return err
 	}
-	redis.Del(context.Background(), fmt.Sprintf("user:perms:%d", existing.ID))
+	redis.Del(context.Background(), fmt.Sprintf("tenant:%d:user:perms:%d", tenantID, existing.ID))
 	return nil
 }
 
-func (s *DepartmentUserService) Delete(operatorID uint, userID uint) error {
-	existing, err := s.userRepo.GetByID(userID)
+func (s *DepartmentUserService) Delete(tenantID uint, operatorID uint, userID uint) error {
+	existing, err := s.userRepo.GetByIDInTenant(tenantID, userID)
 	if err != nil {
 		return err
 	}
 	if existing.DepartmentID == nil {
 		return errors.New("user has no department")
 	}
-	if err := s.checkDeptManager(operatorID, *existing.DepartmentID); err != nil {
+	if err := s.scopeSvc.EnsureUserAccess(context.Background(), tenantID, operatorID, existing.ID); err != nil {
 		return err
 	}
-	if err := s.userRepo.Delete(userID); err != nil {
+	if err := s.userRepo.DeleteInTenant(tenantID, userID); err != nil {
 		return err
 	}
-	redis.Del(context.Background(), fmt.Sprintf("user:perms:%d", userID))
+	redis.Del(context.Background(), fmt.Sprintf("tenant:%d:user:perms:%d", tenantID, userID))
 	return nil
 }
 
-func (s *DepartmentUserService) Transfer(operatorID uint, req *TransferUserDepartmentRequest) error {
+func (s *DepartmentUserService) Transfer(tenantID uint, operatorID uint, req *TransferUserDepartmentRequest) error {
 	if req.ToDepartmentID == 0 {
 		return errors.New("toDepartmentId is required")
 	}
-	user, err := s.userRepo.GetByID(req.UserID)
+	user, err := s.userRepo.GetByIDInTenant(tenantID, req.UserID)
 	if err != nil {
 		return err
 	}
@@ -175,17 +221,17 @@ func (s *DepartmentUserService) Transfer(operatorID uint, req *TransferUserDepar
 		return errors.New("target department must be different")
 	}
 
-	if err := s.checkDeptManager(operatorID, *user.DepartmentID); err != nil {
+	if err := s.scopeSvc.EnsureUserAccess(context.Background(), tenantID, operatorID, user.ID); err != nil {
 		return err
 	}
-	if err := s.checkDeptManager(operatorID, req.ToDepartmentID); err != nil {
+	if err := s.scopeSvc.EnsureDepartmentAccess(context.Background(), tenantID, operatorID, req.ToDepartmentID); err != nil {
 		return err
 	}
-	if _, err := s.deptRepo.GetByID(req.ToDepartmentID); err != nil {
+	if _, err := s.deptRepo.GetByIDInTenant(tenantID, req.ToDepartmentID); err != nil {
 		return fmt.Errorf("target department not found: %w", err)
 	}
 
-	if err := s.userRepo.AssignRoles(user.ID, []uint{}); err != nil {
+	if err := s.userRepo.AssignRolesInTenant(tenantID, user.ID, []uint{}); err != nil {
 		return err
 	}
 
@@ -197,70 +243,6 @@ func (s *DepartmentUserService) Transfer(operatorID uint, req *TransferUserDepar
 	if err := s.userRepo.Update(user); err != nil {
 		return err
 	}
-	redis.Del(context.Background(), fmt.Sprintf("user:perms:%d", user.ID))
+	redis.Del(context.Background(), fmt.Sprintf("tenant:%d:user:perms:%d", tenantID, user.ID))
 	return nil
-}
-
-func (s *DepartmentUserService) resolveTargetDeptID(operatorID uint, deptID uint) (uint, error) {
-	operator, err := s.userRepo.GetByID(operatorID)
-	if err != nil {
-		return 0, err
-	}
-
-	if operator.IsAdmin {
-		if deptID == 0 {
-			if operator.DepartmentID == nil {
-				return 0, errors.New("departmentId is required")
-			}
-			return *operator.DepartmentID, nil
-		}
-		return deptID, nil
-	}
-
-	if operator.DepartmentID == nil {
-		return 0, errors.New("permission denied")
-	}
-
-	if deptID != 0 && deptID != *operator.DepartmentID {
-		return 0, errors.New("permission denied")
-	}
-
-	return *operator.DepartmentID, nil
-}
-
-func (s *DepartmentUserService) checkDeptManager(operatorID uint, deptID uint) error {
-	operator, err := s.userRepo.GetByID(operatorID)
-	if err != nil {
-		return err
-	}
-
-	if operator.IsAdmin {
-		return nil
-	}
-
-	if operator.DepartmentID == nil || *operator.DepartmentID != deptID {
-		return errors.New("permission denied")
-	}
-
-	if hasRole(operator.Roles, "DEPT_ADMIN", "dept_admin", "department_admin") {
-		return nil
-	}
-
-	return errors.New("permission denied")
-}
-
-func hasRole(roles []model.Role, names ...string) bool {
-	if len(roles) == 0 || len(names) == 0 {
-		return false
-	}
-	nameSet := make(map[string]struct{}, len(names))
-	for _, n := range names {
-		nameSet[strings.ToLower(n)] = struct{}{}
-	}
-	for _, r := range roles {
-		if _, ok := nameSet[strings.ToLower(r.Name)]; ok {
-			return true
-		}
-	}
-	return false
 }

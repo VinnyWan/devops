@@ -36,7 +36,10 @@ func getService() *service.UserService {
 // @Failure 500 {object} map[string]interface{} "服务器错误"
 // @Router /user/register [post]
 func Register(c *gin.Context) {
-	var req service.RegisterRequest
+	var req struct {
+		TenantCode string `json:"tenantCode" binding:"required"`
+		service.RegisterRequest
+	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"code":    400,
@@ -45,7 +48,23 @@ func Register(c *gin.Context) {
 		return
 	}
 
-	newUser, err := getService().Register(&req)
+	tenant, err := getTenantService().GetByCode(req.TenantCode)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"code":    400,
+			"message": "无效的租户编码",
+		})
+		return
+	}
+	if tenant.Status != "active" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"code":    400,
+			"message": "租户不可用",
+		})
+		return
+	}
+
+	newUser, err := getService().Register(tenant.ID, &req.RegisterRequest)
 	if err != nil {
 		logger.Log.Error("Failed to register user", zap.Error(err))
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -74,6 +93,7 @@ func Register(c *gin.Context) {
 func GetUserInfo(c *gin.Context) {
 	// 从认证中间件获取用户ID
 	userID := GetCurrentUserID(c)
+	tenantID := GetCurrentTenantID(c)
 	if userID == 0 {
 		c.JSON(http.StatusUnauthorized, gin.H{
 			"code":    401,
@@ -82,7 +102,7 @@ func GetUserInfo(c *gin.Context) {
 		return
 	}
 
-	user, err := getService().GetUserByID(c.Request.Context(), userID)
+	user, err := getService().GetUserByID(c.Request.Context(), tenantID, userID)
 	if err != nil {
 		logger.Log.Error("Failed to get user info", zap.Uint("userID", userID), zap.Error(err))
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -115,14 +135,12 @@ func List(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("pageSize", "10"))
 	keyword := c.Query("keyword")
-
-	users, total, err := getService().ListUsers(page, pageSize, keyword)
+	tenantID := GetCurrentTenantID(c)
+	operatorID := GetCurrentUserID(c)
+	users, total, err := getService().ListUsers(c.Request.Context(), tenantID, operatorID, page, pageSize, keyword)
 	if err != nil {
 		logger.Log.Error("Failed to list users", zap.Error(err))
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"code":    500,
-			"message": "获取用户列表失败",
-		})
+		writeModuleError(c, err, http.StatusInternalServerError)
 		return
 	}
 
@@ -150,6 +168,8 @@ func List(c *gin.Context) {
 // @Router /user/detail [get]
 func GetDetail(c *gin.Context) {
 	idStr := c.Query("id")
+	tenantID := GetCurrentTenantID(c)
+	operatorID := GetCurrentUserID(c)
 	id, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -159,13 +179,10 @@ func GetDetail(c *gin.Context) {
 		return
 	}
 
-	user, err := getService().GetUserByID(c.Request.Context(), uint(id))
+	user, err := getService().GetAccessibleUserByID(c.Request.Context(), tenantID, operatorID, uint(id))
 	if err != nil {
 		logger.Log.Error("Failed to get user detail", zap.Uint64("id", id), zap.Error(err))
-		c.JSON(http.StatusNotFound, gin.H{
-			"code":    404,
-			"message": "用户不存在",
-		})
+		writeModuleError(c, err, http.StatusNotFound)
 		return
 	}
 
@@ -190,6 +207,8 @@ func GetDetail(c *gin.Context) {
 // @Router /user/update [post]
 func Update(c *gin.Context) {
 	var req service.UpdateUserRequest
+	tenantID := GetCurrentTenantID(c)
+	operatorID := GetCurrentUserID(c)
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"code":    400,
@@ -198,12 +217,9 @@ func Update(c *gin.Context) {
 		return
 	}
 
-	if err := getService().UpdateUserByRequest(&req); err != nil {
+	if err := getService().UpdateUserByRequest(c.Request.Context(), tenantID, operatorID, &req); err != nil {
 		logger.Log.Error("Failed to update user", zap.Uint("userID", req.ID), zap.Error(err))
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"code":    500,
-			"message": err.Error(),
-		})
+		writeModuleError(c, err, http.StatusInternalServerError)
 		return
 	}
 
@@ -226,6 +242,8 @@ func Update(c *gin.Context) {
 // @Router /user/delete [post]
 func Delete(c *gin.Context) {
 	idStr := c.Query("id")
+	tenantID := GetCurrentTenantID(c)
+	operatorID := GetCurrentUserID(c)
 	id, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -235,12 +253,9 @@ func Delete(c *gin.Context) {
 		return
 	}
 
-	if err := getService().DeleteUser(uint(id)); err != nil {
+	if err := getService().DeleteUser(c.Request.Context(), tenantID, operatorID, uint(id)); err != nil {
 		logger.Log.Error("Failed to delete user", zap.Uint64("id", id), zap.Error(err))
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"code":    500,
-			"message": err.Error(),
-		})
+		writeModuleError(c, err, http.StatusInternalServerError)
 		return
 	}
 
@@ -265,6 +280,7 @@ func Delete(c *gin.Context) {
 func ChangePassword(c *gin.Context) {
 	// 从认证中间件获取用户ID
 	userID := GetCurrentUserID(c)
+	tenantID := GetCurrentTenantID(c)
 	if userID == 0 {
 		c.JSON(http.StatusUnauthorized, gin.H{
 			"code":    401,
@@ -282,7 +298,7 @@ func ChangePassword(c *gin.Context) {
 		return
 	}
 
-	if err := getService().ChangePassword(userID, &req); err != nil {
+	if err := getService().ChangePassword(tenantID, userID, &req); err != nil {
 		logger.Log.Error("Failed to change password", zap.Uint("userID", userID), zap.Error(err))
 		c.JSON(http.StatusBadRequest, gin.H{
 			"code":    400,
@@ -313,7 +329,8 @@ func ResetPassword(c *gin.Context) {
 		UserID      uint   `json:"userId" binding:"required"`
 		NewPassword string `json:"newPassword" binding:"required,min=6"`
 	}
-
+	tenantID := GetCurrentTenantID(c)
+	operatorID := GetCurrentUserID(c)
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"code":    400,
@@ -322,12 +339,9 @@ func ResetPassword(c *gin.Context) {
 		return
 	}
 
-	if err := getService().ResetPassword(req.UserID, req.NewPassword); err != nil {
+	if err := getService().ResetPassword(c.Request.Context(), tenantID, operatorID, req.UserID, req.NewPassword); err != nil {
 		logger.Log.Error("Failed to reset password", zap.Uint("userID", req.UserID), zap.Error(err))
-		c.JSON(http.StatusBadRequest, gin.H{
-			"code":    400,
-			"message": err.Error(),
-		})
+		writeModuleError(c, err, http.StatusBadRequest)
 		return
 	}
 
@@ -353,7 +367,8 @@ func AssignRoles(c *gin.Context) {
 		UserID  uint   `json:"userId" binding:"required"`
 		RoleIDs []uint `json:"roleIds" binding:"required"`
 	}
-
+	tenantID := GetCurrentTenantID(c)
+	operatorID := GetCurrentUserID(c)
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"code":    400,
@@ -362,12 +377,9 @@ func AssignRoles(c *gin.Context) {
 		return
 	}
 
-	if err := getService().AssignRoles(req.UserID, req.RoleIDs); err != nil {
+	if err := getService().AssignRoles(c.Request.Context(), tenantID, operatorID, req.UserID, req.RoleIDs); err != nil {
 		logger.Log.Error("Failed to assign roles", zap.Uint("userID", req.UserID), zap.Error(err))
-		c.JSON(http.StatusBadRequest, gin.H{
-			"code":    400,
-			"message": err.Error(),
-		})
+		writeModuleError(c, err, http.StatusBadRequest)
 		return
 	}
 
@@ -389,6 +401,8 @@ func AssignRoles(c *gin.Context) {
 // @Router /user/lock [post]
 func LockUser(c *gin.Context) {
 	idStr := c.Query("id")
+	tenantID := GetCurrentTenantID(c)
+	operatorID := GetCurrentUserID(c)
 	id, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -398,12 +412,9 @@ func LockUser(c *gin.Context) {
 		return
 	}
 
-	if err := getService().LockUser(uint(id)); err != nil {
+	if err := getService().LockUser(c.Request.Context(), tenantID, operatorID, uint(id)); err != nil {
 		logger.Log.Error("Failed to lock user", zap.Uint64("id", id), zap.Error(err))
-		c.JSON(http.StatusBadRequest, gin.H{
-			"code":    400,
-			"message": err.Error(),
-		})
+		writeModuleError(c, err, http.StatusBadRequest)
 		return
 	}
 
@@ -425,6 +436,8 @@ func LockUser(c *gin.Context) {
 // @Router /user/unlock [post]
 func UnlockUser(c *gin.Context) {
 	idStr := c.Query("id")
+	tenantID := GetCurrentTenantID(c)
+	operatorID := GetCurrentUserID(c)
 	id, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -434,12 +447,9 @@ func UnlockUser(c *gin.Context) {
 		return
 	}
 
-	if err := getService().UnlockUser(uint(id)); err != nil {
+	if err := getService().UnlockUser(c.Request.Context(), tenantID, operatorID, uint(id)); err != nil {
 		logger.Log.Error("Failed to unlock user", zap.Uint64("id", id), zap.Error(err))
-		c.JSON(http.StatusBadRequest, gin.H{
-			"code":    400,
-			"message": err.Error(),
-		})
+		writeModuleError(c, err, http.StatusBadRequest)
 		return
 	}
 
@@ -461,6 +471,7 @@ func UnlockUser(c *gin.Context) {
 // @Router /user/permissions [get]
 func GetUserPermissions(c *gin.Context) {
 	userID := GetCurrentUserID(c)
+	tenantID := GetCurrentTenantID(c)
 	if userID == 0 {
 		c.JSON(http.StatusUnauthorized, gin.H{
 			"code":    401,
@@ -469,7 +480,7 @@ func GetUserPermissions(c *gin.Context) {
 		return
 	}
 
-	permissions, err := getService().GetUserPermissionCodes(c.Request.Context(), userID)
+	permissions, err := getService().GetUserPermissionCodes(c.Request.Context(), tenantID, userID)
 	if err != nil {
 		logger.Log.Error("Failed to get user permissions", zap.Uint("userID", userID), zap.Error(err))
 		c.JSON(http.StatusInternalServerError, gin.H{

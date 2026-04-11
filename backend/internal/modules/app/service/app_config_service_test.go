@@ -21,6 +21,14 @@ func TestAppConfigService_ValidateAppConfig(t *testing.T) {
 			wantErr: "应用名称不能为空",
 		},
 		{
+			name: "invalid domain",
+			config: model.AppConfig{
+				Name:   "test-app",
+				Domain: "invalid domain with spaces",
+			},
+			wantErr: "域名格式错误",
+		},
+		{
 			name: "valid config",
 			config: model.AppConfig{
 				Name:        "test-app",
@@ -68,6 +76,17 @@ func TestAppConfigService_ValidateBuildConfig(t *testing.T) {
 				Dockerfile: "",
 			},
 			wantErr: "Dockerfile不能为空",
+		},
+		{
+			name: "valid config with buildenv",
+			config: model.BuildConfig{
+				BuildEnv:     "JDK17",
+				BuildTool:    "maven",
+				BuildConfig:  "-DskipTests",
+				Dockerfile:   "FROM openjdk:17\nWORKDIR /app",
+				CustomConfig: "",
+			},
+			wantErr: "",
 		},
 		{
 			name: "valid config",

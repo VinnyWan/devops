@@ -60,15 +60,30 @@ type RollbackRequest struct {
 }
 
 func NewAppService() *AppService {
-	return &AppService{repo: repository.NewAppRepo()}
+	return NewAppServiceWithRepo(repository.NewAppRepo())
+}
+
+func NewAppServiceWithRepo(repo *repository.AppRepo) *AppService {
+	if repo == nil {
+		repo = repository.NewAppRepo()
+	}
+	return &AppService{repo: repo}
 }
 
 func (s *AppService) List() []model.Application {
-	return s.repo.List()
+	return s.ListInTenant(0)
+}
+
+func (s *AppService) ListInTenant(tenantID uint) []model.Application {
+	return s.repo.ListInTenant(tenantID)
 }
 
 func (s *AppService) ListTemplates(keyword string) ListTemplatesResponse {
-	templates := s.repo.ListTemplates()
+	return s.ListTemplatesInTenant(0, keyword)
+}
+
+func (s *AppService) ListTemplatesInTenant(tenantID uint, keyword string) ListTemplatesResponse {
+	templates := s.repo.ListTemplatesInTenant(tenantID)
 	items := make([]model.AppTemplate, 0, len(templates))
 	for _, item := range templates {
 		if !queryutil.MatchKeywordAny(keyword, item.Name, item.Type, item.Description, strings.Join(item.Environment, ",")) {
@@ -80,6 +95,10 @@ func (s *AppService) ListTemplates(keyword string) ListTemplatesResponse {
 }
 
 func (s *AppService) SaveTemplate(req SaveTemplateRequest) (model.AppTemplate, error) {
+	return s.SaveTemplateInTenant(0, req)
+}
+
+func (s *AppService) SaveTemplateInTenant(tenantID uint, req SaveTemplateRequest) (model.AppTemplate, error) {
 	name := strings.TrimSpace(req.Name)
 	if name == "" {
 		return model.AppTemplate{}, errors.New("模板名称不能为空")
@@ -112,7 +131,7 @@ func (s *AppService) SaveTemplate(req SaveTemplateRequest) (model.AppTemplate, e
 		}
 		variables[key] = strings.TrimSpace(v)
 	}
-	template := s.repo.SaveTemplate(model.AppTemplate{
+	template := s.repo.SaveTemplateInTenant(tenantID, model.AppTemplate{
 		ID:          req.ID,
 		Name:        name,
 		Type:        templateType,
@@ -124,11 +143,15 @@ func (s *AppService) SaveTemplate(req SaveTemplateRequest) (model.AppTemplate, e
 }
 
 func (s *AppService) Deploy(req DeployRequest) (model.ApplicationDeployment, error) {
-	app, ok := s.repo.FindAppByID(req.AppID)
+	return s.DeployInTenant(0, req)
+}
+
+func (s *AppService) DeployInTenant(tenantID uint, req DeployRequest) (model.ApplicationDeployment, error) {
+	app, ok := s.repo.FindAppByIDInTenant(tenantID, req.AppID)
 	if !ok {
 		return model.ApplicationDeployment{}, errors.New("应用不存在")
 	}
-	template, ok := s.repo.FindTemplateByID(req.TemplateID)
+	template, ok := s.repo.FindTemplateByIDInTenant(tenantID, req.TemplateID)
 	if !ok {
 		return model.ApplicationDeployment{}, errors.New("模板不存在")
 	}
@@ -156,7 +179,7 @@ func (s *AppService) Deploy(req DeployRequest) (model.ApplicationDeployment, err
 		operator = "system"
 	}
 	variables := mergeVariables(template.Variables, req.Variables)
-	deployment := s.repo.CreateDeployment(model.ApplicationDeployment{
+	deployment := s.repo.CreateDeploymentInTenant(tenantID, model.ApplicationDeployment{
 		AppID:        app.ID,
 		AppName:      app.Name,
 		TemplateID:   template.ID,
@@ -169,7 +192,7 @@ func (s *AppService) Deploy(req DeployRequest) (model.ApplicationDeployment, err
 		Operator:     operator,
 		Variables:    variables,
 	})
-	s.repo.CreateVersion(model.ApplicationVersion{
+	s.repo.CreateVersionInTenant(tenantID, model.ApplicationVersion{
 		AppID:       app.ID,
 		Version:     version,
 		Cluster:     cluster,
@@ -182,10 +205,14 @@ func (s *AppService) Deploy(req DeployRequest) (model.ApplicationDeployment, err
 }
 
 func (s *AppService) ListDeployments(appID uint, environment string, limit int) ListDeploymentsResponse {
+	return s.ListDeploymentsInTenant(0, appID, environment, limit)
+}
+
+func (s *AppService) ListDeploymentsInTenant(tenantID uint, appID uint, environment string, limit int) ListDeploymentsResponse {
 	if limit <= 0 {
 		limit = 20
 	}
-	items := s.repo.ListDeployments(appID, environment)
+	items := s.repo.ListDeploymentsInTenant(tenantID, appID, environment)
 	if len(items) > limit {
 		items = items[:limit]
 	}
@@ -193,10 +220,14 @@ func (s *AppService) ListDeployments(appID uint, environment string, limit int) 
 }
 
 func (s *AppService) ListVersions(appID uint, limit int) ListVersionsResponse {
+	return s.ListVersionsInTenant(0, appID, limit)
+}
+
+func (s *AppService) ListVersionsInTenant(tenantID uint, appID uint, limit int) ListVersionsResponse {
 	if limit <= 0 {
 		limit = 20
 	}
-	items := s.repo.ListVersions(appID)
+	items := s.repo.ListVersionsInTenant(tenantID, appID)
 	sort.Slice(items, func(i, j int) bool {
 		return items[i].CreatedAt.After(items[j].CreatedAt)
 	})
@@ -207,7 +238,11 @@ func (s *AppService) ListVersions(appID uint, limit int) ListVersionsResponse {
 }
 
 func (s *AppService) Rollback(req RollbackRequest) (model.ApplicationVersion, error) {
-	app, ok := s.repo.FindAppByID(req.AppID)
+	return s.RollbackInTenant(0, req)
+}
+
+func (s *AppService) RollbackInTenant(tenantID uint, req RollbackRequest) (model.ApplicationVersion, error) {
+	app, ok := s.repo.FindAppByIDInTenant(tenantID, req.AppID)
 	if !ok {
 		return model.ApplicationVersion{}, errors.New("应用不存在")
 	}
@@ -215,7 +250,7 @@ func (s *AppService) Rollback(req RollbackRequest) (model.ApplicationVersion, er
 	if target == "" {
 		return model.ApplicationVersion{}, errors.New("目标版本不能为空")
 	}
-	version, ok := s.repo.FindVersion(app.ID, target)
+	version, ok := s.repo.FindVersionInTenant(tenantID, app.ID, target)
 	if !ok {
 		return model.ApplicationVersion{}, errors.New("目标版本不存在")
 	}
@@ -231,7 +266,7 @@ func (s *AppService) Rollback(req RollbackRequest) (model.ApplicationVersion, er
 	if operator == "" {
 		operator = "system"
 	}
-	rolled := s.repo.CreateVersion(model.ApplicationVersion{
+	rolled := s.repo.CreateVersionInTenant(tenantID, model.ApplicationVersion{
 		AppID:       app.ID,
 		Version:     version.Version,
 		Cluster:     cluster,
@@ -245,7 +280,11 @@ func (s *AppService) Rollback(req RollbackRequest) (model.ApplicationVersion, er
 }
 
 func (s *AppService) QueryTopology(appID uint, environment string) (model.ApplicationTopology, error) {
-	app, ok := s.repo.FindAppByID(appID)
+	return s.QueryTopologyInTenant(0, appID, environment)
+}
+
+func (s *AppService) QueryTopologyInTenant(tenantID uint, appID uint, environment string) (model.ApplicationTopology, error) {
+	app, ok := s.repo.FindAppByIDInTenant(tenantID, appID)
 	if !ok {
 		return model.ApplicationTopology{}, errors.New("应用不存在")
 	}
@@ -301,7 +340,11 @@ func mergeVariables(base map[string]string, override map[string]string) map[stri
 // ========== 应用配置相关方法 ==========
 
 func (s *AppService) GetAppConfig(appID uint) (model.AppConfig, error) {
-	config, ok := s.repo.GetAppConfig(appID)
+	return s.GetAppConfigInTenant(0, appID)
+}
+
+func (s *AppService) GetAppConfigInTenant(tenantID uint, appID uint) (model.AppConfig, error) {
+	config, ok := s.repo.GetAppConfigInTenant(tenantID, appID)
 	if !ok {
 		return model.AppConfig{}, errors.New("应用配置不存在")
 	}
@@ -309,11 +352,19 @@ func (s *AppService) GetAppConfig(appID uint) (model.AppConfig, error) {
 }
 
 func (s *AppService) SaveAppConfig(config model.AppConfig) (model.AppConfig, error) {
-	return s.repo.SaveAppConfig(config), nil
+	return s.SaveAppConfigInTenant(0, config)
+}
+
+func (s *AppService) SaveAppConfigInTenant(tenantID uint, config model.AppConfig) (model.AppConfig, error) {
+	return s.repo.SaveAppConfigInTenant(tenantID, config), nil
 }
 
 func (s *AppService) GetBuildConfig(appID uint) (model.BuildConfig, error) {
-	config, ok := s.repo.GetBuildConfig(appID)
+	return s.GetBuildConfigInTenant(0, appID)
+}
+
+func (s *AppService) GetBuildConfigInTenant(tenantID uint, appID uint) (model.BuildConfig, error) {
+	config, ok := s.repo.GetBuildConfigInTenant(tenantID, appID)
 	if !ok {
 		return model.BuildConfig{}, errors.New("构建配置不存在")
 	}
@@ -321,23 +372,72 @@ func (s *AppService) GetBuildConfig(appID uint) (model.BuildConfig, error) {
 }
 
 func (s *AppService) SaveBuildConfig(config model.BuildConfig) (model.BuildConfig, error) {
-	return s.repo.SaveBuildConfig(config), nil
+	return s.SaveBuildConfigInTenant(0, config)
 }
 
-func (s *AppService) GetDeployConfig(appID uint) (model.DeployConfig, error) {
-	config, ok := s.repo.GetDeployConfig(appID)
+func (s *AppService) SaveBuildConfigInTenant(tenantID uint, config model.BuildConfig) (model.BuildConfig, error) {
+	return s.repo.SaveBuildConfigInTenant(tenantID, config), nil
+}
+
+// GetDeployConfig 获取指定环境的部署配置
+func (s *AppService) GetDeployConfig(appID uint, environment string) (model.DeployConfig, error) {
+	return s.GetDeployConfigInTenant(0, appID, environment)
+}
+
+func (s *AppService) GetDeployConfigInTenant(tenantID uint, appID uint, environment string) (model.DeployConfig, error) {
+	config, ok := s.repo.GetDeployConfigInTenant(tenantID, appID, environment)
 	if !ok {
 		return model.DeployConfig{}, errors.New("部署配置不存在")
 	}
 	return config, nil
 }
 
+// GetDeployConfigByAppID 获取应用的部署配置（兼容旧接口）
+func (s *AppService) GetDeployConfigByAppID(appID uint) (model.DeployConfig, error) {
+	return s.GetDeployConfigByAppIDInTenant(0, appID)
+}
+
+func (s *AppService) GetDeployConfigByAppIDInTenant(tenantID uint, appID uint) (model.DeployConfig, error) {
+	config, ok := s.repo.GetDeployConfigByAppIDInTenant(tenantID, appID)
+	if !ok {
+		return model.DeployConfig{}, errors.New("部署配置不存在")
+	}
+	return config, nil
+}
+
+// ListDeployConfigsByApp 获取应用所有环境的部署配置
+func (s *AppService) ListDeployConfigsByApp(appID uint) []model.DeployConfig {
+	return s.ListDeployConfigsByAppInTenant(0, appID)
+}
+
+func (s *AppService) ListDeployConfigsByAppInTenant(tenantID uint, appID uint) []model.DeployConfig {
+	return s.repo.ListDeployConfigsByAppInTenant(tenantID, appID)
+}
+
+// SaveDeployConfig 保存部署配置
 func (s *AppService) SaveDeployConfig(config model.DeployConfig) (model.DeployConfig, error) {
-	return s.repo.SaveDeployConfig(config), nil
+	return s.SaveDeployConfigInTenant(0, config)
+}
+
+func (s *AppService) SaveDeployConfigInTenant(tenantID uint, config model.DeployConfig) (model.DeployConfig, error) {
+	return s.repo.SaveDeployConfigInTenant(tenantID, config), nil
+}
+
+// DeleteDeployConfigByEnv 删除指定环境的部署配置
+func (s *AppService) DeleteDeployConfigByEnv(appID uint, environment string) bool {
+	return s.DeleteDeployConfigByEnvInTenant(0, appID, environment)
+}
+
+func (s *AppService) DeleteDeployConfigByEnvInTenant(tenantID uint, appID uint, environment string) bool {
+	return s.repo.DeleteDeployConfigByEnvInTenant(tenantID, appID, environment)
 }
 
 func (s *AppService) GetTechStackConfig(appID uint) (model.TechStackConfig, error) {
-	config, ok := s.repo.GetTechStackConfig(appID)
+	return s.GetTechStackConfigInTenant(0, appID)
+}
+
+func (s *AppService) GetTechStackConfigInTenant(tenantID uint, appID uint) (model.TechStackConfig, error) {
+	config, ok := s.repo.GetTechStackConfigInTenant(tenantID, appID)
 	if !ok {
 		return model.TechStackConfig{}, errors.New("技术栈配置不存在")
 	}
@@ -345,23 +445,142 @@ func (s *AppService) GetTechStackConfig(appID uint) (model.TechStackConfig, erro
 }
 
 func (s *AppService) SaveTechStackConfig(config model.TechStackConfig) (model.TechStackConfig, error) {
-	return s.repo.SaveTechStackConfig(config), nil
+	return s.SaveTechStackConfigInTenant(0, config)
+}
+
+func (s *AppService) SaveTechStackConfigInTenant(tenantID uint, config model.TechStackConfig) (model.TechStackConfig, error) {
+	return s.repo.SaveTechStackConfigInTenant(tenantID, config), nil
 }
 
 // ========== 删除配置相关方法 ==========
 
 func (s *AppService) DeleteAppConfig(appID uint) bool {
-	return s.repo.DeleteAppConfig(appID)
+	return s.DeleteAppConfigInTenant(0, appID)
+}
+
+func (s *AppService) DeleteAppConfigInTenant(tenantID uint, appID uint) bool {
+	return s.repo.DeleteAppConfigInTenant(tenantID, appID)
+}
+
+// DeleteAppConfigCascade 级联删除应用及其所有关联配置
+func (s *AppService) DeleteAppConfigCascade(appID uint) bool {
+	return s.DeleteAppConfigCascadeInTenant(0, appID)
+}
+
+func (s *AppService) DeleteAppConfigCascadeInTenant(tenantID uint, appID uint) bool {
+	return s.repo.DeleteAppConfigCascadeInTenant(tenantID, appID)
 }
 
 func (s *AppService) DeleteBuildConfig(appID uint) bool {
-	return s.repo.DeleteBuildConfig(appID)
+	return s.DeleteBuildConfigInTenant(0, appID)
+}
+
+func (s *AppService) DeleteBuildConfigInTenant(tenantID uint, appID uint) bool {
+	return s.repo.DeleteBuildConfigInTenant(tenantID, appID)
 }
 
 func (s *AppService) DeleteDeployConfig(appID uint) bool {
-	return s.repo.DeleteDeployConfig(appID)
+	return s.DeleteDeployConfigInTenant(0, appID)
+}
+
+func (s *AppService) DeleteDeployConfigInTenant(tenantID uint, appID uint) bool {
+	return s.repo.DeleteDeployConfigInTenant(tenantID, appID)
 }
 
 func (s *AppService) DeleteTechStackConfig(appID uint) bool {
-	return s.repo.DeleteTechStackConfig(appID)
+	return s.DeleteTechStackConfigInTenant(0, appID)
+}
+
+func (s *AppService) DeleteTechStackConfigInTenant(tenantID uint, appID uint) bool {
+	return s.repo.DeleteTechStackConfigInTenant(tenantID, appID)
+}
+
+// ========== 新增方法 ==========
+
+// ListAppsWithFilter 分页查询应用列表，支持搜索和筛选
+func (s *AppService) ListAppsWithFilter(page, pageSize int, keyword, instanceType, status string) ([]model.AppConfig, int64) {
+	return s.ListAppsWithFilterInTenant(0, page, pageSize, keyword, instanceType, status)
+}
+
+func (s *AppService) ListAppsWithFilterInTenant(tenantID uint, page, pageSize int, keyword, instanceType, status string) ([]model.AppConfig, int64) {
+	return s.repo.ListAppsWithFilterInTenant(tenantID, page, pageSize, keyword, instanceType, status)
+}
+
+// ToggleAppStatus 切换应用状态
+func (s *AppService) ToggleAppStatus(appID uint, status string) (model.AppConfig, error) {
+	return s.ToggleAppStatusInTenant(0, appID, status)
+}
+
+func (s *AppService) ToggleAppStatusInTenant(tenantID uint, appID uint, status string) (model.AppConfig, error) {
+	// 状态值校验
+	if status != model.StatusRunning && status != model.StatusOffline {
+		return model.AppConfig{}, errors.New("无效的状态值，只支持 running 或 offline")
+	}
+	config, ok := s.repo.ToggleAppStatusInTenant(tenantID, appID, status)
+	if !ok {
+		return model.AppConfig{}, errors.New("应用配置不存在")
+	}
+	return config, nil
+}
+
+// GetContainerConfig 获取指定环境的容器配置
+func (s *AppService) GetContainerConfig(appID uint, environment string) (model.ContainerConfig, error) {
+	return s.GetContainerConfigInTenant(0, appID, environment)
+}
+
+func (s *AppService) GetContainerConfigInTenant(tenantID uint, appID uint, environment string) (model.ContainerConfig, error) {
+	config, ok := s.repo.GetContainerConfigInTenant(tenantID, appID, environment)
+	if !ok {
+		return model.ContainerConfig{}, errors.New("容器配置不存在")
+	}
+	return config, nil
+}
+
+// GetContainerConfigByAppID 获取应用的容器配置（兼容旧接口）
+func (s *AppService) GetContainerConfigByAppID(appID uint) (model.ContainerConfig, error) {
+	return s.GetContainerConfigByAppIDInTenant(0, appID)
+}
+
+func (s *AppService) GetContainerConfigByAppIDInTenant(tenantID uint, appID uint) (model.ContainerConfig, error) {
+	config, ok := s.repo.GetContainerConfigByAppIDInTenant(tenantID, appID)
+	if !ok {
+		return model.ContainerConfig{}, errors.New("容器配置不存在")
+	}
+	return config, nil
+}
+
+// ListContainerConfigsByApp 获取应用所有环境的容器配置
+func (s *AppService) ListContainerConfigsByApp(appID uint) []model.ContainerConfig {
+	return s.ListContainerConfigsByAppInTenant(0, appID)
+}
+
+func (s *AppService) ListContainerConfigsByAppInTenant(tenantID uint, appID uint) []model.ContainerConfig {
+	return s.repo.ListContainerConfigsByAppInTenant(tenantID, appID)
+}
+
+// SaveContainerConfig 保存容器配置
+func (s *AppService) SaveContainerConfig(config model.ContainerConfig) (model.ContainerConfig, error) {
+	return s.SaveContainerConfigInTenant(0, config)
+}
+
+func (s *AppService) SaveContainerConfigInTenant(tenantID uint, config model.ContainerConfig) (model.ContainerConfig, error) {
+	return s.repo.SaveContainerConfigInTenant(tenantID, config), nil
+}
+
+// DeleteContainerConfigByEnv 删除指定环境的容器配置
+func (s *AppService) DeleteContainerConfigByEnv(appID uint, environment string) bool {
+	return s.DeleteContainerConfigByEnvInTenant(0, appID, environment)
+}
+
+func (s *AppService) DeleteContainerConfigByEnvInTenant(tenantID uint, appID uint, environment string) bool {
+	return s.repo.DeleteContainerConfigByEnvInTenant(tenantID, appID, environment)
+}
+
+// DeleteContainerConfig 删除容器配置
+func (s *AppService) DeleteContainerConfig(appID uint) bool {
+	return s.DeleteContainerConfigInTenant(0, appID)
+}
+
+func (s *AppService) DeleteContainerConfigInTenant(tenantID uint, appID uint) bool {
+	return s.repo.DeleteContainerConfigInTenant(tenantID, appID)
 }

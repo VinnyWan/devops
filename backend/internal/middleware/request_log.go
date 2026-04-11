@@ -48,6 +48,7 @@ func RequestLog() gin.HandlerFunc {
 		latency := time.Since(start)
 		status := c.Writer.Status()
 		maskedBody := maskSensitiveFields(bodyBytes)
+		maskedQuery := maskQueryValues(c.Request.URL.Query())
 
 		level := zap.InfoLevel
 		if status >= 500 {
@@ -59,7 +60,7 @@ func RequestLog() gin.HandlerFunc {
 		fields := []zap.Field{
 			zap.String("method", c.Request.Method),
 			zap.String("path", c.Request.URL.Path),
-			zap.Any("query", c.Request.URL.Query()),
+			zap.Any("query", maskedQuery),
 			zap.String("body", maskedBody),
 			zap.Int("status", status),
 			zap.Int64("latency_ms", latency.Milliseconds()),
@@ -80,9 +81,11 @@ func RequestLog() gin.HandlerFunc {
 			}
 			msg = "http_request: " + maskedBody
 		} else if len(c.Request.URL.RawQuery) > 0 {
-			msg = "http_request: " + c.Request.URL.RawQuery
+			msg = "http_request: " + marshalToJSONString(maskedQuery)
 		}
 
-		logger.Log.Check(level, msg).Write(fields...)
+		if ce := logger.Log.Check(level, msg); ce != nil {
+			ce.Write(fields...)
+		}
 	}
 }

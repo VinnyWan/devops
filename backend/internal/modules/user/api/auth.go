@@ -36,6 +36,17 @@ func setOIDCStateCookie(c *gin.Context, value string, maxAge int) {
 	c.SetCookie("oidc_state", value, maxAge, "/", "", secure, true)
 }
 
+func sessionCookieMaxAge() int {
+	if config.Cfg == nil {
+		return 7200
+	}
+	v := config.Cfg.GetInt("session.expire")
+	if v <= 0 {
+		return 7200
+	}
+	return v
+}
+
 // Login godoc
 // @Summary 用户登录
 // @Description 用户登录（支持本地、LDAP），登录成功返回 session_id (Cookie & Body)
@@ -67,12 +78,15 @@ func Login(c *gin.Context) {
 		return
 	}
 
-	setSessionCookie(c, resp.SessionID, 7200)
+	setSessionCookie(c, resp.SessionID, sessionCookieMaxAge())
 	c.JSON(http.StatusOK, gin.H{
 		"code":    200,
 		"message": "登录成功",
 		"data": gin.H{
 			"token": resp.SessionID,
+			"tenant": gin.H{
+				"code": req.TenantCode,
+			},
 			"user":  resp.User,
 		},
 	})
@@ -172,7 +186,7 @@ func OIDCCallback(c *gin.Context) {
 		return
 	}
 
-	setSessionCookie(c, resp.SessionID, 7200)
+	setSessionCookie(c, resp.SessionID, sessionCookieMaxAge())
 	c.JSON(http.StatusOK, gin.H{
 		"code":    200,
 		"message": "登录成功",

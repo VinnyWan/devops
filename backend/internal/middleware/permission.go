@@ -22,7 +22,30 @@ func RequirePermission(resource, action string) gin.HandlerFunc {
 			})
 			return
 		}
-		userID := userIDVal.(uint)
+		userID, ok := userIDVal.(uint)
+		if !ok || userID == 0 {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+				"code":    401,
+				"message": "未认证：用户信息无效",
+			})
+			return
+		}
+		tenantIDVal, exists := c.Get("tenantID")
+		if !exists {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+				"code":    401,
+				"message": "未认证：无法获取租户信息",
+			})
+			return
+		}
+		tenantID, ok := tenantIDVal.(uint)
+		if !ok || tenantID == 0 {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+				"code":    401,
+				"message": "未认证：租户信息无效或缺失",
+			})
+			return
+		}
 
 		// 2. 校验权限
 		if db == nil {
@@ -35,7 +58,7 @@ func RequirePermission(resource, action string) gin.HandlerFunc {
 
 		userSvc := service.NewUserService(db)
 		// 使用 CheckPermission
-		allowed, err := userSvc.CheckPermission(c.Request.Context(), userID, resource, action)
+		allowed, err := userSvc.CheckPermission(c.Request.Context(), tenantID, userID, resource, action)
 		if err != nil {
 			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
 				"code":    500,

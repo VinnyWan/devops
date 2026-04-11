@@ -32,7 +32,7 @@ func getDeptUserService() *service.DepartmentUserService {
 
 // ListDepartmentUsers godoc
 // @Summary 获取部门用户列表
-// @Description 根据部门ID查询部门下用户（非管理员只能查询本部门）
+// @Description 根据部门ID查询该部门及下级部门用户（结果受当前用户数据范围限制）
 // @Tags 部门管理
 // @Produce json
 // @Security BearerAuth
@@ -46,6 +46,7 @@ func getDeptUserService() *service.DepartmentUserService {
 // @Router /department/users/list [get]
 func ListDepartmentUsers(c *gin.Context) {
 	operatorID := GetCurrentUserID(c)
+	tenantID := GetCurrentTenantID(c)
 	if operatorID == 0 {
 		c.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": "未认证"})
 		return
@@ -65,7 +66,7 @@ func ListDepartmentUsers(c *gin.Context) {
 		deptID = uint(id)
 	}
 
-	list, total, err := getDeptUserService().List(operatorID, deptID, page, pageSize, keyword)
+	list, total, err := getDeptUserService().List(tenantID, operatorID, deptID, page, pageSize, keyword)
 	if err != nil {
 		writeDepartmentUserError(c, err)
 		return
@@ -97,6 +98,7 @@ func ListDepartmentUsers(c *gin.Context) {
 // @Router /department/users/create [post]
 func CreateDepartmentUser(c *gin.Context) {
 	operatorID := GetCurrentUserID(c)
+	tenantID := GetCurrentTenantID(c)
 	if operatorID == 0 {
 		c.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": "未认证"})
 		return
@@ -108,7 +110,7 @@ func CreateDepartmentUser(c *gin.Context) {
 		return
 	}
 
-	user, err := getDeptUserService().Create(operatorID, &req)
+	user, err := getDeptUserService().Create(tenantID, operatorID, &req)
 	if err != nil {
 		logger.Log.Error("Failed to create department user", zap.Error(err))
 		writeDepartmentUserError(c, err)
@@ -133,6 +135,7 @@ func CreateDepartmentUser(c *gin.Context) {
 // @Router /department/users/update [post]
 func UpdateDepartmentUser(c *gin.Context) {
 	operatorID := GetCurrentUserID(c)
+	tenantID := GetCurrentTenantID(c)
 	if operatorID == 0 {
 		c.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": "未认证"})
 		return
@@ -144,7 +147,7 @@ func UpdateDepartmentUser(c *gin.Context) {
 		return
 	}
 
-	if err := getDeptUserService().Update(operatorID, &req); err != nil {
+	if err := getDeptUserService().Update(tenantID, operatorID, &req); err != nil {
 		logger.Log.Error("Failed to update department user", zap.Error(err))
 		writeDepartmentUserError(c, err)
 		return
@@ -167,6 +170,7 @@ func UpdateDepartmentUser(c *gin.Context) {
 // @Router /department/users/delete [post]
 func DeleteDepartmentUser(c *gin.Context) {
 	operatorID := GetCurrentUserID(c)
+	tenantID := GetCurrentTenantID(c)
 	if operatorID == 0 {
 		c.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": "未认证"})
 		return
@@ -179,7 +183,7 @@ func DeleteDepartmentUser(c *gin.Context) {
 		return
 	}
 
-	if err := getDeptUserService().Delete(operatorID, uint(id)); err != nil {
+	if err := getDeptUserService().Delete(tenantID, operatorID, uint(id)); err != nil {
 		logger.Log.Error("Failed to delete department user", zap.Error(err))
 		writeDepartmentUserError(c, err)
 		return
@@ -203,6 +207,7 @@ func DeleteDepartmentUser(c *gin.Context) {
 // @Router /department/users/transfer [post]
 func TransferDepartmentUser(c *gin.Context) {
 	operatorID := GetCurrentUserID(c)
+	tenantID := GetCurrentTenantID(c)
 	if operatorID == 0 {
 		c.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": "未认证"})
 		return
@@ -214,7 +219,7 @@ func TransferDepartmentUser(c *gin.Context) {
 		return
 	}
 
-	if err := getDeptUserService().Transfer(operatorID, &req); err != nil {
+	if err := getDeptUserService().Transfer(tenantID, operatorID, &req); err != nil {
 		logger.Log.Error("Failed to transfer department user", zap.Error(err))
 		writeDepartmentUserError(c, err)
 		return

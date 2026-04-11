@@ -1,8 +1,8 @@
 # 项目启动端口
 server:
-  port: 8080
+  port: 8000
   # debug / release 模式
-  model: debug
+  mode: debug
   enableSwagger: true
 
 # 数据库配置
@@ -50,6 +50,25 @@ oidc:
   client_secret: "your-client-secret"
   redirect_url: "http://localhost:8080/api/v1/auth/oidc/callback"
   scopes: ["openid", "profile", "email"]
+
+# JWT配置
+jwt:
+  secret: "change-this-jwt-secret"
+  expire: 86400  # Token过期时间(秒), 24小时
+
+# CORS配置
+cors:
+  allowOrigins: ["http://localhost:3000"]
+  allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+  allowHeaders: ["Origin", "Content-Type", "Authorization"]
+
+# Nacos配置
+nacos:
+  enable: false
+  serverAddr: "127.0.0.1:8848"
+  namespace: ""
+  group: "DEFAULT_GROUP"
+  dataId: "devops-config"
 
 # 加密配置
 crypto:

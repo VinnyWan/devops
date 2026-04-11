@@ -37,4 +37,5 @@ func Register(r *gin.Engine) {
 	registerUser(auth)
 	registerRole(auth)
 	registerAudit(auth)
+	registerTenant(auth)
 }

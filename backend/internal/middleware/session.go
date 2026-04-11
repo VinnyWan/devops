@@ -1,10 +1,13 @@
 package middleware
 
 import (
+	"errors"
 	"net/http"
 	"strings"
+	"time"
 
 	"devops-platform/config"
+	"devops-platform/internal/modules/user/model"
 	"devops-platform/internal/modules/user/service"
 	"devops-platform/internal/pkg/logger"
 
@@ -44,13 +47,55 @@ func SessionAuth() gin.HandlerFunc {
 			})
 			return
 		}
+		if db == nil {
+			logger.Log.Error("Session auth failed: database not initialized")
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
+				"code":    500,
+				"message": "系统错误：数据库连接未初始化",
+			})
+			return
+		}
+		if err := validateSessionTenant(sessionData); err != nil {
+			logger.Log.Warn("Invalid tenant session",
+				zap.String("sessionID", sessionID),
+				zap.Uint("tenantID", sessionData.TenantID),
+				zap.Error(err),
+			)
+			_ = sessionSvc.RevokeSession(c.Request.Context(), sessionID)
+			clearSessionCookie(c)
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+				"code":    401,
+				"message": "未认证：租户已失效或不可用",
+			})
+			return
+		}
 
 		// 3. 注入上下文
 		c.Set("userID", sessionData.UserID)
 		c.Set("username", sessionData.Username)
+		c.Set("tenantID", sessionData.TenantID)
+		c.Set("tenantCode", sessionData.TenantCode)
 		c.Set("authSource", sessionData.AuthSource)
 		c.Next()
 	}
+}
+
+func validateSessionTenant(sessionData *service.SessionData) error {
+	if sessionData == nil || sessionData.TenantID == 0 {
+		return errors.New("session tenant is missing")
+	}
+
+	var tenant model.Tenant
+	if err := db.Select("id", "status", "expires_at").First(&tenant, sessionData.TenantID).Error; err != nil {
+		return err
+	}
+	if tenant.Status != "active" {
+		return errors.New("tenant is not active")
+	}
+	if tenant.ExpiresAt != nil && tenant.ExpiresAt.Before(time.Now()) {
+		return errors.New("tenant has expired")
+	}
+	return nil
 }
 
 func extractSessionID(c *gin.Context) string {

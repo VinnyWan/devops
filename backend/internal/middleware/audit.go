@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/url"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -32,13 +33,19 @@ const (
 
 var auditChannel chan *model.AuditLog
 var auditDropCount int64
+var auditInitMu sync.Mutex
 
 // SetDB 设置审计中间件使用的数据库连接，并启动异步写入 worker
 func SetDB(database *gorm.DB) {
+	auditInitMu.Lock()
+	defer auditInitMu.Unlock()
+
 	db = database
-	auditChannel = make(chan *model.AuditLog, auditChannelSize)
-	for i := 0; i < auditWorkerCount; i++ {
-		go auditWorker()
+	if auditChannel == nil {
+		auditChannel = make(chan *model.AuditLog, auditChannelSize)
+		for i := 0; i < auditWorkerCount; i++ {
+			go auditWorker()
+		}
 	}
 }
 

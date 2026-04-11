@@ -21,7 +21,7 @@ type cachedClient struct {
 
 type ClientFactory struct {
 	mu      sync.RWMutex
-	clients map[uint]*cachedClient
+	clients map[string]*cachedClient
 
 	// 可配置项
 	maxAge time.Duration
@@ -29,7 +29,7 @@ type ClientFactory struct {
 
 func NewClientFactory() *ClientFactory {
 	return &ClientFactory{
-		clients: make(map[uint]*cachedClient),
+		clients: make(map[string]*cachedClient),
 		maxAge:  30 * time.Minute, // Client 最长存活时间
 	}
 }
@@ -38,7 +38,7 @@ func NewClientFactory() *ClientFactory {
 func (f *ClientFactory) GetClient(cluster *model.Cluster) (*kubernetes.Clientset, error) {
 	// 1️⃣ 读缓存
 	f.mu.RLock()
-	cc, ok := f.clients[cluster.ID]
+	cc, ok := f.clients[cluster.Name]
 	f.mu.RUnlock()
 
 	if ok && !f.isExpired(cc) && f.isHealthy(cc.client) {
@@ -55,7 +55,7 @@ func (f *ClientFactory) GetClient(cluster *model.Cluster) (*kubernetes.Clientset
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
-	f.clients[cluster.ID] = &cachedClient{
+	f.clients[cluster.Name] = &cachedClient{
 		client:        clientset,
 		dynamicClient: dynamicClient,
 		metricsClient: metricsClient,
@@ -68,7 +68,7 @@ func (f *ClientFactory) GetClient(cluster *model.Cluster) (*kubernetes.Clientset
 // GetDynamicClient 获取可用 dynamic client（自动重建）
 func (f *ClientFactory) GetDynamicClient(cluster *model.Cluster) (dynamic.Interface, error) {
 	f.mu.RLock()
-	cc, ok := f.clients[cluster.ID]
+	cc, ok := f.clients[cluster.Name]
 	f.mu.RUnlock()
 
 	if ok && !f.isExpired(cc) && cc.dynamicClient != nil && f.isHealthy(cc.client) {
@@ -83,7 +83,7 @@ func (f *ClientFactory) GetDynamicClient(cluster *model.Cluster) (dynamic.Interf
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
-	f.clients[cluster.ID] = &cachedClient{
+	f.clients[cluster.Name] = &cachedClient{
 		client:        clientset,
 		dynamicClient: dynamicClient,
 		metricsClient: metricsClient,
@@ -100,7 +100,7 @@ func (f *ClientFactory) GetMetricsClient(cluster *model.Cluster) (*metrics.Clien
 	}
 
 	f.mu.RLock()
-	cc, ok := f.clients[cluster.ID]
+	cc, ok := f.clients[cluster.Name]
 	f.mu.RUnlock()
 
 	if ok && !f.isExpired(cc) && cc.metricsClient != nil && f.isHealthy(cc.client) {
@@ -115,7 +115,7 @@ func (f *ClientFactory) GetMetricsClient(cluster *model.Cluster) (*metrics.Clien
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
-	f.clients[cluster.ID] = &cachedClient{
+	f.clients[cluster.Name] = &cachedClient{
 		client:        clientset,
 		dynamicClient: dynamicClient,
 		metricsClient: metricsClient,
@@ -174,8 +174,8 @@ func (f *ClientFactory) isHealthy(client *kubernetes.Clientset) bool {
 }
 
 // RemoveClient 主动移除（集群配置变更时）
-func (f *ClientFactory) RemoveClient(clusterId uint) {
+func (f *ClientFactory) RemoveClient(clusterName string) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	delete(f.clients, clusterId)
+	delete(f.clients, clusterName)
 }

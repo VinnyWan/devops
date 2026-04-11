@@ -11,7 +11,7 @@ DevOps Platform 是一个企业级的运维管理系统，旨在简化 Kubernete
 - **多集群管理**: 统一纳管开发、测试、生产等多套 Kubernetes 环境。
 - **Kubernetes 资源操作**: 可视化管理 Deployments, Pods, Services, ConfigMaps, Namespaces 等核心资源。
 - **细粒度权限控制 (RBAC)**: 基于 Casbin 和自定义 RBAC 模型，支持用户、角色、权限的灵活配置。
-- **用户认证与安全**: 集成 JWT 认证，支持审计日志记录，确保操作可追溯。
+- **用户认证与安全**: 支持本地认证、LDAP、OIDC，基于 Session 的认证机制，支持审计日志记录。
 - **终端控制台**: (计划中) 提供 Web Terminal 直接连接 Pod。
 - **监控集成**: (计划中) 集成 Prometheus 和 Grafana 指标展示。
 
@@ -25,7 +25,7 @@ DevOps Platform 是一个企业级的运维管理系统，旨在简化 Kubernete
 | Gin | 1.10 | Web 框架 |
 | GORM | 1.31 | ORM 框架 |
 | MySQL | 8.0+ | 主数据库 |
-| Redis | 7.0+ | 缓存/Session |
+| Redis | 7.0+ | 缓存/Session 存储 |
 | Kubernetes | 1.31+ | 容器编排 |
 | Casbin | - | RBAC 权限控制 |
 | Nacos | 2.3+ | 服务注册/配置中心 |
@@ -36,12 +36,12 @@ DevOps Platform 是一个企业级的运维管理系统，旨在简化 Kubernete
 | 技术 | 版本 | 说明 |
 |------|------|------|
 | Vue | 3.5+ | 前端框架 |
-| TypeScript | 5.9+ | 类型安全 |
-| Vite | 7.3+ | 构建工具 |
-| Naive UI | 2.43+ | UI 组件库 |
+| JavaScript | ES2021 | 开发语言 |
+| Vite | 8.0+ | 构建工具 |
+| Element Plus | 2.13+ | UI 组件库 |
 | Pinia | 3.0+ | 状态管理 |
 | Vue Router | 4.6+ | 路由管理 |
-| xterm.js | 6.0+ | Web 终端 |
+| Axios | 1.14+ | HTTP 客户端 |
 
 ## 功能模块
 

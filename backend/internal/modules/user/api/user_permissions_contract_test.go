@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"devops-platform/internal/modules/user/model"
+	"devops-platform/internal/pkg/logger"
 	redisPkg "devops-platform/internal/pkg/redis"
 
 	miniredis "github.com/alicebob/miniredis/v2"
@@ -25,13 +26,16 @@ func TestGetUserPermissions_CurrentUserContract(t *testing.T) {
 	setupUserAPITestRedis(t)
 	resetUserServiceState(db)
 
-	role := model.Role{Name: "api-role", DisplayName: "api-role", Type: "custom"}
+	tenant := model.Tenant{Name: "tenant-api", Code: "tenant-api", Status: "active"}
+	mustNoErrorAPI(t, db.Create(&tenant).Error)
+	role := model.Role{Name: "api-role", DisplayName: "api-role", Type: "custom", TenantID: &tenant.ID}
 	mustNoErrorAPI(t, db.Create(&role).Error)
 	perm := model.Permission{Name: "查看用户", Resource: "user", Action: "list"}
 	mustNoErrorAPI(t, db.Create(&perm).Error)
 	mustNoErrorAPI(t, db.Model(&role).Association("Permissions").Replace([]model.Permission{perm}))
 
 	user := model.User{
+		TenantID: &tenant.ID,
 		Username: "api-user",
 		Password: "hashed",
 		Email:    "api-user@example.com",
@@ -47,6 +51,7 @@ func TestGetUserPermissions_CurrentUserContract(t *testing.T) {
 	c, _ := gin.CreateTestContext(w)
 	c.Request = req
 	c.Set("userID", user.ID)
+	c.Set("tenantID", tenant.ID)
 
 	GetUserPermissions(c)
 
@@ -94,7 +99,7 @@ func setupUserAPITestDB(t *testing.T) *gorm.DB {
 	dbName := strings.ReplaceAll(t.Name(), "/", "_")
 	db, err := gorm.Open(sqlite.Open(fmt.Sprintf("file:%s?mode=memory&cache=shared", dbName)), &gorm.Config{})
 	mustNoErrorAPI(t, err)
-	mustNoErrorAPI(t, db.AutoMigrate(&model.Permission{}, &model.Role{}, &model.Department{}, &model.User{}))
+	mustNoErrorAPI(t, db.AutoMigrate(&model.Tenant{}, &model.Permission{}, &model.Role{}, &model.Department{}, &model.User{}))
 	return db
 }
 
@@ -111,6 +116,7 @@ func setupUserAPITestRedis(t *testing.T) {
 
 func resetUserServiceState(database *gorm.DB) {
 	SetDB(database)
+	_ = logger.Init()
 	userService = nil
 	userOnce = sync.Once{}
 	deptUserService = nil

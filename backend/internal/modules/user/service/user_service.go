@@ -18,13 +18,17 @@ type UserService struct {
 	userRepo       *repository.UserRepo
 	roleRepo       *repository.RoleRepo
 	permissionRepo *repository.PermissionRepo
+	scopeSvc       *AccessScopeService
 }
 
 func NewUserService(db *gorm.DB) *UserService {
+	userRepo := repository.NewUserRepo(db)
+	deptRepo := repository.NewDepartmentRepo(db)
 	return &UserService{
-		userRepo:       repository.NewUserRepo(db),
+		userRepo:       userRepo,
 		roleRepo:       repository.NewRoleRepo(db),
 		permissionRepo: repository.NewPermissionRepo(db),
+		scopeSvc:       NewAccessScopeService(userRepo, deptRepo),
 	}
 }
 
@@ -43,17 +47,17 @@ type ChangePasswordRequest struct {
 }
 
 // Register 注册新用户（仅限本地认证）
-func (s *UserService) Register(req *RegisterRequest) (*model.User, error) {
+func (s *UserService) Register(tenantID uint, req *RegisterRequest) (*model.User, error) {
 	if err := utils.ValidatePasswordComplexity(req.Password); err != nil {
 		return nil, err
 	}
 
-	existingUser, err := s.userRepo.GetByUsername(req.Username)
+	existingUser, err := s.userRepo.GetByUsernameInTenant(tenantID, req.Username)
 	if err == nil && existingUser != nil {
 		return nil, errors.New("username already exists")
 	}
 
-	existingUser, err = s.userRepo.GetByEmail(req.Email)
+	existingUser, err = s.userRepo.GetByEmailInTenant(tenantID, req.Email)
 	if err == nil && existingUser != nil {
 		return nil, errors.New("email already exists")
 	}
@@ -65,6 +69,7 @@ func (s *UserService) Register(req *RegisterRequest) (*model.User, error) {
 
 	// 创建用户
 	user := &model.User{
+		TenantID: &tenantID,
 		Username: req.Username,
 		Password: hashedPassword,
 		Email:    req.Email,
@@ -83,9 +88,9 @@ func (s *UserService) Register(req *RegisterRequest) (*model.User, error) {
 }
 
 // GetUserByID 根据ID获取用户信息 (带缓存)
-func (s *UserService) GetUserByID(ctx context.Context, id uint) (*model.User, error) {
+func (s *UserService) GetUserByID(ctx context.Context, tenantID uint, id uint) (*model.User, error) {
 	// TODO: 实现用户信息缓存
-	return s.userRepo.GetByID(id)
+	return s.userRepo.GetByIDInTenant(tenantID, id)
 }
 
 // GetUserByUsername 根据用户名获取用户信息
@@ -94,13 +99,31 @@ func (s *UserService) GetUserByUsername(username string) (*model.User, error) {
 }
 
 // ListUsers 获取用户列表
-func (s *UserService) ListUsers(page, pageSize int, keyword string) ([]model.User, int64, error) {
-	return s.userRepo.List(page, pageSize, keyword)
+func (s *UserService) GetAccessibleUserByID(ctx context.Context, tenantID uint, operatorID uint, id uint) (*model.User, error) {
+	if err := s.scopeSvc.EnsureUserAccess(ctx, tenantID, operatorID, id); err != nil {
+		return nil, err
+	}
+	return s.userRepo.GetByIDInTenant(tenantID, id)
 }
 
-func (s *UserService) UpdateUserByRequest(req *UpdateUserRequest) error {
-	_, err := s.userRepo.GetByID(req.ID)
+// ListUsers 获取用户列表
+func (s *UserService) ListUsers(ctx context.Context, tenantID uint, operatorID uint, page, pageSize int, keyword string) ([]model.User, int64, error) {
+	scope, err := s.scopeSvc.Resolve(ctx, tenantID, operatorID)
 	if err != nil {
+		return nil, 0, err
+	}
+	if scope.AllowsAll() {
+		return s.userRepo.ListInTenant(tenantID, page, pageSize, keyword)
+	}
+	return s.userRepo.ListByDepartmentIDsInTenant(tenantID, scope.DepartmentIDs, page, pageSize, keyword)
+}
+
+func (s *UserService) UpdateUserByRequest(ctx context.Context, tenantID uint, operatorID uint, req *UpdateUserRequest) error {
+	_, err := s.userRepo.GetByIDInTenant(tenantID, req.ID)
+	if err != nil {
+		return err
+	}
+	if err := s.scopeSvc.EnsureUserAccess(ctx, tenantID, operatorID, req.ID); err != nil {
 		return err
 	}
 
@@ -132,6 +155,9 @@ func (s *UserService) UpdateUserByRequest(req *UpdateUserRequest) error {
 		if *req.DepartmentID == 0 {
 			updates["department_id"] = nil
 		} else {
+			if err := s.scopeSvc.EnsureDepartmentAccess(ctx, tenantID, operatorID, *req.DepartmentID); err != nil {
+				return err
+			}
 			updates["department_id"] = *req.DepartmentID
 		}
 	}
@@ -141,26 +167,29 @@ func (s *UserService) UpdateUserByRequest(req *UpdateUserRequest) error {
 	}
 
 	// 使得相关缓存失效
-	s.invalidateUserCache(context.Background(), req.ID)
-	s.invalidateUserPermsCache(context.Background(), req.ID)
+	s.invalidateUserCache(context.Background(), tenantID, req.ID)
+	s.invalidateUserPermsCache(context.Background(), tenantID, req.ID)
 
-	return s.userRepo.UpdateByID(req.ID, updates)
+	return s.userRepo.UpdateByIDInTenant(tenantID, req.ID, updates)
 }
 
 // DeleteUser 删除用户
-func (s *UserService) DeleteUser(id uint) error {
-	s.invalidateUserCache(context.Background(), id)
-	s.invalidateUserPermsCache(context.Background(), id)
-	return s.userRepo.Delete(id)
+func (s *UserService) DeleteUser(ctx context.Context, tenantID uint, operatorID uint, id uint) error {
+	if err := s.scopeSvc.EnsureUserAccess(ctx, tenantID, operatorID, id); err != nil {
+		return err
+	}
+	s.invalidateUserCache(context.Background(), tenantID, id)
+	s.invalidateUserPermsCache(context.Background(), tenantID, id)
+	return s.userRepo.DeleteInTenant(tenantID, id)
 }
 
 // ChangePassword 修改密码
-func (s *UserService) ChangePassword(userID uint, req *ChangePasswordRequest) error {
+func (s *UserService) ChangePassword(tenantID uint, userID uint, req *ChangePasswordRequest) error {
 	if err := utils.ValidatePasswordComplexity(req.NewPassword); err != nil {
 		return err
 	}
 
-	user, err := s.userRepo.GetByID(userID)
+	user, err := s.userRepo.GetByIDInTenant(tenantID, userID)
 	if err != nil {
 		return err
 	}
@@ -178,16 +207,24 @@ func (s *UserService) ChangePassword(userID uint, req *ChangePasswordRequest) er
 		return fmt.Errorf("failed to hash password: %w", err)
 	}
 
-	return s.userRepo.UpdatePassword(userID, hashedPassword)
+	if err := s.userRepo.UpdatePasswordInTenant(tenantID, userID, hashedPassword); err != nil {
+		return err
+	}
+	// 改密后强制全端登出
+	_ = NewSessionService().RevokeAllUserSessions(context.Background(), tenantID, userID)
+	return nil
 }
 
 // ResetPassword 重置密码（管理员操作）
-func (s *UserService) ResetPassword(userID uint, newPassword string) error {
+func (s *UserService) ResetPassword(ctx context.Context, tenantID uint, operatorID uint, userID uint, newPassword string) error {
 	if err := utils.ValidatePasswordComplexity(newPassword); err != nil {
 		return err
 	}
+	if err := s.scopeSvc.EnsureUserAccess(ctx, tenantID, operatorID, userID); err != nil {
+		return err
+	}
 
-	user, err := s.userRepo.GetByID(userID)
+	user, err := s.userRepo.GetByIDInTenant(tenantID, userID)
 	if err != nil {
 		return err
 	}
@@ -201,52 +238,66 @@ func (s *UserService) ResetPassword(userID uint, newPassword string) error {
 		return fmt.Errorf("failed to hash password: %w", err)
 	}
 
-	return s.userRepo.UpdatePassword(userID, hashedPassword)
+	if err := s.userRepo.UpdatePasswordInTenant(tenantID, userID, hashedPassword); err != nil {
+		return err
+	}
+	// 重置密码后强制全端登出
+	_ = NewSessionService().RevokeAllUserSessions(context.Background(), tenantID, userID)
+	return nil
 }
 
 // AssignRoles 分配角色
-func (s *UserService) AssignRoles(userID uint, roleIDs []uint) error {
+func (s *UserService) AssignRoles(ctx context.Context, tenantID uint, operatorID uint, userID uint, roleIDs []uint) error {
+	if err := s.scopeSvc.EnsureUserAccess(ctx, tenantID, operatorID, userID); err != nil {
+		return err
+	}
 	// 验证所有角色是否存在
 	for _, roleID := range roleIDs {
-		_, err := s.roleRepo.GetByID(roleID)
+		_, err := s.roleRepo.GetByIDInTenant(tenantID, roleID)
 		if err != nil {
 			return fmt.Errorf("role %d not found", roleID)
 		}
 	}
 
 	// 失效权限缓存
-	s.invalidateUserPermsCache(context.Background(), userID)
+	s.invalidateUserPermsCache(context.Background(), tenantID, userID)
 
-	return s.userRepo.AssignRoles(userID, roleIDs)
+	return s.userRepo.AssignRolesInTenant(tenantID, userID, roleIDs)
 }
 
 // LockUser 锁定用户
-func (s *UserService) LockUser(userID uint) error {
-	user, err := s.userRepo.GetByID(userID)
+func (s *UserService) LockUser(ctx context.Context, tenantID uint, operatorID uint, userID uint) error {
+	if err := s.scopeSvc.EnsureUserAccess(ctx, tenantID, operatorID, userID); err != nil {
+		return err
+	}
+	user, err := s.userRepo.GetByIDInTenant(tenantID, userID)
 	if err != nil {
 		return err
 	}
 
 	user.IsLocked = true
-	s.invalidateUserCache(context.Background(), userID)
+	s.invalidateUserCache(context.Background(), tenantID, userID)
 	return s.userRepo.Update(user)
 }
 
 // UnlockUser 解锁用户
-func (s *UserService) UnlockUser(userID uint) error {
-	user, err := s.userRepo.GetByID(userID)
+func (s *UserService) UnlockUser(ctx context.Context, tenantID uint, operatorID uint, userID uint) error {
+	if err := s.scopeSvc.EnsureUserAccess(ctx, tenantID, operatorID, userID); err != nil {
+		return err
+	}
+	user, err := s.userRepo.GetByIDInTenant(tenantID, userID)
 	if err != nil {
 		return err
 	}
 
 	user.IsLocked = false
-	s.invalidateUserCache(context.Background(), userID)
+	s.invalidateUserCache(context.Background(), tenantID, userID)
 	return s.userRepo.Update(user)
 }
 
 // GetUserPermissions 获取用户的所有权限（含完整权限链）
-func (s *UserService) GetUserPermissions(userID uint) ([]model.Permission, error) {
-	user, err := s.userRepo.GetByIDWithPermissions(userID)
+func (s *UserService) GetUserPermissions(tenantID uint, userID uint) ([]model.Permission, error) {
+	user, err := s.userRepo.GetByIDWithPermissionsInTenant(tenantID, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -257,7 +308,7 @@ func (s *UserService) GetUserPermissions(userID uint) ([]model.Permission, error
 	}
 
 	// 1. 获取默认只读角色
-	readOnlyRole, _ := s.roleRepo.GetByName("READ_ONLY")
+	readOnlyRole, _ := s.roleRepo.GetByNameInTenant(tenantID, "READ_ONLY")
 
 	// 2. 收集所有权限
 	permMap := make(map[uint]model.Permission)
@@ -296,8 +347,8 @@ func (s *UserService) GetUserPermissions(userID uint) ([]model.Permission, error
 }
 
 // GetUserPermissionCodes 获取用户权限编码集合 (Cached)
-func (s *UserService) GetUserPermissionCodes(ctx context.Context, userID uint) ([]string, error) {
-	cacheKey := fmt.Sprintf("user:perms:%d", userID)
+func (s *UserService) GetUserPermissionCodes(ctx context.Context, tenantID uint, userID uint) ([]string, error) {
+	cacheKey := fmt.Sprintf("tenant:%d:user:perms:%d", tenantID, userID)
 
 	// Try Cache
 	cached, err := redis.SMembers(ctx, cacheKey)
@@ -306,7 +357,7 @@ func (s *UserService) GetUserPermissionCodes(ctx context.Context, userID uint) (
 	}
 
 	// DB Query
-	perms, err := s.GetUserPermissions(userID)
+	perms, err := s.GetUserPermissions(tenantID, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -339,14 +390,14 @@ func (s *UserService) GetUserPermissionCodes(ctx context.Context, userID uint) (
 }
 
 // CheckPermission 检查用户是否有指定权限 (Cached)
-func (s *UserService) CheckPermission(ctx context.Context, userID uint, resource, action string) (bool, error) {
+func (s *UserService) CheckPermission(ctx context.Context, tenantID uint, userID uint, resource, action string) (bool, error) {
 	// 0. Check Admin shortcut (if we want to avoid loading all perms)
 	// But we need to load user to know if admin.
 	// We can cache "is_admin" too.
 	// For now, let's rely on GetUserPermissionCodes which caches perms.
 	// If admin, it returns ALL perms.
 
-	perms, err := s.GetUserPermissionCodes(ctx, userID)
+	perms, err := s.GetUserPermissionCodes(ctx, tenantID, userID)
 	if err != nil {
 		return false, err
 	}
@@ -364,10 +415,10 @@ func (s *UserService) CheckPermission(ctx context.Context, userID uint, resource
 	return false, nil
 }
 
-func (s *UserService) invalidateUserCache(ctx context.Context, userID uint) {
-	redis.Del(ctx, fmt.Sprintf("user:info:%d", userID))
+func (s *UserService) invalidateUserCache(ctx context.Context, tenantID uint, userID uint) {
+	redis.Del(ctx, fmt.Sprintf("tenant:%d:user:info:%d", tenantID, userID))
 }
 
-func (s *UserService) invalidateUserPermsCache(ctx context.Context, userID uint) {
-	redis.Del(ctx, fmt.Sprintf("user:perms:%d", userID))
+func (s *UserService) invalidateUserPermsCache(ctx context.Context, tenantID uint, userID uint) {
+	redis.Del(ctx, fmt.Sprintf("tenant:%d:user:perms:%d", tenantID, userID))
 }

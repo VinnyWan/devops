@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"devops-platform/config"
 	"devops-platform/internal/pkg/redis"
 
 	"github.com/google/uuid"
@@ -16,6 +17,8 @@ type SessionService struct{}
 type SessionData struct {
 	UserID     uint      `json:"userId"`
 	Username   string    `json:"username"`
+	TenantID   uint      `json:"tenantId"`
+	TenantCode string    `json:"tenantCode"`
 	AuthSource string    `json:"authSource"` // LOCAL/LDAP/OIDC
 	LoginTime  time.Time `json:"loginTime"`
 	IP         string    `json:"ip"`
@@ -30,13 +33,37 @@ func NewSessionService() *SessionService {
 	return &SessionService{}
 }
 
+func sessionTTL() time.Duration {
+	expireSeconds := 7200
+	if config.Cfg != nil {
+		v := config.Cfg.GetInt("session.expire")
+		if v > 0 {
+			expireSeconds = v
+		}
+	}
+	return time.Duration(expireSeconds) * time.Second
+}
+
+func userSessionSetKey(tenantID, userID uint) string {
+	return fmt.Sprintf("tenant:%d:user_sessions:%d", tenantID, userID)
+}
+
 // CreateSession 创建新会话
-func (s *SessionService) CreateSession(ctx context.Context, userID uint, username, authSource, ip, userAgent string) (string, error) {
+func (s *SessionService) CreateSession(
+	ctx context.Context,
+	userID uint,
+	username string,
+	tenantID uint,
+	tenantCode string,
+	authSource string,
+	ip string,
+	userAgent string,
+) (string, error) {
 	// 1. 生成 SessionID
 	sessionID := uuid.New().String()
 
 	// 2. 清理旧会话（单点登录 - 可选，这里实现为单点登录）
-	userSessionsKey := fmt.Sprintf("user_sessions:%d", userID)
+	userSessionsKey := userSessionSetKey(tenantID, userID)
 
 	// 获取所有旧的 sessionID
 	oldSessionIDs, err := redis.SMembers(ctx, userSessionsKey)
@@ -53,6 +80,8 @@ func (s *SessionService) CreateSession(ctx context.Context, userID uint, usernam
 	sessionData := SessionData{
 		UserID:     userID,
 		Username:   username,
+		TenantID:   tenantID,
+		TenantCode: tenantCode,
 		AuthSource: authSource,
 		LoginTime:  time.Now(),
 		IP:         ip,
@@ -65,7 +94,7 @@ func (s *SessionService) CreateSession(ctx context.Context, userID uint, usernam
 	}
 
 	sessionKey := fmt.Sprintf("session:%s", sessionID)
-	expiration := 2 * time.Hour
+	expiration := sessionTTL()
 
 	// 存储 Session 数据
 	if err := redis.Set(ctx, sessionKey, string(jsonData), expiration); err != nil {
@@ -97,11 +126,11 @@ func (s *SessionService) ValidateSession(ctx context.Context, sessionID string) 
 	}
 
 	// 滑动过期：延长有效期
-	expiration := 2 * time.Hour
+	expiration := sessionTTL()
 	redis.Expire(ctx, sessionKey, expiration)
 
 	// 同时延长用户会话集合有效期
-	userSessionsKey := fmt.Sprintf("user_sessions:%d", sessionData.UserID)
+	userSessionsKey := userSessionSetKey(sessionData.TenantID, sessionData.UserID)
 	redis.Expire(ctx, userSessionsKey, expiration+10*time.Minute)
 
 	return &sessionData, nil
@@ -127,7 +156,7 @@ func (s *SessionService) RevokeSession(ctx context.Context, sessionID string) er
 
 	// 从用户会话集合中移除
 	if sessionData.UserID > 0 {
-		userSessionsKey := fmt.Sprintf("user_sessions:%d", sessionData.UserID)
+		userSessionsKey := userSessionSetKey(sessionData.TenantID, sessionData.UserID)
 		redis.SRem(ctx, userSessionsKey, sessionID)
 	}
 
@@ -135,8 +164,8 @@ func (s *SessionService) RevokeSession(ctx context.Context, sessionID string) er
 }
 
 // RevokeAllUserSessions 强制下线用户所有端
-func (s *SessionService) RevokeAllUserSessions(ctx context.Context, userID uint) error {
-	userSessionsKey := fmt.Sprintf("user_sessions:%d", userID)
+func (s *SessionService) RevokeAllUserSessions(ctx context.Context, tenantID uint, userID uint) error {
+	userSessionsKey := userSessionSetKey(tenantID, userID)
 
 	sessionIDs, err := redis.SMembers(ctx, userSessionsKey)
 	if err != nil {

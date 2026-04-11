@@ -1,7 +1,6 @@
 package middleware
 
 import (
-	"fmt"
 	"runtime/debug"
 
 	"github.com/gin-gonic/gin"
@@ -22,7 +21,6 @@ func Recover() gin.HandlerFunc {
 				)
 				c.JSON(500, gin.H{
 					"message": "服务器内部错误",
-					"error":   fmt.Sprintf("%v", r),
 				})
 				c.Abort()
 			}

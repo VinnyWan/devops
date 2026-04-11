@@ -1,6 +1,10 @@
 package service
 
-import "testing"
+import (
+	"testing"
+
+	"devops-platform/internal/modules/app/model"
+)
 
 func TestAppServiceListTemplates_KeywordBoundaryAndCrossField(t *testing.T) {
 	svc := NewAppService()
@@ -173,4 +177,72 @@ func TestAppServiceQueryTopology_AppNotFound(t *testing.T) {
 	if err.Error() != "应用不存在" {
 		t.Fatalf("expected 应用不存在, got %s", err.Error())
 	}
+}
+
+func TestAppServiceTenantIsolation_ConfigAndVersion(t *testing.T) {
+	svc := NewAppService()
+	tenantA := uint(101)
+	tenantB := uint(202)
+
+	_, err := svc.SaveAppConfigInTenant(tenantA, model.AppConfig{
+		AppID:        1,
+		Name:         "payments-tenant-a",
+		Owner:        "tenant-a-owner",
+		Developers:   "a1,a2",
+		Testers:      "a3",
+		GitAddress:   "https://github.com/example/payments-a",
+		AppState:     model.AppStateRunning,
+		Status:       model.StatusOffline,
+		InstanceType: model.InstanceTypeContainer,
+		Language:     model.LanguageGo,
+		Port:         8081,
+	})
+	if err != nil {
+		t.Fatalf("save tenantA app config failed: %v", err)
+	}
+
+	configA, err := svc.GetAppConfigInTenant(tenantA, 1)
+	if err != nil {
+		t.Fatalf("get tenantA app config failed: %v", err)
+	}
+	configB, err := svc.GetAppConfigInTenant(tenantB, 1)
+	if err != nil {
+		t.Fatalf("get tenantB app config failed: %v", err)
+	}
+	if configA.Name == configB.Name {
+		t.Fatalf("expected tenant-isolated app name, got both %s", configA.Name)
+	}
+	if configB.Name != "payments" {
+		t.Fatalf("expected tenantB keeps default config, got %s", configB.Name)
+	}
+
+	_, err = svc.DeployInTenant(tenantA, DeployRequest{
+		AppID:       1,
+		TemplateID:  1,
+		Cluster:     "cluster-tenant-a",
+		Environment: "staging",
+		Version:     "v9.9.9-tenant-a",
+		Operator:    "tenant-a",
+	})
+	if err != nil {
+		t.Fatalf("deploy in tenantA failed: %v", err)
+	}
+
+	versionsA := svc.ListVersionsInTenant(tenantA, 1, 10)
+	versionsB := svc.ListVersionsInTenant(tenantB, 1, 10)
+	if !containsVersion(versionsA.Items, "v9.9.9-tenant-a") {
+		t.Fatalf("expected tenantA contains deployed version")
+	}
+	if containsVersion(versionsB.Items, "v9.9.9-tenant-a") {
+		t.Fatalf("expected tenantB not contains tenantA deployed version")
+	}
+}
+
+func containsVersion(items []model.ApplicationVersion, version string) bool {
+	for _, item := range items {
+		if item.Version == version {
+			return true
+		}
+	}
+	return false
 }

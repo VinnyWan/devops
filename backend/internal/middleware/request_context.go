@@ -37,6 +37,12 @@ func RequestContext() gin.HandlerFunc {
 		if _, exists := c.Get("username"); !exists {
 			c.Set("username", "anonymous")
 		}
+		if _, exists := c.Get("tenantID"); !exists {
+			c.Set("tenantID", uint(0))
+		}
+		if _, exists := c.Get("tenantCode"); !exists {
+			c.Set("tenantCode", "")
+		}
 		c.Next()
 		c.Header("X-Request-Time", requestAt.Format(time.RFC3339))
 		c.Header("X-Request-Timezone", timezone)

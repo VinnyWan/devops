@@ -151,5 +151,9 @@ func validateConfig(v *viper.Viper) error {
 		return fmt.Errorf("log.output 为 %s 时，log.filePath 不能为空", logOutput)
 	}
 
+	if v.GetInt("session.expire") <= 0 {
+		return fmt.Errorf("session.expire 必须大于 0")
+	}
+
 	return nil
 }

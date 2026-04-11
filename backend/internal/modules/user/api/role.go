@@ -25,6 +25,18 @@ func getRoleService() *service.RoleService {
 	return roleService
 }
 
+func requireTenantID(c *gin.Context) (uint, bool) {
+	tenantID := GetCurrentTenantID(c)
+	if tenantID == 0 {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"code":    401,
+			"message": "未认证：租户上下文缺失",
+		})
+		return 0, false
+	}
+	return tenantID, true
+}
+
 // CreateRole godoc
 // @Summary 创建角色
 // @Description 创建新角色
@@ -37,6 +49,11 @@ func getRoleService() *service.RoleService {
 // @Failure 400 {object} map[string]interface{} "参数错误"
 // @Router /role/create [post]
 func CreateRole(c *gin.Context) {
+	tenantID, ok := requireTenantID(c)
+	if !ok {
+		return
+	}
+
 	var req service.CreateRoleRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -46,7 +63,7 @@ func CreateRole(c *gin.Context) {
 		return
 	}
 
-	newRole, err := getRoleService().CreateRole(&req)
+	newRole, err := getRoleService().CreateRole(tenantID, &req)
 	if err != nil {
 		logger.Log.Error("Failed to create role", zap.Error(err))
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -74,6 +91,11 @@ func CreateRole(c *gin.Context) {
 // @Failure 400 {object} map[string]interface{} "参数错误"
 // @Router /role/detail [get]
 func GetRoleDetail(c *gin.Context) {
+	tenantID, ok := requireTenantID(c)
+	if !ok {
+		return
+	}
+
 	idStr := c.Query("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
@@ -84,7 +106,7 @@ func GetRoleDetail(c *gin.Context) {
 		return
 	}
 
-	roleDetail, err := getRoleService().GetRoleByID(uint(id))
+	roleDetail, err := getRoleService().GetRoleByID(tenantID, uint(id))
 	if err != nil {
 		logger.Log.Error("Failed to get role detail", zap.Uint64("id", id), zap.Error(err))
 		c.JSON(http.StatusNotFound, gin.H{
@@ -114,11 +136,16 @@ func GetRoleDetail(c *gin.Context) {
 // @Failure 500 {object} map[string]interface{} "服务器错误"
 // @Router /role/list [get]
 func ListRoles(c *gin.Context) {
+	tenantID, ok := requireTenantID(c)
+	if !ok {
+		return
+	}
+
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("pageSize", "10"))
 	keyword := c.Query("keyword")
 
-	roles, total, err := getRoleService().ListRoles(page, pageSize, keyword)
+	roles, total, err := getRoleService().ListRoles(tenantID, page, pageSize, keyword)
 	if err != nil {
 		logger.Log.Error("Failed to list roles", zap.Error(err))
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -151,6 +178,11 @@ func ListRoles(c *gin.Context) {
 // @Failure 400 {object} map[string]interface{} "参数错误"
 // @Router /role/update [post]
 func UpdateRole(c *gin.Context) {
+	tenantID, ok := requireTenantID(c)
+	if !ok {
+		return
+	}
+
 	var req service.UpdateRoleRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -160,7 +192,7 @@ func UpdateRole(c *gin.Context) {
 		return
 	}
 
-	if err := getRoleService().UpdateRole(&req); err != nil {
+	if err := getRoleService().UpdateRole(tenantID, &req); err != nil {
 		logger.Log.Error("Failed to update role", zap.Uint("roleID", req.ID), zap.Error(err))
 		c.JSON(http.StatusBadRequest, gin.H{
 			"code":    400,
@@ -186,6 +218,11 @@ func UpdateRole(c *gin.Context) {
 // @Failure 400 {object} map[string]interface{} "参数错误"
 // @Router /role/delete [post]
 func DeleteRole(c *gin.Context) {
+	tenantID, ok := requireTenantID(c)
+	if !ok {
+		return
+	}
+
 	idStr := c.Query("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
@@ -196,7 +233,7 @@ func DeleteRole(c *gin.Context) {
 		return
 	}
 
-	if err := getRoleService().DeleteRole(uint(id)); err != nil {
+	if err := getRoleService().DeleteRole(tenantID, uint(id)); err != nil {
 		logger.Log.Error("Failed to delete role", zap.Uint64("id", id), zap.Error(err))
 		c.JSON(http.StatusBadRequest, gin.H{
 			"code":    400,
@@ -223,6 +260,11 @@ func DeleteRole(c *gin.Context) {
 // @Failure 400 {object} map[string]interface{} "参数错误"
 // @Router /role/assign-permissions [post]
 func AssignPermissions(c *gin.Context) {
+	tenantID, ok := requireTenantID(c)
+	if !ok {
+		return
+	}
+
 	var req struct {
 		RoleID        uint   `json:"roleId" binding:"required"`
 		PermissionIDs []uint `json:"permissionIds" binding:"required"`
@@ -236,7 +278,7 @@ func AssignPermissions(c *gin.Context) {
 		return
 	}
 
-	if err := getRoleService().AssignPermissions(req.RoleID, req.PermissionIDs); err != nil {
+	if err := getRoleService().AssignPermissions(tenantID, req.RoleID, req.PermissionIDs); err != nil {
 		logger.Log.Error("Failed to assign permissions", zap.Uint("roleID", req.RoleID), zap.Error(err))
 		c.JSON(http.StatusBadRequest, gin.H{
 			"code":    400,
@@ -262,6 +304,12 @@ func AssignPermissions(c *gin.Context) {
 // @Failure 400 {object} map[string]interface{} "参数错误"
 // @Router /role/users [get]
 func GetRoleUsers(c *gin.Context) {
+	tenantID, ok := requireTenantID(c)
+	if !ok {
+		return
+	}
+	operatorID := GetCurrentUserID(c)
+
 	idStr := c.Query("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
@@ -272,13 +320,10 @@ func GetRoleUsers(c *gin.Context) {
 		return
 	}
 
-	users, err := getRoleService().GetRoleUsers(uint(id))
+	users, err := getRoleService().GetRoleUsers(c.Request.Context(), tenantID, operatorID, uint(id))
 	if err != nil {
 		logger.Log.Error("Failed to get role users", zap.Uint64("id", id), zap.Error(err))
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"code":    500,
-			"message": "获取用户列表失败",
-		})
+		writeModuleError(c, err, http.StatusInternalServerError)
 		return
 	}
 
@@ -300,6 +345,12 @@ func GetRoleUsers(c *gin.Context) {
 // @Failure 400 {object} map[string]interface{} "参数错误"
 // @Router /role/departments [get]
 func GetRoleDepartments(c *gin.Context) {
+	tenantID, ok := requireTenantID(c)
+	if !ok {
+		return
+	}
+	operatorID := GetCurrentUserID(c)
+
 	idStr := c.Query("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
@@ -310,13 +361,10 @@ func GetRoleDepartments(c *gin.Context) {
 		return
 	}
 
-	departments, err := getRoleService().GetRoleDepartments(uint(id))
+	departments, err := getRoleService().GetRoleDepartments(c.Request.Context(), tenantID, operatorID, uint(id))
 	if err != nil {
 		logger.Log.Error("Failed to get role departments", zap.Uint64("id", id), zap.Error(err))
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"code":    500,
-			"message": "获取部门列表失败",
-		})
+		writeModuleError(c, err, http.StatusInternalServerError)
 		return
 	}
 
@@ -339,6 +387,12 @@ func GetRoleDepartments(c *gin.Context) {
 // @Failure 400 {object} map[string]interface{} "参数错误"
 // @Router /role/assign-users [post]
 func AssignRoleUsers(c *gin.Context) {
+	tenantID, ok := requireTenantID(c)
+	if !ok {
+		return
+	}
+	operatorID := GetCurrentUserID(c)
+
 	var req struct {
 		RoleID  uint   `json:"roleId" binding:"required"`
 		UserIDs []uint `json:"userIds" binding:"required"`
@@ -352,12 +406,9 @@ func AssignRoleUsers(c *gin.Context) {
 		return
 	}
 
-	if err := getRoleService().AssignUsers(req.RoleID, req.UserIDs); err != nil {
+	if err := getRoleService().AssignUsers(c.Request.Context(), tenantID, operatorID, req.RoleID, req.UserIDs); err != nil {
 		logger.Log.Error("Failed to assign role users", zap.Uint("roleID", req.RoleID), zap.Error(err))
-		c.JSON(http.StatusBadRequest, gin.H{
-			"code":    400,
-			"message": err.Error(),
-		})
+		writeModuleError(c, err, http.StatusBadRequest)
 		return
 	}
 
@@ -379,6 +430,12 @@ func AssignRoleUsers(c *gin.Context) {
 // @Failure 400 {object} map[string]interface{} "参数错误"
 // @Router /role/assign-departments [post]
 func AssignRoleDepartments(c *gin.Context) {
+	tenantID, ok := requireTenantID(c)
+	if !ok {
+		return
+	}
+	operatorID := GetCurrentUserID(c)
+
 	var req struct {
 		RoleID        uint   `json:"roleId" binding:"required"`
 		DepartmentIDs []uint `json:"departmentIds" binding:"required"`
@@ -392,12 +449,9 @@ func AssignRoleDepartments(c *gin.Context) {
 		return
 	}
 
-	if err := getRoleService().AssignDepartments(req.RoleID, req.DepartmentIDs); err != nil {
+	if err := getRoleService().AssignDepartments(c.Request.Context(), tenantID, operatorID, req.RoleID, req.DepartmentIDs); err != nil {
 		logger.Log.Error("Failed to assign role departments", zap.Uint("roleID", req.RoleID), zap.Error(err))
-		c.JSON(http.StatusBadRequest, gin.H{
-			"code":    400,
-			"message": err.Error(),
-		})
+		writeModuleError(c, err, http.StatusBadRequest)
 		return
 	}
 

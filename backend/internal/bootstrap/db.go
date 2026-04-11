@@ -77,10 +77,53 @@ func InitDB() error {
 		return err
 	}
 
+	if err := ensureDefaultTenantAndBackfill(db); err != nil {
+		return err
+	}
+	if err := ensureRoleDataScopes(db); err != nil {
+		return err
+	}
+
 	DB = db
 
 	if err := seedPermissions(db); err != nil {
 		logger.Log.Warn("权限种子数据初始化失败（非致命）", zap.Error(err))
+	}
+
+	return nil
+}
+
+func ensureDefaultTenantAndBackfill(db *gorm.DB) error {
+	const defaultTenantCode = "default"
+	const defaultTenantName = "默认租户"
+
+	var tenant userModel.Tenant
+	err := db.Where("code = ?", defaultTenantCode).First(&tenant).Error
+	if err != nil {
+		if err != gorm.ErrRecordNotFound {
+			return err
+		}
+		tenant = userModel.Tenant{
+			Name:           defaultTenantName,
+			Code:           defaultTenantCode,
+			Description:    "系统默认租户",
+			Status:         "active",
+			MaxUsers:       1000,
+			MaxDepartments: 100,
+			MaxRoles:       100,
+		}
+		if err := db.Create(&tenant).Error; err != nil {
+			return fmt.Errorf("create default tenant failed: %w", err)
+		}
+	}
+
+	// 保留 roles.tenant_id 为空的全局系统角色语义，避免被错误回填成默认租户角色。
+	for _, table := range []string{"users", "departments", "clusters"} {
+		if err := db.Table(table).
+			Where("tenant_id IS NULL").
+			Update("tenant_id", tenant.ID).Error; err != nil {
+			return fmt.Errorf("backfill %s.tenant_id failed: %w", table, err)
+		}
 	}
 
 	return nil
@@ -148,6 +191,28 @@ func ensureKeywordIndexes(db *gorm.DB) error {
 		}
 		if err := db.Exec(index.ddl).Error; err != nil {
 			return fmt.Errorf("create index %s failed: %w", index.name, err)
+		}
+	}
+
+	return nil
+}
+
+func ensureRoleDataScopes(db *gorm.DB) error {
+	if err := db.Model(&userModel.Role{}).
+		Where("COALESCE(data_scope, '') = ''").
+		Update("data_scope", string(userModel.DataScopeSelfDepartment)).Error; err != nil {
+		return fmt.Errorf("backfill role data_scope failed: %w", err)
+	}
+
+	for _, roleName := range []string{"SYSTEM_ADMIN", "TENANT_ADMIN", "DEPT_ADMIN", "READ_ONLY"} {
+		dataScope, ok := userModel.DefaultRoleDataScope(roleName)
+		if !ok {
+			continue
+		}
+		if err := db.Model(&userModel.Role{}).
+			Where("name = ? AND data_scope <> ?", roleName, dataScope).
+			Update("data_scope", string(dataScope)).Error; err != nil {
+			return fmt.Errorf("backfill role %s data_scope failed: %w", roleName, err)
 		}
 	}
 

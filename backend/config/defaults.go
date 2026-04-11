@@ -36,6 +36,7 @@ func SetDefaults(v *viper.Viper) {
 
 	// Session 默认配置
 	v.SetDefault("session.expire", 7200)
+	v.SetDefault("auth.enable_external", false)
 
 	// 加密默认配置
 	v.SetDefault("crypto.secret", "")
