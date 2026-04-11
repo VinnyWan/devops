@@ -1,45 +1,26 @@
 {
-  "name": "frondend",
+  "name": "frontend",
   "private": true,
   "version": "0.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "generate:contract": "node scripts/generate-from-swagger.mjs",
-    "typecheck": "vue-tsc -b",
-    "lint": "eslint .",
-    "format:check": "prettier --check .",
-    "perf:budget": "node scripts/check-first-screen-budget.mjs",
-    "perf:lighthouse": "lhci autorun --config=.lighthouserc.json",
-    "perf:verify": "npm run build && npm run perf:lighthouse",
-    "build": "vue-tsc -b && vite build && npm run perf:budget",
+    "build": "vite build",
     "preview": "vite preview"
   },
   "dependencies": {
-    "@xterm/addon-fit": "^0.11.0",
-    "@xterm/xterm": "^6.0.0",
-    "axios": "^1.13.5",
-    "js-yaml": "^4.1.1",
-    "naive-ui": "^2.43.2",
+    "@element-plus/icons-vue": "^2.3.2",
+    "axios": "^1.14.0",
+    "dayjs": "^1.11.20",
+    "element-plus": "^2.13.6",
     "pinia": "^3.0.4",
-    "vue": "^3.5.25",
+    "vue": "^3.5.30",
     "vue-router": "^4.6.4"
   },
   "devDependencies": {
-    "@eslint/js": "^9.38.0",
-    "@lhci/cli": "^0.15.1",
-    "@types/js-yaml": "^4.0.9",
-    "@types/node": "^24.10.1",
-    "@vitejs/plugin-vue": "^6.0.2",
-    "@vue/tsconfig": "^0.8.1",
-    "eslint": "^9.38.0",
-    "eslint-config-prettier": "^10.1.8",
-    "eslint-plugin-vue": "^10.5.1",
-    "openapi-typescript": "^7.13.0",
-    "prettier": "^3.6.2",
-    "typescript": "~5.9.3",
-    "typescript-eslint": "^8.46.2",
-    "vite": "^7.3.1",
-    "vue-tsc": "^3.1.5"
+    "@vitejs/plugin-vue": "^6.0.5",
+    "unplugin-auto-import": "^21.0.0",
+    "unplugin-vue-components": "^32.0.0",
+    "vite": "^8.0.1"
   }
 }

@@ -1,13 +1,14 @@
-<script setup lang="ts">
-import { computed, defineAsyncComponent } from 'vue'
-import { useRoute } from 'vue-router'
+<template>
+  <router-view />
+</template>
 
-const route = useRoute()
-const MainLayout = defineAsyncComponent(() => import('@/layouts/MainLayout.vue'))
-const BlankLayout = defineAsyncComponent(() => import('@/layouts/BlankLayout.vue'))
-const layoutComponent = computed(() => (route.meta.layout === 'blank' ? BlankLayout : MainLayout))
+<script setup>
 </script>
 
-<template>
-  <component :is="layoutComponent" />
-</template>
+<style>
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+</style>

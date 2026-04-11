@@ -1,158 +1,134 @@
-<script setup lang="ts">
-import { ref, h } from 'vue'
-import { NCard, NButton, NModal, NSpace, useMessage, useDialog } from 'naive-ui'
-import CrudTable from '@/components/CrudTable.vue'
-import CrudForm from '@/components/CrudForm.vue'
-import SearchBar from '@/components/SearchBar.vue'
-import { userListPost, userRegisterPost, userUpdatePost, userDeletePost, userAssignRolesPost } from '@/api/generated/user.api'
-import { roleListPost } from '@/api/generated/role.api'
-import { departmentListPost } from '@/api/generated/department.api'
-
-const message = useMessage()
-const dialog = useDialog()
-const tableRef = ref()
-const showModal = ref(false)
-const showRoleModal = ref(false)
-const editingUser = ref<any>(null)
-const currentUserId = ref<number>(0)
-
-const departments = ref<any[]>([])
-const roles = ref<any[]>([])
-const selectedRoles = ref<number[]>([])
-
-const columns = [
-  { title: 'ID', key: 'id', width: 80 },
-  { title: '用户名', key: 'username' },
-  { title: '邮箱', key: 'email' },
-  { title: '部门', key: 'department_name' },
-  { title: '状态', key: 'status' },
-  {
-    title: '角色',
-    key: 'roles',
-    render: (row: any) => {
-      return h(NButton, { size: 'small', onClick: () => handleAssignRoles(row) }, { default: () => '分配角色' })
-    }
-  }
-]
-
-const formFields = [
-  { name: 'username', label: '用户名', type: 'text' as const, required: true },
-  { name: 'email', label: '邮箱', type: 'text' as const, required: true },
-  { name: 'password', label: '密码', type: 'password' as const, required: true },
-  { name: 'department_id', label: '部门', type: 'select' as const, required: true, options: [] as any[] },
-  { name: 'status', label: '状态', type: 'select' as const, required: true, options: [
-    { label: '激活', value: 'active' },
-    { label: '锁定', value: 'locked' }
-  ]}
-]
-
-const fetchData = async ({ page, pageSize }: { page: number; pageSize: number }) => {
-  const res = await userListPost({ page, pageSize })
-  return { data: (res.data.data?.list || []) as any[], total: (res.data.data?.total || 0) as number }
-}
-
-const handleSearch = async (params: any) => {
-  const res = await userListPost({ page: 1, pageSize: 10, keyword: params.keyword })
-  return { data: res.data.data?.list || [], total: res.data.data?.total || 0 }
-}
-
-const handleCreate = () => {
-  editingUser.value = null
-  showModal.value = true
-}
-
-const handleEdit = (row: any) => {
-  editingUser.value = row
-  showModal.value = true
-}
-
-const handleDelete = (id: number) => {
-  dialog.warning({
-    title: '确认删除',
-    content: '确定要删除该用户吗？',
-    positiveText: '确定',
-    negativeText: '取消',
-    onPositiveClick: async () => {
-      await userDeletePost({ id })
-      message.success('删除成功')
-      tableRef.value?.loadData()
-    }
-  })
-}
-
-const handleSubmit = async (data: any) => {
-  if (editingUser.value) {
-    await userUpdatePost({ ...data, id: editingUser.value.id })
-    message.success('更新成功')
-  } else {
-    await userRegisterPost(data)
-    message.success('创建成功')
-  }
-  showModal.value = false
-  tableRef.value?.loadData()
-}
-
-const handleAssignRoles = (row: any) => {
-  currentUserId.value = row.id
-  selectedRoles.value = row.role_ids || []
-  showRoleModal.value = true
-}
-
-const handleRoleSubmit = async () => {
-  await userAssignRolesPost({ user_id: currentUserId.value, role_ids: selectedRoles.value })
-  message.success('角色分配成功')
-  showRoleModal.value = false
-  tableRef.value?.loadData()
-}
-
-const loadOptions = async () => {
-  const [deptRes, roleRes] = await Promise.all([
-    departmentListPost({}),
-    roleListPost({})
-  ])
-  const deptList = (deptRes.data.data?.list || []) as any[]
-  const roleList = (roleRes.data.data?.list || []) as any[]
-  departments.value = deptList.map((d: any) => ({ label: d.name, value: d.id }))
-  roles.value = roleList.map((r: any) => ({ label: r.name, value: r.id }))
-  formFields[3].options = departments.value
-}
-
-loadOptions()
-</script>
-
 <template>
-  <NCard title="用户管理">
-    <template #header-extra>
-      <NButton type="primary" @click="handleCreate">新增用户</NButton>
-    </template>
-    <NSpace vertical :size="16">
-      <SearchBar :filters="[]" @search="handleSearch" />
-      <CrudTable
-        ref="tableRef"
-        :columns="columns"
-        :fetch-data="fetchData"
-        :on-edit="handleEdit"
-        :on-delete="handleDelete"
-        :permissions="{ update: true, delete: true }"
-      />
-    </NSpace>
+  <div class="page-container">
+    <div class="page-header">
+      <h3>用户管理</h3>
+      <el-button type="primary" @click="showDialog()">新建用户</el-button>
+    </div>
+    <el-card>
+      <el-table :data="tableData" stripe>
+        <el-table-column prop="username" label="用户名" />
+        <el-table-column prop="email" label="邮箱" />
+        <el-table-column prop="status" label="状态" />
+        <el-table-column label="操作" width="180">
+          <template #default="{ row }">
+            <el-button link type="primary" @click="showDialog(row)">编辑</el-button>
+            <el-button link type="danger" @click="handleDelete(row.id)">删除</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+    </el-card>
 
-    <NModal v-model:show="showModal" preset="card" :title="editingUser ? '编辑用户' : '新增用户'" style="width: 600px">
-      <CrudForm :fields="formFields" :initial-data="editingUser" :on-submit="handleSubmit" />
-    </NModal>
-
-    <NModal v-model:show="showRoleModal" preset="card" title="分配角色" style="width: 500px">
-      <NSpace vertical>
-        <div v-for="role in roles" :key="role.value">
-          <label>
-            <input type="checkbox" :value="role.value" v-model="selectedRoles" />
-            {{ role.label }}
-          </label>
-        </div>
-        <NButton type="primary" @click="handleRoleSubmit">确定</NButton>
-      </NSpace>
-    </NModal>
-  </NCard>
+    <el-dialog v-model="dialogVisible" :title="form.id ? '编辑用户' : '创建用户'">
+      <el-form ref="formRef" :model="form" :rules="rules" label-width="80px">
+        <el-form-item label="用户名" prop="username">
+          <el-input v-model="form.username" placeholder="请输入用户名" />
+        </el-form-item>
+        <el-form-item label="邮箱" prop="email">
+          <el-input v-model="form.email" placeholder="请输入邮箱" />
+        </el-form-item>
+        <el-form-item label="密码" prop="password" v-if="!form.id">
+          <el-input v-model="form.password" type="password" placeholder="请输入密码" show-password />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="dialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="saving" @click="handleSave">确定</el-button>
+      </template>
+    </el-dialog>
+  </div>
 </template>
 
+<script setup>
+import { ref, onMounted } from 'vue'
+import { getUserList, createUser, updateUser, deleteUser } from '../../api/system'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { required, email } from '../../utils/validate'
 
+const tableData = ref([])
+const dialogVisible = ref(false)
+const form = ref({})
+const formRef = ref()
+const loading = ref(false)
+const saving = ref(false)
+
+const rules = {
+  username: [required('请输入用户名')],
+  email: [required('请输入邮箱'), email()],
+  password: [required('请输入密码')]
+}
+
+const fetchData = async () => {
+  loading.value = true
+  try {
+    const res = await getUserList()
+    tableData.value = res.data || []
+  } finally {
+    loading.value = false
+  }
+}
+
+const showDialog = (row) => {
+  form.value = row ? { ...row } : {}
+  dialogVisible.value = true
+  formRef.value?.clearValidate()
+}
+
+const handleSave = async () => {
+  const valid = await formRef.value.validate().catch(() => false)
+  if (!valid) return
+
+  saving.value = true
+  try {
+    if (form.value.id) {
+      await updateUser(form.value)
+    } else {
+      await createUser(form.value)
+    }
+    ElMessage.success('保存成功')
+    dialogVisible.value = false
+    fetchData()
+  } catch (error) {
+    ElMessage.error(error.response?.data?.message || '保存失败')
+  } finally {
+    saving.value = false
+  }
+}
+
+const handleDelete = async (id) => {
+  try {
+    await ElMessageBox.confirm('确定要删除该用户吗?', '提示', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
+    await deleteUser(id)
+    ElMessage.success('删除成功')
+    fetchData()
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error('删除失败')
+    }
+  }
+}
+
+onMounted(fetchData)
+</script>
+
+<style scoped>
+.page-container {
+  background: #fff;
+  border-radius: 4px;
+  padding: 24px;
+}
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+.page-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 500;
+}
+</style>
