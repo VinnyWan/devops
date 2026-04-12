@@ -285,19 +285,17 @@ func (s *RoleService) AssignDepartments(ctx context.Context, tenantID uint, oper
 // -------------------------------------------------------------------
 
 type CreatePermissionRequest struct {
-	Name        string `json:"name" binding:"required"`
-	Resource    string `json:"resource" binding:"required"`
-	Action      string `json:"action" binding:"required"`
-	Description string `json:"description"`
+	Name     string `json:"name" binding:"required"`
+	Resource string `json:"resource" binding:"required"`
+	Action   string `json:"action" binding:"required"`
 }
 
 // CreatePermission 创建权限
 func (s *RoleService) CreatePermission(req *CreatePermissionRequest) (*model.Permission, error) {
 	perm := &model.Permission{
-		Name:        req.Name,
-		Resource:    req.Resource,
-		Action:      req.Action,
-		Description: req.Description,
+		Name:     req.Name,
+		Resource: req.Resource,
+		Action:   req.Action,
 	}
 
 	if err := s.permissionRepo.Create(perm); err != nil {

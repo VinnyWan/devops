@@ -53,7 +53,7 @@ func (r *PermissionRepo) List(page, pageSize int, resource, keyword string) ([]m
 	if resource != "" {
 		query = query.Where("resource = ?", resource)
 	}
-	query = queryutil.ApplyKeywordLike(query, keyword, "name", "resource", "action", "description")
+	query = queryutil.ApplyKeywordLike(query, keyword, "name", "resource", "action")
 
 	// 获取总数
 	if err := query.Count(&total).Error; err != nil {
@@ -84,11 +84,11 @@ func (r *PermissionRepo) Update(permission *model.Permission) error {
 // Delete 删除权限
 func (r *PermissionRepo) Delete(id uint) error {
 	return r.db.Transaction(func(tx *gorm.DB) error {
-		permission := &model.Permission{ID: id}
-		if err := tx.Model(permission).Association("Roles").Clear(); err != nil {
+		// 清理 role_permissions 关联表中的记录
+		if err := tx.Exec("DELETE FROM role_permissions WHERE permission_id = ?", id).Error; err != nil {
 			return err
 		}
-		return tx.Delete(permission).Error
+		return tx.Delete(&model.Permission{ID: id}).Error
 	})
 }
 

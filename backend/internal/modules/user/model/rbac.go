@@ -84,17 +84,30 @@ type Role struct {
 	DeletedAt   gorm.DeletedAt `gorm:"index" json:"-"`
 }
 
+type PermissionType string
+
+const (
+	PermissionTypeAPI    PermissionType = "api"
+	PermissionTypeMenu   PermissionType = "menu"
+	PermissionTypeButton PermissionType = "button"
+)
+
 // Permission 权限模型
 type Permission struct {
-	ID          uint           `gorm:"primarykey" json:"id"`
-	Name        string         `gorm:"size:50;not null" json:"name"`
-	Resource    string         `gorm:"size:50;not null" json:"resource"` // e.g., "cluster", "user"
-	Action      string         `gorm:"size:50;not null" json:"action"`   // e.g., "create", "read", "update", "delete"
-	Description string         `gorm:"size:200" json:"description"`
-	Roles       []Role         `gorm:"many2many:role_permissions;" json:"-"`
-	CreatedAt   time.Time      `json:"createdAt"`
-	UpdatedAt   time.Time      `json:"updatedAt"`
-	DeletedAt   gorm.DeletedAt `gorm:"index" json:"-"`
+	ID        uint           `gorm:"primaryKey" json:"id"`
+	TenantID  *uint          `gorm:"index" json:"tenantId"`
+	Type      PermissionType `gorm:"size:20;not null;default:'api';index" json:"type"`
+	Resource  string         `gorm:"size:100;not null;uniqueIndex:uk_perms_res_act" json:"resource"`
+	Action    string         `gorm:"size:50;not null;uniqueIndex:uk_perms_res_act" json:"action"`
+	Name      string         `gorm:"size:100" json:"name"`
+	ParentID  *uint          `gorm:"index" json:"parentId"`
+	Path      string         `gorm:"size:255" json:"path"`
+	Icon      string         `gorm:"size:100" json:"icon"`
+	Sort      int            `gorm:"default:0" json:"sort"`
+	Status    bool           `gorm:"default:true" json:"status"`
+	CreatedAt time.Time      `json:"createdAt"`
+	UpdatedAt time.Time      `json:"updatedAt"`
+	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
 }
 
 // TableName 指定表名
