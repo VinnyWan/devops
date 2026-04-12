@@ -18,17 +18,23 @@ type UserService struct {
 	userRepo       *repository.UserRepo
 	roleRepo       *repository.RoleRepo
 	permissionRepo *repository.PermissionRepo
+	userDeptRepo   *repository.UserDepartmentRepo
+	deptRepo       *repository.DepartmentRepo
 	scopeSvc       *AccessScopeService
 }
 
 func NewUserService(db *gorm.DB) *UserService {
 	userRepo := repository.NewUserRepo(db)
 	deptRepo := repository.NewDepartmentRepo(db)
+	userDeptRepo := repository.NewUserDepartmentRepo(db)
+	roleRepo := repository.NewRoleRepo(db)
 	return &UserService{
 		userRepo:       userRepo,
-		roleRepo:       repository.NewRoleRepo(db),
+		roleRepo:       roleRepo,
 		permissionRepo: repository.NewPermissionRepo(db),
-		scopeSvc:       NewAccessScopeService(userRepo, deptRepo),
+		userDeptRepo:   userDeptRepo,
+		deptRepo:       deptRepo,
+		scopeSvc:       NewAccessScopeService(userRepo, deptRepo, userDeptRepo).WithRoleRepo(roleRepo),
 	}
 }
 
@@ -295,7 +301,7 @@ func (s *UserService) UnlockUser(ctx context.Context, tenantID uint, operatorID 
 	return s.userRepo.Update(user)
 }
 
-// GetUserPermissions 获取用户的所有权限（含完整权限链）
+// GetUserPermissions 获取用户的所有权限（含完整权限链，支持多部门）
 func (s *UserService) GetUserPermissions(tenantID uint, userID uint) ([]model.Permission, error) {
 	user, err := s.userRepo.GetByIDWithPermissionsInTenant(tenantID, userID)
 	if err != nil {
@@ -310,10 +316,9 @@ func (s *UserService) GetUserPermissions(tenantID uint, userID uint) ([]model.Pe
 	// 1. 获取默认只读角色
 	readOnlyRole, _ := s.roleRepo.GetByNameInTenant(tenantID, "READ_ONLY")
 
-	// 2. 收集所有权限
+	// 2. 收集所有权限（用 map 去重）
 	permMap := make(map[uint]model.Permission)
 
-	// Helper to add permissions
 	addPerms := func(perms []model.Permission) {
 		for _, p := range perms {
 			permMap[p.ID] = p
@@ -325,19 +330,54 @@ func (s *UserService) GetUserPermissions(tenantID uint, userID uint) ([]model.Pe
 		addPerms(readOnlyRole.Permissions)
 	}
 
-	// 4. 添加用户自身角色的权限
+	// 4. 添加用户自身角色的权限（user_roles）
 	for _, role := range user.Roles {
 		addPerms(role.Permissions)
 	}
 
-	// 5. 添加部门角色的权限
-	if user.Department != nil {
-		for _, role := range user.Department.Roles {
+	// 5. 通过 user_departments 中间表获取所有部门的角色权限
+	userDepts, err := s.userDeptRepo.GetUserDepartments(userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user departments: %w", err)
+	}
+
+	// 收集需要查询的角色 ID（来自 UserDepartment.RoleID 指定的部门专属角色）
+	var extraRoleIDs []uint
+	for _, ud := range userDepts {
+		if ud.RoleID != nil && *ud.RoleID != 0 {
+			extraRoleIDs = append(extraRoleIDs, *ud.RoleID)
+		}
+	}
+
+	// 收集所有部门 ID，批量获取部门绑定的角色
+	deptIDs := make([]uint, 0, len(userDepts))
+	for _, ud := range userDepts {
+		deptIDs = append(deptIDs, ud.DeptID)
+	}
+
+	// 6. 获取每个部门绑定的角色权限（department_roles）
+	for _, deptID := range deptIDs {
+		dept, err := s.deptRepo.GetByIDInTenant(tenantID, deptID)
+		if err != nil {
+			continue // 部门不存在则跳过
+		}
+		for _, role := range dept.Roles {
 			addPerms(role.Permissions)
 		}
 	}
 
-	// 6. 转换为列表
+	// 7. 获取 UserDepartment.RoleID 指定的部门专属角色权限
+	if len(extraRoleIDs) > 0 {
+		for _, roleID := range extraRoleIDs {
+			role, err := s.roleRepo.GetByIDInTenant(tenantID, roleID)
+			if err != nil {
+				continue // 角色不存在则跳过
+			}
+			addPerms(role.Permissions)
+		}
+	}
+
+	// 8. 转换为列表
 	permissions := make([]model.Permission, 0, len(permMap))
 	for _, p := range permMap {
 		permissions = append(permissions, p)

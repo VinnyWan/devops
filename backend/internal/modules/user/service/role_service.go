@@ -29,7 +29,7 @@ func NewRoleService(db *gorm.DB) *RoleService {
 		roleRepo:       repository.NewRoleRepo(db),
 		permissionRepo: repository.NewPermissionRepo(db),
 		userRepo:       userRepo,
-		scopeSvc:       NewAccessScopeService(userRepo, deptRepo),
+		scopeSvc:       NewAccessScopeService(userRepo, deptRepo, nil),
 	}
 }
 

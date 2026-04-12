@@ -22,7 +22,7 @@ func NewDepartmentService(deptRepo *repository.DepartmentRepo, userRepo *reposit
 	return &DepartmentService{
 		deptRepo: deptRepo,
 		userRepo: userRepo,
-		scopeSvc: NewAccessScopeService(userRepo, deptRepo),
+		scopeSvc: NewAccessScopeService(userRepo, deptRepo, nil),
 	}
 }
 
