@@ -60,22 +60,26 @@ func NodeList(c *gin.Context) {
 
 // GetNodeDetail 获取节点详情
 // @Summary 获取节点详情
-// @Description 获取单个节点的完整详情，包括 SystemInfo, Conditions, Images 等
+// @Description 获取单个节点的完整详情，包括 annotations、lease、conditions、addresses、capacity、allocatable、pods、allocatedResources、systemInfo 与 images
 // @Tags K8s节点管理
 // @Accept json
 // @Produce json
-// @Param clusterName query string true "集群名称"
+// @Param clusterName query string false "集群名称，为空时回退到当前租户默认集群"
 // @Param name query string true "节点名称"
-// @Success 200 {object} service.NodeDetail "成功"
+// @Success 200 {object} Response{data=service.NodeDetail} "成功"
 // @Failure 400 {object} Response "参数错误"
 // @Security BearerAuth
 // @Router /k8s/node/detail [get]
 func GetNodeDetail(c *gin.Context) {
-	clusterName := c.Query("clusterName")
 	name := c.Query("name")
+	if name == "" {
+		c.JSON(http.StatusBadRequest, Response{Code: 400, Message: "name 不能为空"})
+		return
+	}
 
-	if clusterName == "" || name == "" {
-		c.JSON(http.StatusBadRequest, Response{Code: 400, Message: "clusterName 和 name 不能为空"})
+	clusterName, err := resolveClusterName(c)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, Response{Code: 400, Message: err.Error()})
 		return
 	}
 
@@ -273,17 +277,21 @@ func UpdateNodeTaints(c *gin.Context) {
 // @Tags K8s节点管理
 // @Accept json
 // @Produce json
-// @Param clusterName query string true "集群名称"
+// @Param clusterName query string false "集群名称，为空时回退到当前租户默认集群"
 // @Param name query string true "节点名称"
 // @Success 200 {object} Response "成功"
 // @Security BearerAuth
 // @Router /k8s/node/events [get]
 func GetNodeEvents(c *gin.Context) {
-	clusterName := c.Query("clusterName")
 	name := c.Query("name")
+	if name == "" {
+		c.JSON(http.StatusBadRequest, Response{Code: 400, Message: "name 不能为空"})
+		return
+	}
 
-	if clusterName == "" || name == "" {
-		c.JSON(http.StatusBadRequest, Response{Code: 400, Message: "clusterName 和 name 不能为空"})
+	clusterName, err := resolveClusterName(c)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, Response{Code: 400, Message: err.Error()})
 		return
 	}
 

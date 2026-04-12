@@ -156,8 +156,8 @@
       },
       "api.CordonNodeRequest": {
         "properties": {
-          "clusterId": {
-            "type": "integer"
+          "clusterName": {
+            "type": "string"
           },
           "cordon": {
             "description": "true=不可调度, false=可调度",
@@ -168,15 +168,15 @@
           }
         },
         "required": [
-          "clusterId",
+          "clusterName",
           "name"
         ],
         "type": "object"
       },
       "api.DrainNodeRequest": {
         "properties": {
-          "clusterId": {
-            "type": "integer"
+          "clusterName": {
+            "type": "string"
           },
           "deleteLocalData": {
             "type": "boolean"
@@ -195,7 +195,7 @@
           }
         },
         "required": [
-          "clusterId",
+          "clusterName",
           "name"
         ],
         "type": "object"
@@ -220,8 +220,8 @@
       },
       "api.UpdateLabelsRequest": {
         "properties": {
-          "clusterId": {
-            "type": "integer"
+          "clusterName": {
+            "type": "string"
           },
           "labels": {
             "additionalProperties": {
@@ -234,7 +234,7 @@
           }
         },
         "required": [
-          "clusterId",
+          "clusterName",
           "labels",
           "name"
         ],
@@ -242,8 +242,8 @@
       },
       "api.UpdateTaintsRequest": {
         "properties": {
-          "clusterId": {
-            "type": "integer"
+          "clusterName": {
+            "type": "string"
           },
           "name": {
             "type": "string"
@@ -254,7 +254,7 @@
           }
         },
         "required": [
-          "clusterId",
+          "clusterName",
           "name",
           "taints"
         ],
@@ -847,6 +847,53 @@
         ],
         "type": "object"
       },
+      "service.NodeAllocatedResource": {
+        "properties": {
+          "cpuLimits": {
+            "type": "string"
+          },
+          "cpuLimitsPercentage": {
+            "type": "string"
+          },
+          "cpuRequests": {
+            "type": "string"
+          },
+          "cpuRequestsPercentage": {
+            "type": "string"
+          },
+          "ephemeralStorageLimits": {
+            "type": "string"
+          },
+          "ephemeralStorageRequests": {
+            "type": "string"
+          },
+          "hugepages1GiLimits": {
+            "type": "string"
+          },
+          "hugepages1GiRequests": {
+            "type": "string"
+          },
+          "hugepages2MiLimits": {
+            "type": "string"
+          },
+          "hugepages2MiRequests": {
+            "type": "string"
+          },
+          "memoryLimits": {
+            "type": "string"
+          },
+          "memoryLimitsPercentage": {
+            "type": "string"
+          },
+          "memoryRequests": {
+            "type": "string"
+          },
+          "memoryRequestsPercentage": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "service.NodeDetail": {
         "properties": {
           "addresses": {
@@ -855,6 +902,21 @@
           },
           "age": {
             "type": "string"
+          },
+          "allocatable": {
+            "$ref": "#/components/schemas/service.NodeResourceQuantity"
+          },
+          "allocatedResources": {
+            "$ref": "#/components/schemas/service.NodeAllocatedResource"
+          },
+          "annotations": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "capacity": {
+            "$ref": "#/components/schemas/service.NodeResourceQuantity"
           },
           "conditions": {
             "items": {},
@@ -902,6 +964,9 @@
             },
             "type": "object"
           },
+          "lease": {
+            "$ref": "#/components/schemas/service.NodeLeaseInfo"
+          },
           "memoryCapacity": {
             "type": "string"
           },
@@ -916,11 +981,26 @@
             "description": "操作系统镜像",
             "type": "string"
           },
+          "podCIDR": {
+            "type": "string"
+          },
+          "podCIDRs": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
           "podCapacity": {
             "type": "integer"
           },
           "podCount": {
             "type": "integer"
+          },
+          "pods": {
+            "$ref": "#/components/schemas/service.NodePodSummary"
+          },
+          "providerID": {
+            "type": "string"
           },
           "role": {
             "description": "master, worker",
@@ -937,6 +1017,20 @@
           },
           "unschedulable": {
             "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
+      "service.NodeLeaseInfo": {
+        "properties": {
+          "acquireTime": {
+            "type": "string"
+          },
+          "holderIdentity": {
+            "type": "string"
+          },
+          "renewTime": {
+            "type": "string"
           }
         },
         "type": "object"
@@ -1032,6 +1126,78 @@
           },
           "total": {
             "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "service.NodePodItem": {
+        "properties": {
+          "age": {
+            "type": "string"
+          },
+          "cpuLimit": {
+            "type": "string"
+          },
+          "cpuRequest": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "memoryLimit": {
+            "type": "string"
+          },
+          "memoryRequest": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "namespace": {
+            "type": "string"
+          },
+          "restartCount": {
+            "type": "integer"
+          },
+          "status": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "service.NodePodSummary": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/service.NodePodItem"
+            },
+            "type": "array"
+          },
+          "total": {
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "service.NodeResourceQuantity": {
+        "properties": {
+          "cpu": {
+            "type": "string"
+          },
+          "ephemeralStorage": {
+            "type": "string"
+          },
+          "hugepages1Gi": {
+            "type": "string"
+          },
+          "hugepages2Mi": {
+            "type": "string"
+          },
+          "memory": {
+            "type": "string"
+          },
+          "pods": {
+            "type": "string"
           }
         },
         "type": "object"
@@ -5286,15 +5452,15 @@
     },
     "/k8s/cluster/detail": {
       "get": {
-        "description": "根据集群ID获取详细信息",
+        "description": "根据集群名称获取详细信息",
         "parameters": [
           {
-            "description": "集群ID",
+            "description": "集群名称",
             "in": "query",
-            "name": "id",
+            "name": "name",
             "required": true,
             "schema": {
-              "type": "integer"
+              "type": "string"
             }
           }
         ],
@@ -5359,12 +5525,12 @@
         "description": "获取集群事件列表",
         "parameters": [
           {
-            "description": "集群ID",
+            "description": "集群名称",
             "in": "query",
-            "name": "id",
+            "name": "name",
             "required": true,
             "schema": {
-              "type": "integer"
+              "type": "string"
             }
           },
           {
@@ -5548,12 +5714,12 @@
         "description": "获取节点列表，包含资源使用情况（若有 Metrics Server）",
         "parameters": [
           {
-            "description": "集群ID",
+            "description": "集群名称",
             "in": "query",
-            "name": "id",
+            "name": "name",
             "required": true,
             "schema": {
-              "type": "integer"
+              "type": "string"
             }
           },
           {
@@ -5757,12 +5923,12 @@
         "description": "统计 Service, Ingress 的数量",
         "parameters": [
           {
-            "description": "集群ID",
+            "description": "集群名称",
             "in": "query",
-            "name": "id",
+            "name": "name",
             "required": true,
             "schema": {
-              "type": "integer"
+              "type": "string"
             }
           }
         ],
@@ -5794,12 +5960,12 @@
         "description": "统计 PV, PVC 的数量",
         "parameters": [
           {
-            "description": "集群ID",
+            "description": "集群名称",
             "in": "query",
-            "name": "id",
+            "name": "name",
             "required": true,
             "schema": {
-              "type": "integer"
+              "type": "string"
             }
           }
         ],
@@ -5831,12 +5997,12 @@
         "description": "统计 Deployment, StatefulSet, DaemonSet, Job, CronJob 的数量",
         "parameters": [
           {
-            "description": "集群ID",
+            "description": "集群名称",
             "in": "query",
-            "name": "id",
+            "name": "name",
             "required": true,
             "schema": {
-              "type": "integer"
+              "type": "string"
             }
           }
         ],
@@ -5938,11 +6104,11 @@
         "description": "创建一个新的 ConfigMap",
         "parameters": [
           {
-            "description": "集群ID（可选，未传则使用默认集群）",
+            "description": "集群名称（可选，未传则使用默认集群）",
             "in": "query",
-            "name": "clusterId",
+            "name": "clusterName",
             "schema": {
-              "type": "integer"
+              "type": "string"
             }
           },
           {
@@ -6002,7 +6168,7 @@
               }
             }
           },
-          "description": "参数: {clusterId, namespace, name}",
+          "description": "参数: {clusterName, namespace, name}",
           "required": true,
           "x-originalParamName": "request"
         },
@@ -6034,11 +6200,11 @@
         "description": "获取指定 ConfigMap 的详细信息",
         "parameters": [
           {
-            "description": "集群ID（可选，未传则使用默认集群）",
+            "description": "集群名称（可选，未传则使用默认集群）",
             "in": "query",
-            "name": "clusterId",
+            "name": "clusterName",
             "schema": {
-              "type": "integer"
+              "type": "string"
             }
           },
           {
@@ -6088,11 +6254,11 @@
         "description": "获取 ConfigMap 列表，namespace 为空时获取所有命名空间",
         "parameters": [
           {
-            "description": "集群ID（可选，未传则使用默认集群）",
+            "description": "集群名称（可选，未传则使用默认集群）",
             "in": "query",
-            "name": "clusterId",
+            "name": "clusterName",
             "schema": {
-              "type": "integer"
+              "type": "string"
             }
           },
           {
@@ -6158,11 +6324,11 @@
         "description": "更新现有的 ConfigMap",
         "parameters": [
           {
-            "description": "集群ID（可选，未传则使用默认集群）",
+            "description": "集群名称（可选，未传则使用默认集群）",
             "in": "query",
-            "name": "clusterId",
+            "name": "clusterName",
             "schema": {
-              "type": "integer"
+              "type": "string"
             }
           },
           {
@@ -6215,11 +6381,11 @@
         "description": "创建一个新的 DaemonSet",
         "parameters": [
           {
-            "description": "集群ID（可选，未传则使用默认集群）",
+            "description": "集群名称（可选，未传则使用默认集群）",
             "in": "query",
-            "name": "clusterId",
+            "name": "clusterName",
             "schema": {
-              "type": "integer"
+              "type": "string"
             }
           },
           {
@@ -6278,7 +6444,7 @@
               }
             }
           },
-          "description": "参数: {clusterId, namespace, name}",
+          "description": "参数: {clusterName, namespace, name}",
           "required": true,
           "x-originalParamName": "request"
         },
@@ -6310,11 +6476,11 @@
         "description": "获取指定 DaemonSet 的详细信息",
         "parameters": [
           {
-            "description": "集群ID（可选，未传则使用默认集群）",
+            "description": "集群名称（可选，未传则使用默认集群）",
             "in": "query",
-            "name": "clusterId",
+            "name": "clusterName",
             "schema": {
-              "type": "integer"
+              "type": "string"
             }
           },
           {
@@ -6364,11 +6530,11 @@
         "description": "获取 DaemonSet 列表，namespace 为空时获取所有命名空间",
         "parameters": [
           {
-            "description": "集群ID（可选，未传则使用默认集群）",
+            "description": "集群名称（可选，未传则使用默认集群）",
             "in": "query",
-            "name": "clusterId",
+            "name": "clusterName",
             "schema": {
-              "type": "integer"
+              "type": "string"
             }
           },
           {
@@ -6440,7 +6606,7 @@
               }
             }
           },
-          "description": "参数: {clusterId, namespace, name}",
+          "description": "参数: {clusterName, namespace, name}",
           "required": true,
           "x-originalParamName": "request"
         },
@@ -6472,11 +6638,11 @@
         "description": "更新现有的 DaemonSet",
         "parameters": [
           {
-            "description": "集群ID（可选，未传则使用默认集群）",
+            "description": "集群名称（可选，未传则使用默认集群）",
             "in": "query",
-            "name": "clusterId",
+            "name": "clusterName",
             "schema": {
-              "type": "integer"
+              "type": "string"
             }
           },
           {
@@ -6529,11 +6695,11 @@
         "description": "获取指定 DaemonSet 的 YAML 内容",
         "parameters": [
           {
-            "description": "集群ID（可选，未传则使用默认集群）",
+            "description": "集群名称（可选，未传则使用默认集群）",
             "in": "query",
-            "name": "clusterId",
+            "name": "clusterName",
             "schema": {
-              "type": "integer"
+              "type": "string"
             }
           },
           {
@@ -6583,11 +6749,11 @@
         "description": "使用 YAML 内容更新指定 DaemonSet",
         "parameters": [
           {
-            "description": "集群ID（可选，未传则使用默认集群）",
+            "description": "集群名称（可选，未传则使用默认集群）",
             "in": "query",
-            "name": "clusterId",
+            "name": "clusterName",
             "schema": {
-              "type": "integer"
+              "type": "string"
             }
           },
           {
@@ -6649,11 +6815,11 @@
         "description": "创建一个新的 Deployment",
         "parameters": [
           {
-            "description": "集群ID（可选，未传则使用默认集群）",
+            "description": "集群名称（可选，未传则使用默认集群）",
             "in": "query",
-            "name": "clusterId",
+            "name": "clusterName",
             "schema": {
-              "type": "integer"
+              "type": "string"
             }
           },
           {
@@ -6712,7 +6878,7 @@
               }
             }
           },
-          "description": "参数: {clusterId, namespace, name}",
+          "description": "参数: {clusterName, namespace, name}",
           "required": true,
           "x-originalParamName": "request"
         },
@@ -6744,11 +6910,11 @@
         "description": "获取指定 Deployment 的详细信息",
         "parameters": [
           {
-            "description": "集群ID（可选，未传则使用默认集群）",
+            "description": "集群名称（可选，未传则使用默认集群）",
             "in": "query",
-            "name": "clusterId",
+            "name": "clusterName",
             "schema": {
-              "type": "integer"
+              "type": "string"
             }
           },
           {
@@ -6798,11 +6964,11 @@
         "description": "获取 Deployment 列表，namespace 为空时获取所有命名空间",
         "parameters": [
           {
-            "description": "集群ID（可选，未传则使用默认集群）",
+            "description": "集群名称（可选，未传则使用默认集群）",
             "in": "query",
-            "name": "clusterId",
+            "name": "clusterName",
             "schema": {
-              "type": "integer"
+              "type": "string"
             }
           },
           {
@@ -6868,11 +7034,11 @@
         "description": "根据 Deployment 获取对应的 Pod 列表",
         "parameters": [
           {
-            "description": "集群ID（可选，未传则使用默认集群）",
+            "description": "集群名称（可选，未传则使用默认集群）",
             "in": "query",
-            "name": "clusterId",
+            "name": "clusterName",
             "schema": {
-              "type": "integer"
+              "type": "string"
             }
           },
           {
@@ -6928,7 +7094,7 @@
               }
             }
           },
-          "description": "参数: {clusterId, namespace, name}",
+          "description": "参数: {clusterName, namespace, name}",
           "required": true,
           "x-originalParamName": "request"
         },
@@ -6966,7 +7132,7 @@
               }
             }
           },
-          "description": "参数: {clusterId, namespace, name, replicas}",
+          "description": "参数: {clusterName, namespace, name, replicas}",
           "required": true,
           "x-originalParamName": "request"
         },
@@ -6998,11 +7164,11 @@
         "description": "更新现有的 Deployment",
         "parameters": [
           {
-            "description": "集群ID（可选，未传则使用默认集群）",
+            "description": "集群名称（可选，未传则使用默认集群）",
             "in": "query",
-            "name": "clusterId",
+            "name": "clusterName",
             "schema": {
-              "type": "integer"
+              "type": "string"
             }
           },
           {
@@ -7055,11 +7221,11 @@
         "description": "获取指定 Deployment 的 YAML 内容",
         "parameters": [
           {
-            "description": "集群ID（可选，未传则使用默认集群）",
+            "description": "集群名称（可选，未传则使用默认集群）",
             "in": "query",
-            "name": "clusterId",
+            "name": "clusterName",
             "schema": {
-              "type": "integer"
+              "type": "string"
             }
           },
           {
@@ -7109,11 +7275,11 @@
         "description": "使用 YAML 内容更新指定 Deployment",
         "parameters": [
           {
-            "description": "集群ID（可选，未传则使用默认集群）",
+            "description": "集群名称（可选，未传则使用默认集群）",
             "in": "query",
-            "name": "clusterId",
+            "name": "clusterName",
             "schema": {
-              "type": "integer"
+              "type": "string"
             }
           },
           {
@@ -7175,11 +7341,11 @@
         "description": "创建一个新的 Ingress",
         "parameters": [
           {
-            "description": "集群ID（可选，未传则使用默认集群）",
+            "description": "集群名称（可选，未传则使用默认集群）",
             "in": "query",
-            "name": "clusterId",
+            "name": "clusterName",
             "schema": {
-              "type": "integer"
+              "type": "string"
             }
           },
           {
@@ -7239,7 +7405,7 @@
               }
             }
           },
-          "description": "参数: {clusterId, namespace, name}",
+          "description": "参数: {clusterName, namespace, name}",
           "required": true,
           "x-originalParamName": "request"
         },
@@ -7271,11 +7437,11 @@
         "description": "获取指定 Ingress 的详细信息",
         "parameters": [
           {
-            "description": "集群ID（可选，未传则使用默认集群）",
+            "description": "集群名称（可选，未传则使用默认集群）",
             "in": "query",
-            "name": "clusterId",
+            "name": "clusterName",
             "schema": {
-              "type": "integer"
+              "type": "string"
             }
           },
           {
@@ -7325,11 +7491,11 @@
         "description": "获取 Ingress 列表，namespace 为空时获取所有命名空间",
         "parameters": [
           {
-            "description": "集群ID（可选，未传则使用默认集群）",
+            "description": "集群名称（可选，未传则使用默认集群）",
             "in": "query",
-            "name": "clusterId",
+            "name": "clusterName",
             "schema": {
-              "type": "integer"
+              "type": "string"
             }
           },
           {
@@ -7395,11 +7561,11 @@
         "description": "更新现有的 Ingress",
         "parameters": [
           {
-            "description": "集群ID（可选，未传则使用默认集群）",
+            "description": "集群名称（可选，未传则使用默认集群）",
             "in": "query",
-            "name": "clusterId",
+            "name": "clusterName",
             "schema": {
-              "type": "integer"
+              "type": "string"
             }
           },
           {
@@ -7452,11 +7618,11 @@
         "description": "获取指定集群下的所有 Namespace 列表",
         "parameters": [
           {
-            "description": "集群ID（可选，未传则使用默认集群）",
+            "description": "集群名称（可选，未传则使用默认集群）",
             "in": "query",
-            "name": "clusterId",
+            "name": "clusterName",
             "schema": {
-              "type": "integer"
+              "type": "string"
             }
           }
         ],
@@ -7553,15 +7719,14 @@
     },
     "/k8s/node/detail": {
       "get": {
-        "description": "获取单个节点的完整详情，包括 SystemInfo, Conditions, Images 等",
+        "description": "获取单个节点的完整详情，包括 annotations、lease、conditions、addresses、capacity、allocatable、pods、allocatedResources、systemInfo 与 images",
         "parameters": [
           {
-            "description": "集群ID",
+            "description": "集群名称，为空时回退到当前租户默认集群",
             "in": "query",
-            "name": "clusterId",
-            "required": true,
+            "name": "clusterName",
             "schema": {
-              "type": "integer"
+              "type": "string"
             }
           },
           {
@@ -7579,7 +7744,19 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/service.NodeDetail"
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/api.Response"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/service.NodeDetail"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
                 }
               }
             },
@@ -7650,12 +7827,11 @@
         "description": "获取与指定节点相关的 K8s 事件",
         "parameters": [
           {
-            "description": "集群ID",
+            "description": "集群名称，为空时回退到当前租户默认集群",
             "in": "query",
-            "name": "clusterId",
-            "required": true,
+            "name": "clusterName",
             "schema": {
-              "type": "integer"
+              "type": "string"
             }
           },
           {
@@ -7772,12 +7948,12 @@
         "description": "分页获取 Kubernetes 节点列表，包含 Metrics 监控数据和 Pod 数量",
         "parameters": [
           {
-            "description": "集群ID",
+            "description": "集群名称",
             "in": "query",
-            "name": "clusterId",
+            "name": "clusterName",
             "required": true,
             "schema": {
-              "type": "integer"
+              "type": "string"
             }
           },
           {
@@ -7861,11 +8037,11 @@
         "description": "创建一个新的 Pod",
         "parameters": [
           {
-            "description": "集群ID（可选，未传则使用默认集群）",
+            "description": "集群名称（可选，未传则使用默认集群）",
             "in": "query",
-            "name": "clusterId",
+            "name": "clusterName",
             "schema": {
-              "type": "integer"
+              "type": "string"
             }
           },
           {
@@ -7925,7 +8101,7 @@
               }
             }
           },
-          "description": "参数: {clusterId, namespace, name}",
+          "description": "参数: {clusterName, namespace, name}",
           "required": true,
           "x-originalParamName": "request"
         },
@@ -7957,11 +8133,11 @@
         "description": "根据 Deployment/StatefulSet/DaemonSet 获取 Pod 列表\n聚合 Pod 基础信息、容器状态、事件、卷等完整诊断数据",
         "parameters": [
           {
-            "description": "集群ID（可选，未传则使用默认集群）",
+            "description": "集群名称（可选，未传则使用默认集群）",
             "in": "query",
-            "name": "clusterId",
+            "name": "clusterName",
             "schema": {
-              "type": "integer"
+              "type": "string"
             }
           },
           {
@@ -7992,11 +8168,11 @@
             }
           },
           {
-            "description": "集群ID（可选，未传则使用默认集群）",
+            "description": "集群名称（可选，未传则使用默认集群）",
             "in": "query",
-            "name": "clusterId",
+            "name": "clusterName",
             "schema": {
-              "type": "integer"
+              "type": "string"
             }
           },
           {
@@ -8050,11 +8226,11 @@
         "description": "获取指定 Pod 的详细信息",
         "parameters": [
           {
-            "description": "集群ID（可选，未传则使用默认集群）",
+            "description": "集群名称（可选，未传则使用默认集群）",
             "in": "query",
-            "name": "clusterId",
+            "name": "clusterName",
             "schema": {
-              "type": "integer"
+              "type": "string"
             }
           },
           {
@@ -8104,11 +8280,11 @@
         "description": "检测指定Pod容器中可用的shell类型",
         "parameters": [
           {
-            "description": "集群ID（可选，未传则使用默认集群）",
+            "description": "集群名称（可选，未传则使用默认集群）",
             "in": "query",
-            "name": "clusterId",
+            "name": "clusterName",
             "schema": {
-              "type": "integer"
+              "type": "string"
             }
           },
           {
@@ -8166,11 +8342,11 @@
         "description": "获取指定 Pod 的事件列表",
         "parameters": [
           {
-            "description": "集群ID（可选，未传则使用默认集群）",
+            "description": "集群名称（可选，未传则使用默认集群）",
             "in": "query",
-            "name": "clusterId",
+            "name": "clusterName",
             "schema": {
-              "type": "integer"
+              "type": "string"
             }
           },
           {
@@ -8220,11 +8396,11 @@
         "description": "获取 Pod 列表，namespace 为空时获取所有命名空间",
         "parameters": [
           {
-            "description": "集群ID（可选，未传则使用默认集群）",
+            "description": "集群名称（可选，未传则使用默认集群）",
             "in": "query",
-            "name": "clusterId",
+            "name": "clusterName",
             "schema": {
-              "type": "integer"
+              "type": "string"
             }
           },
           {
@@ -8290,11 +8466,11 @@
         "description": "根据 Deployment/StatefulSet/DaemonSet 获取 Pod 列表\n聚合 Pod 基础信息、容器状态、事件、卷等完整诊断数据",
         "parameters": [
           {
-            "description": "集群ID（可选，未传则使用默认集群）",
+            "description": "集群名称（可选，未传则使用默认集群）",
             "in": "query",
-            "name": "clusterId",
+            "name": "clusterName",
             "schema": {
-              "type": "integer"
+              "type": "string"
             }
           },
           {
@@ -8325,11 +8501,11 @@
             }
           },
           {
-            "description": "集群ID（可选，未传则使用默认集群）",
+            "description": "集群名称（可选，未传则使用默认集群）",
             "in": "query",
-            "name": "clusterId",
+            "name": "clusterName",
             "schema": {
-              "type": "integer"
+              "type": "string"
             }
           },
           {
@@ -8383,11 +8559,11 @@
         "description": "获取指定 Pod 的日志内容",
         "parameters": [
           {
-            "description": "集群ID（可选，未传则使用默认集群）",
+            "description": "集群名称（可选，未传则使用默认集群）",
             "in": "query",
-            "name": "clusterId",
+            "name": "clusterName",
             "schema": {
-              "type": "integer"
+              "type": "string"
             }
           },
           {
@@ -8454,11 +8630,11 @@
         "description": "WebSocket 进入 Pod 命令行（shell=bash/sh，可选 container，支持 resize）",
         "parameters": [
           {
-            "description": "集群ID（可选，未传则使用默认集群）",
+            "description": "集群名称（可选，未传则使用默认集群）",
             "in": "query",
-            "name": "clusterId",
+            "name": "clusterName",
             "schema": {
-              "type": "integer"
+              "type": "string"
             }
           },
           {
@@ -8529,11 +8705,11 @@
         "description": "更新现有的 Pod",
         "parameters": [
           {
-            "description": "集群ID（可选，未传则使用默认集群）",
+            "description": "集群名称（可选，未传则使用默认集群）",
             "in": "query",
-            "name": "clusterId",
+            "name": "clusterName",
             "schema": {
-              "type": "integer"
+              "type": "string"
             }
           },
           {
@@ -8586,11 +8762,11 @@
         "description": "获取指定 Pod 的 YAML 内容",
         "parameters": [
           {
-            "description": "集群ID（可选，未传则使用默认集群）",
+            "description": "集群名称（可选，未传则使用默认集群）",
             "in": "query",
-            "name": "clusterId",
+            "name": "clusterName",
             "schema": {
-              "type": "integer"
+              "type": "string"
             }
           },
           {
@@ -8640,11 +8816,11 @@
         "description": "使用 YAML 内容更新指定 Pod",
         "parameters": [
           {
-            "description": "集群ID（可选，未传则使用默认集群）",
+            "description": "集群名称（可选，未传则使用默认集群）",
             "in": "query",
-            "name": "clusterId",
+            "name": "clusterName",
             "schema": {
-              "type": "integer"
+              "type": "string"
             }
           },
           {
@@ -8732,11 +8908,11 @@
         "description": "通用接口，获取任意K8s资源的YAML格式",
         "parameters": [
           {
-            "description": "集群ID（可选，未传则使用默认集群）",
+            "description": "集群名称（可选，未传则使用默认集群）",
             "in": "query",
-            "name": "clusterId",
+            "name": "clusterName",
             "schema": {
-              "type": "integer"
+              "type": "string"
             }
           },
           {
@@ -8794,11 +8970,11 @@
         "description": "创建一个新的 Service",
         "parameters": [
           {
-            "description": "集群ID（可选，未传则使用默认集群）",
+            "description": "集群名称（可选，未传则使用默认集群）",
             "in": "query",
-            "name": "clusterId",
+            "name": "clusterName",
             "schema": {
-              "type": "integer"
+              "type": "string"
             }
           },
           {
@@ -8858,7 +9034,7 @@
               }
             }
           },
-          "description": "参数: {clusterId, namespace, name}",
+          "description": "参数: {clusterName, namespace, name}",
           "required": true,
           "x-originalParamName": "request"
         },
@@ -8890,11 +9066,11 @@
         "description": "获取指定 Service 的详细信息",
         "parameters": [
           {
-            "description": "集群ID（可选，未传则使用默认集群）",
+            "description": "集群名称（可选，未传则使用默认集群）",
             "in": "query",
-            "name": "clusterId",
+            "name": "clusterName",
             "schema": {
-              "type": "integer"
+              "type": "string"
             }
           },
           {
@@ -8933,7 +9109,7 @@
             "BearerAuth": []
           }
         ],
-        "summary": "获取 Service 详情",
+        "summary": "获取 Service详情",
         "tags": [
           "K8s资源管理"
         ]
@@ -8944,11 +9120,11 @@
         "description": "获取 Service 列表，namespace 为空时获取所有命名空间",
         "parameters": [
           {
-            "description": "集群ID（可选，未传则使用默认集群）",
+            "description": "集群名称（可选，未传则使用默认集群）",
             "in": "query",
-            "name": "clusterId",
+            "name": "clusterName",
             "schema": {
-              "type": "integer"
+              "type": "string"
             }
           },
           {
@@ -9014,11 +9190,11 @@
         "description": "更新现有的 Service",
         "parameters": [
           {
-            "description": "集群ID（可选，未传则使用默认集群）",
+            "description": "集群名称（可选，未传则使用默认集群）",
             "in": "query",
-            "name": "clusterId",
+            "name": "clusterName",
             "schema": {
-              "type": "integer"
+              "type": "string"
             }
           },
           {
@@ -9071,11 +9247,11 @@
         "description": "创建一个新的 StatefulSet",
         "parameters": [
           {
-            "description": "集群ID（可选，未传则使用默认集群）",
+            "description": "集群名称（可选，未传则使用默认集群）",
             "in": "query",
-            "name": "clusterId",
+            "name": "clusterName",
             "schema": {
-              "type": "integer"
+              "type": "string"
             }
           },
           {
@@ -9134,7 +9310,7 @@
               }
             }
           },
-          "description": "参数: {clusterId, namespace, name}",
+          "description": "参数: {clusterName, namespace, name}",
           "required": true,
           "x-originalParamName": "request"
         },
@@ -9166,11 +9342,11 @@
         "description": "获取指定 StatefulSet 的详细信息",
         "parameters": [
           {
-            "description": "集群ID（可选，未传则使用默认集群）",
+            "description": "集群名称（可选，未传则使用默认集群）",
             "in": "query",
-            "name": "clusterId",
+            "name": "clusterName",
             "schema": {
-              "type": "integer"
+              "type": "string"
             }
           },
           {
@@ -9220,11 +9396,11 @@
         "description": "获取 StatefulSet 列表，namespace 为空时获取所有命名空间",
         "parameters": [
           {
-            "description": "集群ID（可选，未传则使用默认集群）",
+            "description": "集群名称（可选，未传则使用默认集群）",
             "in": "query",
-            "name": "clusterId",
+            "name": "clusterName",
             "schema": {
-              "type": "integer"
+              "type": "string"
             }
           },
           {
@@ -9296,7 +9472,7 @@
               }
             }
           },
-          "description": "参数: {clusterId, namespace, name}",
+          "description": "参数: {clusterName, namespace, name}",
           "required": true,
           "x-originalParamName": "request"
         },
@@ -9334,7 +9510,7 @@
               }
             }
           },
-          "description": "参数: {clusterId, namespace, name, replicas}",
+          "description": "参数: {clusterName, namespace, name, replicas}",
           "required": true,
           "x-originalParamName": "request"
         },
@@ -9366,11 +9542,11 @@
         "description": "更新现有的 StatefulSet",
         "parameters": [
           {
-            "description": "集群ID（可选，未传则使用默认集群）",
+            "description": "集群名称（可选，未传则使用默认集群）",
             "in": "query",
-            "name": "clusterId",
+            "name": "clusterName",
             "schema": {
-              "type": "integer"
+              "type": "string"
             }
           },
           {
@@ -9423,11 +9599,11 @@
         "description": "获取指定 StatefulSet 的 YAML 内容",
         "parameters": [
           {
-            "description": "集群ID（可选，未传则使用默认集群）",
+            "description": "集群名称（可选，未传则使用默认集群）",
             "in": "query",
-            "name": "clusterId",
+            "name": "clusterName",
             "schema": {
-              "type": "integer"
+              "type": "string"
             }
           },
           {
@@ -9477,11 +9653,11 @@
         "description": "使用 YAML 内容更新指定 StatefulSet",
         "parameters": [
           {
-            "description": "集群ID（可选，未传则使用默认集群）",
+            "description": "集群名称（可选，未传则使用默认集群）",
             "in": "query",
-            "name": "clusterId",
+            "name": "clusterName",
             "schema": {
-              "type": "integer"
+              "type": "string"
             }
           },
           {

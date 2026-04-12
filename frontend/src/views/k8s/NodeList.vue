@@ -32,8 +32,9 @@
       </el-table-column>
       <el-table-column prop="podCount" label="Pod数" />
       <el-table-column prop="age" label="运行时间" />
-      <el-table-column label="操作" width="200">
+      <el-table-column label="操作" width="240">
         <template #default="{ row }">
+          <el-button link type="primary" size="small" @click="handleViewDetail(row)">详情</el-button>
           <el-button link type="primary" size="small" @click="handleCordon(row)">隔离</el-button>
           <el-button link type="primary" size="small" @click="handleDrain(row)">驱逐</el-button>
           <el-button link type="primary" size="small" @click="handleLabel(row)">标签</el-button>
@@ -53,11 +54,13 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import ClusterSelector from '@/components/K8s/ClusterSelector.vue'
 import StatusTag from '@/components/K8s/StatusTag.vue'
 import { getNodeList, cordonNode, drainNode } from '@/api/node'
 
+const router = useRouter()
 const clusterName = ref('')
 const loading = ref(false)
 const keyword = ref('')
@@ -84,16 +87,20 @@ const onClusterChange = () => {
   fetchData()
 }
 
+const handleViewDetail = (row) => {
+  router.push(`/k8s/node/${encodeURIComponent(clusterName.value)}/${encodeURIComponent(row.name)}`)
+}
+
 const handleCordon = async (row) => {
   await ElMessageBox.confirm('确认隔离该节点?', '提示')
-  await cordonNode({ clusterName: clusterName.value, nodeName: row.name })
+  await cordonNode({ clusterName: clusterName.value, name: row.name })
   ElMessage.success('操作成功')
   fetchData()
 }
 
 const handleDrain = async (row) => {
   await ElMessageBox.confirm('确认驱逐该节点?', '提示')
-  await drainNode({ clusterName: clusterName.value, nodeName: row.name })
+  await drainNode({ clusterName: clusterName.value, name: row.name })
   ElMessage.success('操作成功')
   fetchData()
 }

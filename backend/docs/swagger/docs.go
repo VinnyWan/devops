@@ -5700,7 +5700,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "获取单个节点的完整详情，包括 SystemInfo, Conditions, Images 等",
+                "description": "获取单个节点的完整详情，包括 annotations、lease、conditions、addresses、capacity、allocatable、pods、allocatedResources、systemInfo 与 images",
                 "consumes": [
                     "application/json"
                 ],
@@ -5714,10 +5714,9 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "集群名称",
+                        "description": "集群名称，为空时回退到当前租户默认集群",
                         "name": "clusterName",
-                        "in": "query",
-                        "required": true
+                        "in": "query"
                     },
                     {
                         "type": "string",
@@ -5731,7 +5730,19 @@ const docTemplate = `{
                     "200": {
                         "description": "成功",
                         "schema": {
-                            "$ref": "#/definitions/service.NodeDetail"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/api.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/service.NodeDetail"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
@@ -5803,10 +5814,9 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "集群名称",
+                        "description": "集群名称，为空时回退到当前租户默认集群",
                         "name": "clusterName",
-                        "in": "query",
-                        "required": true
+                        "in": "query"
                     },
                     {
                         "type": "string",
@@ -10099,6 +10109,53 @@ const docTemplate = `{
                 }
             }
         },
+        "service.NodeAllocatedResource": {
+            "type": "object",
+            "properties": {
+                "cpuLimits": {
+                    "type": "string"
+                },
+                "cpuLimitsPercentage": {
+                    "type": "string"
+                },
+                "cpuRequests": {
+                    "type": "string"
+                },
+                "cpuRequestsPercentage": {
+                    "type": "string"
+                },
+                "ephemeralStorageLimits": {
+                    "type": "string"
+                },
+                "ephemeralStorageRequests": {
+                    "type": "string"
+                },
+                "hugepages1GiLimits": {
+                    "type": "string"
+                },
+                "hugepages1GiRequests": {
+                    "type": "string"
+                },
+                "hugepages2MiLimits": {
+                    "type": "string"
+                },
+                "hugepages2MiRequests": {
+                    "type": "string"
+                },
+                "memoryLimits": {
+                    "type": "string"
+                },
+                "memoryLimitsPercentage": {
+                    "type": "string"
+                },
+                "memoryRequests": {
+                    "type": "string"
+                },
+                "memoryRequestsPercentage": {
+                    "type": "string"
+                }
+            }
+        },
         "service.NodeDetail": {
             "type": "object",
             "properties": {
@@ -10108,6 +10165,21 @@ const docTemplate = `{
                 },
                 "age": {
                     "type": "string"
+                },
+                "allocatable": {
+                    "$ref": "#/definitions/service.NodeResourceQuantity"
+                },
+                "allocatedResources": {
+                    "$ref": "#/definitions/service.NodeAllocatedResource"
+                },
+                "annotations": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "capacity": {
+                    "$ref": "#/definitions/service.NodeResourceQuantity"
                 },
                 "conditions": {
                     "type": "array",
@@ -10155,6 +10227,9 @@ const docTemplate = `{
                         "type": "string"
                     }
                 },
+                "lease": {
+                    "$ref": "#/definitions/service.NodeLeaseInfo"
+                },
                 "memoryCapacity": {
                     "type": "string"
                 },
@@ -10169,11 +10244,26 @@ const docTemplate = `{
                     "description": "操作系统镜像",
                     "type": "string"
                 },
+                "podCIDR": {
+                    "type": "string"
+                },
+                "podCIDRs": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "podCapacity": {
                     "type": "integer"
                 },
                 "podCount": {
                     "type": "integer"
+                },
+                "pods": {
+                    "$ref": "#/definitions/service.NodePodSummary"
+                },
+                "providerID": {
+                    "type": "string"
                 },
                 "role": {
                     "description": "master, worker",
@@ -10190,6 +10280,20 @@ const docTemplate = `{
                 },
                 "unschedulable": {
                     "type": "boolean"
+                }
+            }
+        },
+        "service.NodeLeaseInfo": {
+            "type": "object",
+            "properties": {
+                "acquireTime": {
+                    "type": "string"
+                },
+                "holderIdentity": {
+                    "type": "string"
+                },
+                "renewTime": {
+                    "type": "string"
                 }
             }
         },
@@ -10285,6 +10389,78 @@ const docTemplate = `{
                 },
                 "total": {
                     "type": "integer"
+                }
+            }
+        },
+        "service.NodePodItem": {
+            "type": "object",
+            "properties": {
+                "age": {
+                    "type": "string"
+                },
+                "cpuLimit": {
+                    "type": "string"
+                },
+                "cpuRequest": {
+                    "type": "string"
+                },
+                "createdAt": {
+                    "type": "string"
+                },
+                "memoryLimit": {
+                    "type": "string"
+                },
+                "memoryRequest": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "namespace": {
+                    "type": "string"
+                },
+                "restartCount": {
+                    "type": "integer"
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
+        "service.NodePodSummary": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/service.NodePodItem"
+                    }
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "service.NodeResourceQuantity": {
+            "type": "object",
+            "properties": {
+                "cpu": {
+                    "type": "string"
+                },
+                "ephemeralStorage": {
+                    "type": "string"
+                },
+                "hugepages1Gi": {
+                    "type": "string"
+                },
+                "hugepages2Mi": {
+                    "type": "string"
+                },
+                "memory": {
+                    "type": "string"
+                },
+                "pods": {
+                    "type": "string"
                 }
             }
         },

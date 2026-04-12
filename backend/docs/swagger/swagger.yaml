@@ -589,6 +589,37 @@ definitions:
     - tenantCode
     - username
     type: object
+  service.NodeAllocatedResource:
+    properties:
+      cpuLimits:
+        type: string
+      cpuLimitsPercentage:
+        type: string
+      cpuRequests:
+        type: string
+      cpuRequestsPercentage:
+        type: string
+      ephemeralStorageLimits:
+        type: string
+      ephemeralStorageRequests:
+        type: string
+      hugepages1GiLimits:
+        type: string
+      hugepages1GiRequests:
+        type: string
+      hugepages2MiLimits:
+        type: string
+      hugepages2MiRequests:
+        type: string
+      memoryLimits:
+        type: string
+      memoryLimitsPercentage:
+        type: string
+      memoryRequests:
+        type: string
+      memoryRequestsPercentage:
+        type: string
+    type: object
   service.NodeDetail:
     properties:
       addresses:
@@ -596,6 +627,16 @@ definitions:
         type: array
       age:
         type: string
+      allocatable:
+        $ref: '#/definitions/service.NodeResourceQuantity'
+      allocatedResources:
+        $ref: '#/definitions/service.NodeAllocatedResource'
+      annotations:
+        additionalProperties:
+          type: string
+        type: object
+      capacity:
+        $ref: '#/definitions/service.NodeResourceQuantity'
       conditions:
         items: {}
         type: array
@@ -629,6 +670,8 @@ definitions:
         additionalProperties:
           type: string
         type: object
+      lease:
+        $ref: '#/definitions/service.NodeLeaseInfo'
       memoryCapacity:
         type: string
       memoryUsage:
@@ -639,10 +682,20 @@ definitions:
       osImage:
         description: 操作系统镜像
         type: string
+      podCIDR:
+        type: string
+      podCIDRs:
+        items:
+          type: string
+        type: array
       podCapacity:
         type: integer
       podCount:
         type: integer
+      pods:
+        $ref: '#/definitions/service.NodePodSummary'
+      providerID:
+        type: string
       role:
         description: master, worker
         type: string
@@ -655,6 +708,15 @@ definitions:
         type: array
       unschedulable:
         type: boolean
+    type: object
+  service.NodeLeaseInfo:
+    properties:
+      acquireTime:
+        type: string
+      holderIdentity:
+        type: string
+      renewTime:
+        type: string
     type: object
   service.NodeListItem:
     properties:
@@ -721,6 +783,53 @@ definitions:
         type: array
       total:
         type: integer
+    type: object
+  service.NodePodItem:
+    properties:
+      age:
+        type: string
+      cpuLimit:
+        type: string
+      cpuRequest:
+        type: string
+      createdAt:
+        type: string
+      memoryLimit:
+        type: string
+      memoryRequest:
+        type: string
+      name:
+        type: string
+      namespace:
+        type: string
+      restartCount:
+        type: integer
+      status:
+        type: string
+    type: object
+  service.NodePodSummary:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/service.NodePodItem'
+        type: array
+      total:
+        type: integer
+    type: object
+  service.NodeResourceQuantity:
+    properties:
+      cpu:
+        type: string
+      ephemeralStorage:
+        type: string
+      hugepages1Gi:
+        type: string
+      hugepages2Mi:
+        type: string
+      memory:
+        type: string
+      pods:
+        type: string
     type: object
   service.RegisterRequest:
     properties:
@@ -4511,12 +4620,12 @@ paths:
     get:
       consumes:
       - application/json
-      description: 获取单个节点的完整详情，包括 SystemInfo, Conditions, Images 等
+      description: 获取单个节点的完整详情，包括 annotations、lease、conditions、addresses、capacity、allocatable、pods、allocatedResources、systemInfo
+        与 images
       parameters:
-      - description: 集群名称
+      - description: 集群名称，为空时回退到当前租户默认集群
         in: query
         name: clusterName
-        required: true
         type: string
       - description: 节点名称
         in: query
@@ -4529,7 +4638,12 @@ paths:
         "200":
           description: 成功
           schema:
-            $ref: '#/definitions/service.NodeDetail'
+            allOf:
+            - $ref: '#/definitions/api.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/service.NodeDetail'
+              type: object
         "400":
           description: 参数错误
           schema:
@@ -4569,10 +4683,9 @@ paths:
       - application/json
       description: 获取与指定节点相关的 K8s 事件
       parameters:
-      - description: 集群名称
+      - description: 集群名称，为空时回退到当前租户默认集群
         in: query
         name: clusterName
-        required: true
         type: string
       - description: 节点名称
         in: query

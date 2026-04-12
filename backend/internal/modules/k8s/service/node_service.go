@@ -9,8 +9,11 @@ import (
 	"sync"
 	"time"
 
+	coordinationv1 "k8s.io/api/coordination/v1"
 	corev1 "k8s.io/api/core/v1"
 	policyv1 "k8s.io/api/policy/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	metrics "k8s.io/metrics/pkg/client/clientset/versioned"
@@ -52,13 +55,77 @@ type NodeListItem struct {
 	PodCapacity    int64  `json:"podCapacity"`
 }
 
+// NodeLeaseInfo 节点 Lease 信息
+type NodeLeaseInfo struct {
+	HolderIdentity string `json:"holderIdentity"`
+	AcquireTime    string `json:"acquireTime"`
+	RenewTime      string `json:"renewTime"`
+}
+
+// NodeAllocatedResource 节点已分配资源汇总
+type NodeAllocatedResource struct {
+	CPURequests              string `json:"cpuRequests"`
+	CPURequestsPercentage    string `json:"cpuRequestsPercentage"`
+	CPULimits                string `json:"cpuLimits"`
+	CPULimitsPercentage      string `json:"cpuLimitsPercentage"`
+	MemoryRequests           string `json:"memoryRequests"`
+	MemoryRequestsPercentage string `json:"memoryRequestsPercentage"`
+	MemoryLimits             string `json:"memoryLimits"`
+	MemoryLimitsPercentage   string `json:"memoryLimitsPercentage"`
+	EphemeralStorageRequests string `json:"ephemeralStorageRequests"`
+	EphemeralStorageLimits   string `json:"ephemeralStorageLimits"`
+	Hugepages1GiRequests     string `json:"hugepages1GiRequests"`
+	Hugepages1GiLimits       string `json:"hugepages1GiLimits"`
+	Hugepages2MiRequests     string `json:"hugepages2MiRequests"`
+	Hugepages2MiLimits       string `json:"hugepages2MiLimits"`
+}
+
+// NodePodItem 节点上的 Pod 条目
+type NodePodItem struct {
+	Namespace     string `json:"namespace"`
+	Name          string `json:"name"`
+	Status        string `json:"status"`
+	CPURequest    string `json:"cpuRequest"`
+	CPULimit      string `json:"cpuLimit"`
+	MemoryRequest string `json:"memoryRequest"`
+	MemoryLimit   string `json:"memoryLimit"`
+	RestartCount  int32  `json:"restartCount"`
+	CreatedAt     string `json:"createdAt"`
+	Age           string `json:"age"`
+}
+
+// NodePodSummary 节点 Pod 汇总
+type NodePodSummary struct {
+	Total int           `json:"total"`
+	Items []NodePodItem `json:"items"`
+}
+
+// NodeResourceQuantity 节点资源数量
+type NodeResourceQuantity struct {
+	CPU              string `json:"cpu"`
+	Memory           string `json:"memory"`
+	Pods             string `json:"pods"`
+	EphemeralStorage string `json:"ephemeralStorage"`
+	Hugepages1Gi     string `json:"hugepages1Gi"`
+	Hugepages2Mi     string `json:"hugepages2Mi"`
+}
+
 // NodeDetail 节点详情
 type NodeDetail struct {
 	NodeListItem
-	Conditions []interface{} `json:"conditions"`
-	Addresses  []interface{} `json:"addresses"`
-	SystemInfo interface{}   `json:"systemInfo"`
-	Images     []interface{} `json:"images"`
+	Annotations        map[string]string     `json:"annotations"`
+	Lease              *NodeLeaseInfo        `json:"lease"`
+	Conditions         []interface{}         `json:"conditions"`
+	Addresses          []interface{}         `json:"addresses"`
+	Capacity           NodeResourceQuantity  `json:"capacity"`
+	Allocatable        NodeResourceQuantity  `json:"allocatable"`
+	SystemInfo         interface{}           `json:"systemInfo"`
+	PodCIDR            string                `json:"podCIDR"`
+	PodCIDRs           []string              `json:"podCIDRs"`
+	ProviderID         string                `json:"providerID"`
+	Pods               NodePodSummary        `json:"pods"`
+	AllocatedResources NodeAllocatedResource `json:"allocatedResources"`
+	Images             []interface{}         `json:"images"`
 }
 
 // ListNodes 获取节点列表
@@ -194,112 +261,150 @@ func (s *K8sService) ListNodes(clusterName string, page, pageSize int, name stri
 	var items []NodeListItem
 	for _, node := range targetNodes {
 		extra := extraMap[node.Name]
-
-		// 基础信息
-		nodeRole := "worker"
-		for k := range node.Labels {
-			if strings.Contains(k, "node-role.kubernetes.io/control-plane") || strings.Contains(k, "node-role.kubernetes.io/master") {
-				nodeRole = "master"
-				break
-			}
-		}
-
-		nodeStatus := "Unknown"
-		for _, cond := range node.Status.Conditions {
-			if cond.Type == corev1.NodeReady {
-				if cond.Status == corev1.ConditionTrue {
-					nodeStatus = "Ready"
-				} else {
-					nodeStatus = "NotReady"
-				}
-				break
-			}
-		}
-
-		// IP
-		ip := ""
-		externalIP := ""
-		for _, addr := range node.Status.Addresses {
-			if addr.Type == corev1.NodeInternalIP {
-				ip = addr.Address
-			} else if addr.Type == corev1.NodeExternalIP {
-				externalIP = addr.Address
-			}
-		}
-
-		// 容量
-		cpuCap := node.Status.Capacity.Cpu().MilliValue()
-		memCap := node.Status.Capacity.Memory().Value()
-		podCap := node.Status.Capacity.Pods().Value()
-
-		item := NodeListItem{
-			Name:              node.Name,
-			Status:            nodeStatus,
-			Role:              nodeRole,
-			IP:                ip,
-			ExternalIP:        externalIP,
-			KubeletVersion:    node.Status.NodeInfo.KubeletVersion,
-			K8sVersion:        node.Status.NodeInfo.KubeletVersion, // 复用 KubeletVersion
-			OsImage:           node.Status.NodeInfo.OSImage,
-			KernelVersion:     node.Status.NodeInfo.KernelVersion,
-			Labels:            node.Labels,
-			Taints:            convertTaints(node.Spec.Taints),
-			Unschedulable:     node.Spec.Unschedulable,
-			CreatedAt:         node.CreationTimestamp.Time,
-			CreationTimestamp: node.CreationTimestamp.Time,
-			Age:               formatAge(time.Since(node.CreationTimestamp.Time)),
-			CpuCapacity:       fmt.Sprintf("%.2f Core", float64(cpuCap)/1000),
-			CpuUsage:          extra.cpuUsage,
-			MemoryCapacity:    fmt.Sprintf("%.2f Gi", float64(memCap)/(1024*1024*1024)),
-			MemoryUsage:       extra.memUsage,
-			PodCount:          extra.podCount,
-			PodCapacity:       podCap,
-		}
-
-		// 处理 Metrics 缺失情况
-		if item.CpuUsage == "" {
-			item.CpuUsage = "-"
-		}
-		if item.MemoryUsage == "" {
-			item.MemoryUsage = "-"
-		}
-
-		items = append(items, item)
+		items = append(items, buildNodeListItem(&node, extra.podCount, extra.cpuUsage, extra.memUsage))
 	}
 
 	return &NodeListResponse{Total: total, Items: items}, nil
 }
 
-// GetNodeDetail 获取节点详情
-func (s *K8sService) GetNodeDetail(clusterName string, name string) (*NodeDetail, error) {
-	// 复用列表逻辑获取基础信息（含 Metrics）
-	listResp, err := s.ListNodes(clusterName, 1, 1, name, "", "")
-	if err != nil {
-		return nil, err
-	}
-	if len(listResp.Items) == 0 {
-		return nil, fmt.Errorf("节点不存在")
-	}
+type nodeDetailFetchResult struct {
+	node  *corev1.Node
+	pods  []corev1.Pod
+	lease *coordinationv1.Lease
+	item  NodeListItem
+}
 
-	baseItem := listResp.Items[0]
-
+func (s *K8sService) fetchNodeDetailData(clusterName string, name string) (*nodeDetailFetchResult, error) {
 	client, err := s.getClient(clusterName)
 	if err != nil {
 		return nil, err
 	}
 
-	node, err := client.CoreV1().Nodes().Get(context.Background(), name, metav1.GetOptions{})
+	var metricsClient *metrics.Clientset
+	cluster, err := s.clusterService.GetByExactName(clusterName)
+	if err == nil {
+		metricsClient, _ = s.clientFactory.GetMetricsClient(cluster)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	node, err := client.CoreV1().Nodes().Get(ctx, name, metav1.GetOptions{})
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil, fmt.Errorf("节点不存在")
+		}
+		return nil, fmt.Errorf("获取节点详情失败: %w", err)
+	}
+
+	pods, err := client.CoreV1().Pods("").List(ctx, metav1.ListOptions{FieldSelector: "spec.nodeName=" + name})
+	if err != nil {
+		return nil, fmt.Errorf("获取节点 Pods 失败: %w", err)
+	}
+
+	lease, err := client.CoordinationV1().Leases("kube-node-lease").Get(ctx, name, metav1.GetOptions{})
+	if err != nil {
+		if !apierrors.IsNotFound(err) {
+			return nil, fmt.Errorf("获取节点 Lease 失败: %w", err)
+		}
+		lease = nil
+	}
+
+	cpuUsage := ""
+	memoryUsage := ""
+	if metricsClient != nil {
+		nodeMetrics, err := metricsClient.MetricsV1beta1().NodeMetricses().Get(ctx, name, metav1.GetOptions{})
+		if err == nil {
+			cpu := nodeMetrics.Usage.Cpu().MilliValue()
+			mem := nodeMetrics.Usage.Memory().Value()
+			cpuUsage = fmt.Sprintf("%.2f Core", float64(cpu)/1000)
+			memoryUsage = fmt.Sprintf("%.2f Gi", float64(mem)/(1024*1024*1024))
+		}
+	}
+
+	return &nodeDetailFetchResult{
+		node:  node,
+		pods:  pods.Items,
+		lease: lease,
+		item:  buildNodeListItem(node, len(pods.Items), cpuUsage, memoryUsage),
+	}, nil
+}
+
+func buildNodeListItem(node *corev1.Node, podCount int, cpuUsage string, memUsage string) NodeListItem {
+	if cpuUsage == "" {
+		cpuUsage = "-"
+	}
+	if memUsage == "" {
+		memUsage = "-"
+	}
+
+	nodeRole := "worker"
+	for k := range node.Labels {
+		if strings.Contains(k, "node-role.kubernetes.io/control-plane") || strings.Contains(k, "node-role.kubernetes.io/master") {
+			nodeRole = "master"
+			break
+		}
+	}
+
+	nodeStatus := "Unknown"
+	for _, cond := range node.Status.Conditions {
+		if cond.Type == corev1.NodeReady {
+			if cond.Status == corev1.ConditionTrue {
+				nodeStatus = "Ready"
+			} else {
+				nodeStatus = "NotReady"
+			}
+			break
+		}
+	}
+
+	ip := ""
+	externalIP := ""
+	for _, addr := range node.Status.Addresses {
+		if addr.Type == corev1.NodeInternalIP {
+			ip = addr.Address
+		} else if addr.Type == corev1.NodeExternalIP {
+			externalIP = addr.Address
+		}
+	}
+
+	cpuCap := node.Status.Capacity.Cpu().MilliValue()
+	memCap := node.Status.Capacity.Memory().Value()
+	podCap := node.Status.Capacity.Pods().Value()
+
+	return NodeListItem{
+		Name:              node.Name,
+		Status:            nodeStatus,
+		Role:              nodeRole,
+		IP:                ip,
+		ExternalIP:        externalIP,
+		KubeletVersion:    node.Status.NodeInfo.KubeletVersion,
+		K8sVersion:        node.Status.NodeInfo.KubeletVersion,
+		OsImage:           node.Status.NodeInfo.OSImage,
+		KernelVersion:     node.Status.NodeInfo.KernelVersion,
+		Labels:            node.Labels,
+		Taints:            convertTaints(node.Spec.Taints),
+		Unschedulable:     node.Spec.Unschedulable,
+		CreatedAt:         node.CreationTimestamp.Time,
+		CreationTimestamp: node.CreationTimestamp.Time,
+		Age:               formatAge(time.Since(node.CreationTimestamp.Time)),
+		CpuCapacity:       fmt.Sprintf("%.2f Core", float64(cpuCap)/1000),
+		CpuUsage:          cpuUsage,
+		MemoryCapacity:    fmt.Sprintf("%.2f Gi", float64(memCap)/(1024*1024*1024)),
+		MemoryUsage:       memUsage,
+		PodCount:          podCount,
+		PodCapacity:       podCap,
+	}
+}
+
+// GetNodeDetail 获取节点详情
+func (s *K8sService) GetNodeDetail(clusterName string, name string) (*NodeDetail, error) {
+	data, err := s.fetchNodeDetailData(clusterName, name)
 	if err != nil {
 		return nil, err
 	}
 
-	return &NodeDetail{
-		NodeListItem: baseItem,
-		Conditions:   convertConditions(node.Status.Conditions),
-		Addresses:    convertAddresses(node.Status.Addresses),
-		SystemInfo:   node.Status.NodeInfo,
-		Images:       convertImages(node.Status.Images),
-	}, nil
+	return buildNodeDetail(data.node, data.pods, data.lease, data.item), nil
 }
 
 // CordonNode 设置/取消调度
@@ -488,6 +593,204 @@ func formatAge(d time.Duration) string {
 		return fmt.Sprintf("%.0fd", d.Hours()/24)
 	}
 	return d.Round(time.Minute).String()
+}
+
+func buildNodeDetail(node *corev1.Node, pods []corev1.Pod, lease *coordinationv1.Lease, base NodeListItem) *NodeDetail {
+	items, allocated := buildNodePodsAndAllocatedResources(pods, node.Status.Allocatable)
+
+	return &NodeDetail{
+		NodeListItem:       base,
+		Annotations:        node.Annotations,
+		Lease:              convertNodeLease(lease),
+		Conditions:         convertConditions(node.Status.Conditions),
+		Addresses:          convertAddresses(node.Status.Addresses),
+		Capacity:           convertNodeResourceList(node.Status.Capacity),
+		Allocatable:        convertNodeResourceList(node.Status.Allocatable),
+		SystemInfo:         node.Status.NodeInfo,
+		PodCIDR:            fallbackDash(node.Spec.PodCIDR),
+		PodCIDRs:           node.Spec.PodCIDRs,
+		ProviderID:         fallbackDash(node.Spec.ProviderID),
+		Pods:               NodePodSummary{Total: len(items), Items: items},
+		AllocatedResources: allocated,
+		Images:             convertImages(node.Status.Images),
+	}
+}
+
+func buildNodePodsAndAllocatedResources(pods []corev1.Pod, allocatable corev1.ResourceList) ([]NodePodItem, NodeAllocatedResource) {
+	items := make([]NodePodItem, 0, len(pods))
+	var cpuReq, cpuLim, memReq, memLim, ephemeralReq, ephemeralLim resource.Quantity
+	var huge1Req, huge1Lim, huge2Req, huge2Lim resource.Quantity
+
+	for _, pod := range pods {
+		if isTerminatedPod(pod) {
+			continue
+		}
+
+		podCPUReq, podCPULim, podMemReq, podMemLim, podEphemeralReq, podEphemeralLim, podHuge1Req, podHuge1Lim, podHuge2Req, podHuge2Lim := sumPodResources(pod.Spec.Containers)
+		item := NodePodItem{
+			Namespace:     pod.Namespace,
+			Name:          pod.Name,
+			Status:        string(pod.Status.Phase),
+			CPURequest:    quantityStringOrDash(podCPUReq),
+			CPULimit:      quantityStringOrDash(podCPULim),
+			MemoryRequest: quantityStringOrDash(podMemReq),
+			MemoryLimit:   quantityStringOrDash(podMemLim),
+			RestartCount:  sumRestartCount(pod.Status.ContainerStatuses),
+			CreatedAt:     pod.CreationTimestamp.Time.Format(time.RFC3339),
+			Age:           formatAge(time.Since(pod.CreationTimestamp.Time)),
+		}
+
+		cpuReq.Add(podCPUReq)
+		cpuLim.Add(podCPULim)
+		memReq.Add(podMemReq)
+		memLim.Add(podMemLim)
+		ephemeralReq.Add(podEphemeralReq)
+		ephemeralLim.Add(podEphemeralLim)
+		huge1Req.Add(podHuge1Req)
+		huge1Lim.Add(podHuge1Lim)
+		huge2Req.Add(podHuge2Req)
+		huge2Lim.Add(podHuge2Lim)
+		items = append(items, item)
+	}
+
+	sort.Slice(items, func(i, j int) bool {
+		if items[i].Namespace == items[j].Namespace {
+			return items[i].Name < items[j].Name
+		}
+		return items[i].Namespace < items[j].Namespace
+	})
+
+	return items, NodeAllocatedResource{
+		CPURequests:              quantityStringOrDash(cpuReq),
+		CPURequestsPercentage:    percentageString(cpuReq, allocatable.Cpu()),
+		CPULimits:                quantityStringOrDash(cpuLim),
+		CPULimitsPercentage:      percentageString(cpuLim, allocatable.Cpu()),
+		MemoryRequests:           quantityStringOrDash(memReq),
+		MemoryRequestsPercentage: percentageString(memReq, allocatable.Memory()),
+		MemoryLimits:             quantityStringOrDash(memLim),
+		MemoryLimitsPercentage:   percentageString(memLim, allocatable.Memory()),
+		EphemeralStorageRequests: quantityStringOrDash(ephemeralReq),
+		EphemeralStorageLimits:   quantityStringOrDash(ephemeralLim),
+		Hugepages1GiRequests:     quantityStringOrDash(huge1Req),
+		Hugepages1GiLimits:       quantityStringOrDash(huge1Lim),
+		Hugepages2MiRequests:     quantityStringOrDash(huge2Req),
+		Hugepages2MiLimits:       quantityStringOrDash(huge2Lim),
+	}
+}
+
+func fallbackDash(v string) string {
+	if strings.TrimSpace(v) == "" {
+		return "-"
+	}
+	return v
+}
+
+func quantityStringOrDash(q resource.Quantity) string {
+	if q.IsZero() {
+		return "-"
+	}
+	return q.String()
+}
+
+func percentageString(used resource.Quantity, total *resource.Quantity) string {
+	if total == nil || total.IsZero() || used.IsZero() {
+		return "-"
+	}
+	return fmt.Sprintf("%.2f%%", float64(used.MilliValue())/float64(total.MilliValue())*100)
+}
+
+func convertNodeLease(lease *coordinationv1.Lease) *NodeLeaseInfo {
+	if lease == nil {
+		return nil
+	}
+
+	info := &NodeLeaseInfo{}
+	if lease.Spec.HolderIdentity != nil {
+		info.HolderIdentity = *lease.Spec.HolderIdentity
+	}
+	info.AcquireTime = microTimeStringOrDash(lease.Spec.AcquireTime)
+	info.RenewTime = microTimeStringOrDash(lease.Spec.RenewTime)
+	return info
+}
+
+func microTimeStringOrDash(v *metav1.MicroTime) string {
+	if v == nil || v.Time.IsZero() {
+		return "-"
+	}
+	return v.Time.Format(time.RFC3339)
+}
+
+func convertNodeResourceList(resources corev1.ResourceList) NodeResourceQuantity {
+	return NodeResourceQuantity{
+		CPU:              resourceValueOrDash(resources.Cpu()),
+		Memory:           resourceValueOrDash(resources.Memory()),
+		Pods:             resourceValueOrDash(resources.Pods()),
+		EphemeralStorage: resourceValueOrDash(resources.StorageEphemeral()),
+		Hugepages1Gi:     resourceValueOrDash(resources.Name(corev1.ResourceHugePagesPrefix+"1Gi", resource.BinarySI)),
+		Hugepages2Mi:     resourceValueOrDash(resources.Name(corev1.ResourceHugePagesPrefix+"2Mi", resource.BinarySI)),
+	}
+}
+
+func resourceValueOrDash(q *resource.Quantity) string {
+	if q == nil || q.IsZero() {
+		return "-"
+	}
+	return q.String()
+}
+
+func isTerminatedPod(pod corev1.Pod) bool {
+	return pod.Status.Phase == corev1.PodSucceeded || pod.Status.Phase == corev1.PodFailed
+}
+
+func sumRestartCount(statuses []corev1.ContainerStatus) int32 {
+	var total int32
+	for _, status := range statuses {
+		total += status.RestartCount
+	}
+	return total
+}
+
+func sumPodResources(containers []corev1.Container) (resource.Quantity, resource.Quantity, resource.Quantity, resource.Quantity, resource.Quantity, resource.Quantity, resource.Quantity, resource.Quantity, resource.Quantity, resource.Quantity) {
+	var cpuReq, cpuLim, memReq, memLim resource.Quantity
+	var ephemeralReq, ephemeralLim, huge1Req, huge1Lim, huge2Req, huge2Lim resource.Quantity
+	for _, container := range containers {
+		if q, ok := container.Resources.Requests[corev1.ResourceCPU]; ok {
+			cpuReq.Add(q)
+		}
+		if q, ok := container.Resources.Limits[corev1.ResourceCPU]; ok {
+			cpuLim.Add(q)
+		}
+		if q, ok := container.Resources.Requests[corev1.ResourceMemory]; ok {
+			memReq.Add(q)
+		}
+		if q, ok := container.Resources.Limits[corev1.ResourceMemory]; ok {
+			memLim.Add(q)
+		}
+		if q, ok := container.Resources.Requests[corev1.ResourceEphemeralStorage]; ok {
+			ephemeralReq.Add(q)
+		}
+		if q, ok := container.Resources.Limits[corev1.ResourceEphemeralStorage]; ok {
+			ephemeralLim.Add(q)
+		}
+		if q, ok := container.Resources.Requests[corev1.ResourceName(corev1.ResourceHugePagesPrefix+"1Gi")]; ok {
+			huge1Req.Add(q)
+		}
+		if q, ok := container.Resources.Limits[corev1.ResourceName(corev1.ResourceHugePagesPrefix+"1Gi")]; ok {
+			huge1Lim.Add(q)
+		}
+		if q, ok := container.Resources.Requests[corev1.ResourceName(corev1.ResourceHugePagesPrefix+"2Mi")]; ok {
+			huge2Req.Add(q)
+		}
+		if q, ok := container.Resources.Limits[corev1.ResourceName(corev1.ResourceHugePagesPrefix+"2Mi")]; ok {
+			huge2Lim.Add(q)
+		}
+	}
+	return cpuReq, cpuLim, memReq, memLim, ephemeralReq, ephemeralLim, huge1Req, huge1Lim, huge2Req, huge2Lim
+}
+
+func sumPodComputeResources(containers []corev1.Container) (resource.Quantity, resource.Quantity, resource.Quantity, resource.Quantity) {
+	cpuReq, cpuLim, memReq, memLim, _, _, _, _, _, _ := sumPodResources(containers)
+	return cpuReq, cpuLim, memReq, memLim
 }
 
 type patchStringValue struct {
