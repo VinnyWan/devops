@@ -13,7 +13,6 @@ import (
 	"devops-platform/internal/modules/user/model"
 	"devops-platform/internal/modules/user/repository"
 	"devops-platform/internal/pkg/redis"
-	"devops-platform/internal/pkg/utils"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/go-ldap/ldap/v3"
@@ -21,20 +20,45 @@ import (
 	"gorm.io/gorm"
 )
 
+// AuthService 认证服务，使用策略模式管理多种认证方式
 type AuthService struct {
-	userRepo   *repository.UserRepo
-	roleRepo   *repository.RoleRepo
+	providers map[string]AuthProvider
+	session   *SessionService
+	userRepo  *repository.UserRepo
+	roleRepo  *repository.RoleRepo
 	tenantRepo *repository.TenantRepo
-	sessionSvc *SessionService
 }
 
+// NewAuthService 创建认证服务并注册所有认证提供者
 func NewAuthService(db *gorm.DB) *AuthService {
-	return &AuthService{
-		userRepo:   repository.NewUserRepo(db),
-		roleRepo:   repository.NewRoleRepo(db),
-		tenantRepo: repository.NewTenantRepo(db),
-		sessionSvc: NewSessionService(),
+	userRepo := repository.NewUserRepo(db)
+	roleRepo := repository.NewRoleRepo(db)
+	tenantRepo := repository.NewTenantRepo(db)
+
+	s := &AuthService{
+		providers: make(map[string]AuthProvider),
+		session:   NewSessionService(),
+		userRepo:  userRepo,
+		roleRepo:  roleRepo,
+		tenantRepo: tenantRepo,
 	}
+
+	// 注册内置认证提供者
+	s.RegisterProvider(NewLocalAuthProvider(userRepo, tenantRepo))
+	s.RegisterProvider(NewLDAPAuthProvider(userRepo, tenantRepo))
+	s.RegisterProvider(NewOIDCAuthProvider(userRepo, tenantRepo))
+
+	// 注册第三方 SSO 认证提供者（框架已就绪，具体 API 对接待实现）
+	s.RegisterProvider(NewSSOAuthProvider("feishu", userRepo, tenantRepo))
+	s.RegisterProvider(NewSSOAuthProvider("dingtalk", userRepo, tenantRepo))
+	s.RegisterProvider(NewSSOAuthProvider("wecom", userRepo, tenantRepo))
+
+	return s
+}
+
+// RegisterProvider 注册认证提供者
+func (s *AuthService) RegisterProvider(p AuthProvider) {
+	s.providers[p.Name()] = p
 }
 
 // LoginRequest 登录请求
@@ -42,7 +66,7 @@ type LoginRequest struct {
 	TenantCode string `json:"tenantCode" binding:"required"`
 	Username   string `json:"username" binding:"required"`
 	Password   string `json:"password" binding:"required"`
-	AuthType   string `json:"authType"` // local, ldap
+	AuthType   string `json:"authType"` // local, ldap, oidc, sso_feishu, sso_dingtalk, sso_wecom
 }
 
 // LoginResponse 登录响应
@@ -51,7 +75,7 @@ type LoginResponse struct {
 	User      *model.User `json:"user"`
 }
 
-// Login 用户登录
+// Login 统一登录入口
 func (s *AuthService) Login(ctx context.Context, req *LoginRequest, ip, userAgent string) (*LoginResponse, error) {
 	tenantCode := strings.ToLower(strings.TrimSpace(req.TenantCode))
 	if tenantCode == "" {
@@ -68,75 +92,151 @@ func (s *AuthService) Login(ctx context.Context, req *LoginRequest, ip, userAgen
 		return nil, errors.New("tenant is not active")
 	}
 
-	authType := model.AuthType(req.AuthType)
+	authType := req.AuthType
 	if authType == "" {
-		authType = model.AuthTypeLocal
+		authType = string(model.AuthTypeLocal)
 	}
 
-	var user *model.User
-
-	switch authType {
-	case model.AuthTypeLocal:
-		user, err = s.loginLocal(tenant.ID, req.Username, req.Password)
-	case model.AuthTypeLDAP:
-		return nil, errors.New("ldap login is temporarily disabled in tenant mode")
-	case model.AuthTypeOIDC:
-		return nil, errors.New("oidc login is temporarily disabled in tenant mode")
-	default:
-		return nil, errors.New("invalid auth type")
+	// 构造凭据
+	cred := Credentials{
+		Username:   req.Username,
+		Password:   req.Password,
+		TenantCode: tenantCode,
+		AuthType:   authType,
 	}
 
+	// 查找对应的认证提供者
+	provider := s.providers[authType]
+	if provider == nil {
+		return nil, fmt.Errorf("unsupported auth type: %s", authType)
+	}
+
+	// 执行认证
+	result, err := provider.Authenticate(ctx, cred)
 	if err != nil {
 		return nil, err
 	}
 
 	// 更新最后登录时间
-	_ = s.userRepo.UpdateLastLoginTimeInTenant(tenant.ID, user.ID)
+	_ = s.userRepo.UpdateLastLoginTimeInTenant(tenant.ID, result.User.ID)
 
-	// 创建 Session
-	sessionID, err := s.sessionSvc.CreateSession(ctx, user.ID, user.Username, tenant.ID, tenant.Code, string(authType), ip, userAgent)
+	// 创建会话
+	sessionID, err := s.session.CreateSession(ctx, result.User.ID, result.User.Username, tenant.ID, tenant.Code, string(result.AuthType), ip, userAgent)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create session: %w", err)
 	}
 
 	return &LoginResponse{
 		SessionID: sessionID,
-		User:      user,
+		User:      result.User,
 	}, nil
 }
 
-// loginLocal 本地认证登录
-func (s *AuthService) loginLocal(tenantID uint, username, password string) (*model.User, error) {
-	user, err := s.userRepo.GetByUsernameInTenant(tenantID, username)
+// GetOIDCAuthURL 获取 OIDC 登录跳转地址（保留对 auth handler 的兼容）
+func (s *AuthService) GetOIDCAuthURL(ctx context.Context) (string, string, error) {
+	if config.Cfg == nil || !config.Cfg.GetBool("auth.enable_external") {
+		return "", "", errors.New("oidc login is temporarily disabled in tenant mode")
+	}
+
+	if !config.Cfg.GetBool("oidc.enable") {
+		return "", "", errors.New("OIDC is not enabled")
+	}
+
+	conf, _, err := s.buildOIDCConfig(ctx)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errors.New("invalid username or password")
-		}
+		return "", "", err
+	}
+
+	state, err := generateSecureRandomString(24)
+	if err != nil {
+		return "", "", fmt.Errorf("generate state failed: %w", err)
+	}
+	nonce, err := generateSecureRandomString(24)
+	if err != nil {
+		return "", "", fmt.Errorf("generate nonce failed: %w", err)
+	}
+
+	if err := redis.Set(ctx, oidcStateKey(state), nonce, 5*time.Minute); err != nil {
+		return "", "", fmt.Errorf("save oidc state failed: %w", err)
+	}
+
+	url := conf.AuthCodeURL(state, oidc.Nonce(nonce))
+	return url, state, nil
+}
+
+// LoginOIDC OIDC 回调登录（保留对 auth handler 的兼容）
+func (s *AuthService) LoginOIDC(ctx context.Context, code, state, ip, userAgent string) (*LoginResponse, error) {
+	// 直接委托给 OIDC AuthProvider
+	cred := Credentials{
+		Code:    code,
+		State:   state,
+		AuthType: string(model.AuthTypeOIDC),
+	}
+
+	provider := s.providers[string(model.AuthTypeOIDC)]
+	if provider == nil {
+		return nil, errors.New("OIDC provider not registered")
+	}
+
+	result, err := provider.Authenticate(ctx, cred)
+	if err != nil {
 		return nil, err
 	}
 
-	// 检查账号状态
-	if user.IsLocked {
-		return nil, errors.New("account is locked")
-	}
-	if user.Status != "active" {
-		return nil, errors.New("account is not active")
+	// 创建会话
+	sessionID, err := s.session.CreateSession(ctx, result.User.ID, result.User.Username, result.Tenant.ID, result.Tenant.Code, string(result.AuthType), ip, userAgent)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create session: %w", err)
 	}
 
-	// 只能本地用户登录
-	if user.AuthType != model.AuthTypeLocal {
-		return nil, fmt.Errorf("user auth type is %s, please use corresponding login method", user.AuthType)
-	}
-
-	// 验证密码
-	if !utils.CheckPassword(password, user.Password) {
-		return nil, errors.New("invalid username or password")
-	}
-
-	return user, nil
+	return &LoginResponse{
+		SessionID: sessionID,
+		User:      result.User,
+	}, nil
 }
 
-// loginLDAP LDAP认证登录
+// ---------- 以下为辅助方法，保留兼容性 ----------
+
+// buildOIDCConfig 构建 OAuth2 配置和 ID Token 验证器
+func (s *AuthService) buildOIDCConfig(ctx context.Context) (*oauth2.Config, *oidc.IDTokenVerifier, error) {
+	providerURL := strings.TrimSpace(config.Cfg.GetString("oidc.provider"))
+	if providerURL == "" {
+		return nil, nil, errors.New("OIDC provider is empty")
+	}
+
+	provider, err := oidc.NewProvider(ctx, providerURL)
+	if err != nil {
+		return nil, nil, fmt.Errorf("load oidc provider failed: %w", err)
+	}
+
+	conf := &oauth2.Config{
+		ClientID:     config.Cfg.GetString("oidc.client_id"),
+		ClientSecret: config.Cfg.GetString("oidc.client_secret"),
+		RedirectURL:  config.Cfg.GetString("oidc.redirect_url"),
+		Scopes:       config.Cfg.GetStringSlice("oidc.scopes"),
+		Endpoint:     provider.Endpoint(),
+	}
+
+	verifier := provider.Verifier(&oidc.Config{
+		ClientID: conf.ClientID,
+	})
+
+	return conf, verifier, nil
+}
+
+func generateSecureRandomString(size int) (string, error) {
+	buf := make([]byte, size)
+	if _, err := rand.Read(buf); err != nil {
+		return "", err
+	}
+	return base64.RawURLEncoding.EncodeToString(buf), nil
+}
+
+func oidcStateKey(state string) string {
+	return "oidc:state:" + state
+}
+
+// loginLDAP 保留旧版 LDAP 登录方法（兼容性），内部委托给 LDAPAuthProvider
 func (s *AuthService) loginLDAP(username, password string) (*model.User, error) {
 	if config.Cfg == nil || !config.Cfg.GetBool("auth.enable_external") {
 		return nil, errors.New("ldap login is temporarily disabled in tenant mode")
@@ -239,187 +339,4 @@ func (s *AuthService) loginLDAP(username, password string) (*model.User, error) 
 	}
 
 	return user, nil
-}
-
-func (s *AuthService) buildOIDCConfig(ctx context.Context) (*oauth2.Config, *oidc.IDTokenVerifier, error) {
-	providerURL := strings.TrimSpace(config.Cfg.GetString("oidc.provider"))
-	if providerURL == "" {
-		return nil, nil, errors.New("OIDC provider is empty")
-	}
-
-	provider, err := oidc.NewProvider(ctx, providerURL)
-	if err != nil {
-		return nil, nil, fmt.Errorf("load oidc provider failed: %w", err)
-	}
-
-	conf := &oauth2.Config{
-		ClientID:     config.Cfg.GetString("oidc.client_id"),
-		ClientSecret: config.Cfg.GetString("oidc.client_secret"),
-		RedirectURL:  config.Cfg.GetString("oidc.redirect_url"),
-		Scopes:       config.Cfg.GetStringSlice("oidc.scopes"),
-		Endpoint:     provider.Endpoint(),
-	}
-
-	verifier := provider.Verifier(&oidc.Config{
-		ClientID: conf.ClientID,
-	})
-
-	return conf, verifier, nil
-}
-
-func generateSecureRandomString(size int) (string, error) {
-	buf := make([]byte, size)
-	if _, err := rand.Read(buf); err != nil {
-		return "", err
-	}
-	return base64.RawURLEncoding.EncodeToString(buf), nil
-}
-
-func oidcStateKey(state string) string {
-	return "oidc:state:" + state
-}
-
-func (s *AuthService) GetOIDCAuthURL(ctx context.Context) (string, string, error) {
-	if config.Cfg == nil || !config.Cfg.GetBool("auth.enable_external") {
-		return "", "", errors.New("oidc login is temporarily disabled in tenant mode")
-	}
-
-	if !config.Cfg.GetBool("oidc.enable") {
-		return "", "", errors.New("OIDC is not enabled")
-	}
-
-	conf, _, err := s.buildOIDCConfig(ctx)
-	if err != nil {
-		return "", "", err
-	}
-
-	state, err := generateSecureRandomString(24)
-	if err != nil {
-		return "", "", fmt.Errorf("generate state failed: %w", err)
-	}
-	nonce, err := generateSecureRandomString(24)
-	if err != nil {
-		return "", "", fmt.Errorf("generate nonce failed: %w", err)
-	}
-
-	if err := redis.Set(ctx, oidcStateKey(state), nonce, 5*time.Minute); err != nil {
-		return "", "", fmt.Errorf("save oidc state failed: %w", err)
-	}
-
-	url := conf.AuthCodeURL(state, oidc.Nonce(nonce))
-	return url, state, nil
-}
-
-func (s *AuthService) LoginOIDC(ctx context.Context, code, state, ip, userAgent string) (*LoginResponse, error) {
-	if config.Cfg == nil || !config.Cfg.GetBool("auth.enable_external") {
-		return nil, errors.New("oidc login is temporarily disabled in tenant mode")
-	}
-
-	if !config.Cfg.GetBool("oidc.enable") {
-		return nil, errors.New("OIDC is not enabled")
-	}
-	if state == "" {
-		return nil, errors.New("missing oidc state")
-	}
-
-	expectedNonce, err := redis.Get(ctx, oidcStateKey(state))
-	if err != nil || expectedNonce == "" {
-		return nil, errors.New("invalid or expired oidc state")
-	}
-	_ = redis.Del(ctx, oidcStateKey(state))
-
-	conf, verifier, err := s.buildOIDCConfig(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	token, err := conf.Exchange(ctx, code)
-	if err != nil {
-		return nil, fmt.Errorf("failed to exchange token: %w", err)
-	}
-
-	rawIDToken, ok := token.Extra("id_token").(string)
-	if !ok {
-		return nil, errors.New("no id_token in response")
-	}
-
-	idToken, err := verifier.Verify(ctx, rawIDToken)
-	if err != nil {
-		return nil, fmt.Errorf("verify id_token failed: %w", err)
-	}
-
-	var claims struct {
-		Sub               string `json:"sub"`
-		Email             string `json:"email"`
-		Name              string `json:"name"`
-		PreferredUsername string `json:"preferred_username"`
-		Nonce             string `json:"nonce"`
-	}
-	if err := idToken.Claims(&claims); err != nil {
-		return nil, fmt.Errorf("parse id_token claims failed: %w", err)
-	}
-	if claims.Nonce == "" || claims.Nonce != expectedNonce {
-		return nil, errors.New("oidc nonce mismatch")
-	}
-	if claims.Sub == "" {
-		return nil, errors.New("sub claim not found in id_token")
-	}
-
-	username := claims.PreferredUsername
-	if username == "" {
-		username = claims.Email
-	}
-	if username == "" {
-		username = claims.Sub
-	}
-
-	// OIDC 多租户模式下仅允许登录已预置且已绑定租户的用户。
-	user, err := s.userRepo.GetByUsername(username)
-	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, err
-	}
-	if user == nil {
-		return nil, errors.New("oidc user is not bound to any tenant")
-	}
-
-	if user.TenantID == nil || *user.TenantID == 0 {
-		return nil, errors.New("oidc user is not bound to any tenant")
-	}
-
-	tenant, err := s.tenantRepo.GetByID(*user.TenantID)
-	if err != nil {
-		return nil, fmt.Errorf("tenant lookup failed: %w", err)
-	}
-	if tenant.Status != "active" {
-		return nil, errors.New("tenant is not active")
-	}
-	if tenant.ExpiresAt != nil && tenant.ExpiresAt.Before(time.Now()) {
-		return nil, errors.New("tenant has expired")
-	}
-
-	updates := map[string]interface{}{
-		"email":       claims.Email,
-		"name":        claims.Name,
-		"external_id": claims.Sub,
-		"auth_type":   model.AuthTypeOIDC,
-		"updated_at":  time.Now(),
-	}
-	if err := s.userRepo.UpdateByIDInTenant(tenant.ID, user.ID, updates); err != nil {
-		return nil, fmt.Errorf("failed to update OIDC user: %w", err)
-	}
-
-	user, err = s.userRepo.GetByIDInTenant(tenant.ID, user.ID)
-	if err != nil {
-		return nil, fmt.Errorf("reload oidc user failed: %w", err)
-	}
-
-	sessionID, err := s.sessionSvc.CreateSession(ctx, user.ID, user.Username, tenant.ID, tenant.Code, string(model.AuthTypeOIDC), ip, userAgent)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create session: %w", err)
-	}
-
-	return &LoginResponse{
-		SessionID: sessionID,
-		User:      user,
-	}, nil
 }
