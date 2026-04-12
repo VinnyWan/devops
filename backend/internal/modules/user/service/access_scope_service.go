@@ -94,11 +94,11 @@ func (s *AccessScopeService) Resolve(ctx context.Context, tenantID uint, userID 
 	if scopeLevel == model.DataScopeTenant {
 		return newDataAccessScope(tenantID, scopeLevel, nil), nil
 	}
-	if user.DepartmentID == nil || *user.DepartmentID == 0 {
+	if user.PrimaryDeptID == nil || *user.PrimaryDeptID == 0 {
 		return newDataAccessScope(tenantID, scopeLevel, nil), nil
 	}
 	if scopeLevel == model.DataScopeSelfDepartment {
-		return newDataAccessScope(tenantID, scopeLevel, []uint{*user.DepartmentID}), nil
+		return newDataAccessScope(tenantID, scopeLevel, []uint{*user.PrimaryDeptID}), nil
 	}
 
 	departments, err := s.deptRepo.ListHierarchyInTenant(tenantID)
@@ -106,7 +106,7 @@ func (s *AccessScopeService) Resolve(ctx context.Context, tenantID uint, userID 
 		return nil, err
 	}
 
-	return newDataAccessScope(tenantID, scopeLevel, collectDepartmentTreeIDs(*user.DepartmentID, departments)), nil
+	return newDataAccessScope(tenantID, scopeLevel, collectDepartmentTreeIDs(*user.PrimaryDeptID, departments)), nil
 }
 
 func (s *AccessScopeService) EnsureDepartmentAccess(ctx context.Context, tenantID uint, userID uint, departmentID uint) error {
@@ -149,7 +149,7 @@ func (s *AccessScopeService) EnsureUserAccess(ctx context.Context, tenantID uint
 	if err != nil {
 		return err
 	}
-	if targetUser.DepartmentID != nil && scope.AllowsDepartmentID(*targetUser.DepartmentID) {
+	if targetUser.PrimaryDeptID != nil && scope.AllowsDepartmentID(*targetUser.PrimaryDeptID) {
 		return nil
 	}
 	return ErrScopeForbidden

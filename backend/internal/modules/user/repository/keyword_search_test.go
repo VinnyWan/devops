@@ -31,8 +31,8 @@ func TestUserRepoListKeywordBoundaryAndSpecialChars(t *testing.T) {
 		t.Fatalf("create dept: %v", err)
 	}
 	users := []model.User{
-		{Username: "alice_ops", Password: "x", Email: "alice@example.com", Name: "Alice", AuthType: model.AuthTypeLocal, Status: "active", DepartmentID: &dept.ID},
-		{Username: "bob", Password: "x", Email: "bob@example.com", Name: "Bob", AuthType: model.AuthTypeLocal, Status: "active", DepartmentID: &dept.ID},
+		{Username: "alice_ops", Password: "x", Email: "alice@example.com", Name: "Alice", AuthType: model.AuthTypeLocal, Status: "active", PrimaryDeptID: &dept.ID},
+		{Username: "bob", Password: "x", Email: "bob@example.com", Name: "Bob", AuthType: model.AuthTypeLocal, Status: "active", PrimaryDeptID: &dept.ID},
 	}
 	if err := db.Create(&users).Error; err != nil {
 		t.Fatalf("create users: %v", err)

@@ -151,14 +151,14 @@ func (s *UserService) UpdateUserByRequest(ctx context.Context, tenantID uint, op
 		updates["status"] = *req.Status
 	}
 
-	if req.DepartmentID != nil {
-		if *req.DepartmentID == 0 {
-			updates["department_id"] = nil
+	if req.PrimaryDeptID != nil {
+		if *req.PrimaryDeptID == 0 {
+			updates["primary_dept_id"] = nil
 		} else {
-			if err := s.scopeSvc.EnsureDepartmentAccess(ctx, tenantID, operatorID, *req.DepartmentID); err != nil {
+			if err := s.scopeSvc.EnsureDepartmentAccess(ctx, tenantID, operatorID, *req.PrimaryDeptID); err != nil {
 				return err
 			}
-			updates["department_id"] = *req.DepartmentID
+			updates["primary_dept_id"] = *req.PrimaryDeptID
 		}
 	}
 

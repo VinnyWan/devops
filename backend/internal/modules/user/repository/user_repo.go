@@ -195,7 +195,7 @@ func (r *UserRepo) ListByDepartmentIDsInTenant(tenantID uint, departmentIDs []ui
 	query := r.db.Model(&model.User{}).
 		Preload("Roles", "(tenant_id = ? OR tenant_id IS NULL)", tenantID).
 		Preload("Department", "tenant_id = ?", tenantID).
-		Where("tenant_id = ? AND department_id IN ?", tenantID, departmentIDs)
+		Where("tenant_id = ? AND primary_dept_id IN ?", tenantID, departmentIDs)
 	query = queryutil.ApplyKeywordLike(query, keyword, "username", "name", "email")
 
 	if err := query.Count(&total).Error; err != nil {
@@ -215,7 +215,7 @@ func (r *UserRepo) ListByDepartment(deptID uint, page, pageSize int, keyword str
 	var users []model.User
 	var total int64
 
-	query := r.db.Model(&model.User{}).Preload("Roles").Where("department_id = ?", deptID)
+	query := r.db.Model(&model.User{}).Preload("Roles").Where("primary_dept_id = ?", deptID)
 
 	query = queryutil.ApplyKeywordLike(query, keyword, "username", "name", "email")
 
@@ -241,7 +241,7 @@ func (r *UserRepo) ListByDepartmentInTenant(tenantID uint, deptID uint, page, pa
 	query := r.db.Model(&model.User{}).
 		Preload("Roles", "(tenant_id = ? OR tenant_id IS NULL)", tenantID).
 		Preload("Department", "tenant_id = ?", tenantID).
-		Where("tenant_id = ? AND department_id = ?", tenantID, deptID)
+		Where("tenant_id = ? AND primary_dept_id = ?", tenantID, deptID)
 	query = queryutil.ApplyKeywordLike(query, keyword, "username", "name", "email")
 
 	if err := query.Count(&total).Error; err != nil {
@@ -367,7 +367,7 @@ func (r *UserRepo) AssignRolesInTenant(tenantID uint, userID uint, roleIDs []uin
 func (r *UserRepo) ListUserIDsByDepartmentID(deptID uint) ([]uint, error) {
 	var userIDs []uint
 	err := r.db.Model(&model.User{}).
-		Where("department_id = ?", deptID).
+		Where("primary_dept_id = ?", deptID).
 		Pluck("id", &userIDs).Error
 	return userIDs, err
 }
@@ -378,7 +378,7 @@ func (r *UserRepo) ListUserIDsByDepartmentIDInTenant(tenantID uint, deptID uint)
 	}
 	var userIDs []uint
 	err := r.db.Model(&model.User{}).
-		Where("tenant_id = ? AND department_id = ?", tenantID, deptID).
+		Where("tenant_id = ? AND primary_dept_id = ?", tenantID, deptID).
 		Pluck("id", &userIDs).Error
 	return userIDs, err
 }
@@ -391,7 +391,7 @@ func (r *UserRepo) ListPermissionAffectedUserIDsByRoleID(roleID uint) ([]uint, e
 
 	err := r.db.Model(&model.User{}).
 		Distinct("users.id").
-		Where("users.id IN (?) OR users.department_id IN (?)", directUserSubQuery, deptSubQuery).
+		Where("users.id IN (?) OR users.primary_dept_id IN (?)", directUserSubQuery, deptSubQuery).
 		Pluck("users.id", &userIDs).Error
 	return userIDs, err
 }
@@ -408,7 +408,7 @@ func (r *UserRepo) ListPermissionAffectedUserIDsByRoleIDInTenant(tenantID uint, 
 	err := r.db.Model(&model.User{}).
 		Distinct("users.id").
 		Where("users.tenant_id = ?", tenantID).
-		Where("users.id IN (?) OR users.department_id IN (?)", directUserSubQuery, deptSubQuery).
+		Where("users.id IN (?) OR users.primary_dept_id IN (?)", directUserSubQuery, deptSubQuery).
 		Pluck("users.id", &userIDs).Error
 	return userIDs, err
 }

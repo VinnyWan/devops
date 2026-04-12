@@ -164,8 +164,8 @@ func TestDepartmentUserTransfer_PermissionConvergence(t *testing.T) {
 
 	reloaded, err := repository.NewUserRepo(db).GetByID(target.ID)
 	mustNoError(t, err)
-	if reloaded.DepartmentID == nil || *reloaded.DepartmentID != deptB.ID {
-		t.Fatalf("expected department changed to %d, got %+v", deptB.ID, reloaded.DepartmentID)
+	if reloaded.PrimaryDeptID == nil || *reloaded.PrimaryDeptID != deptB.ID {
+		t.Fatalf("expected department changed to %d, got %+v", deptB.ID, reloaded.PrimaryDeptID)
 	}
 	if len(reloaded.Roles) != 0 {
 		t.Fatalf("expected direct roles cleared after transfer, got %d", len(reloaded.Roles))
@@ -275,8 +275,8 @@ func TestDepartmentUserService_Create_UsesScopeNotRoleName(t *testing.T) {
 		DepartmentID: dept.ID,
 	})
 	mustNoError(t, err)
-	if created.DepartmentID == nil || *created.DepartmentID != dept.ID {
-		t.Fatalf("expected created user in dept %d, got %+v", dept.ID, created.DepartmentID)
+	if created.PrimaryDeptID == nil || *created.PrimaryDeptID != dept.ID {
+		t.Fatalf("expected created user in dept %d, got %+v", dept.ID, created.PrimaryDeptID)
 	}
 }
 
@@ -453,7 +453,7 @@ func createUser(t *testing.T, db *gorm.DB, tenantID uint, username, email string
 		AuthType:     model.AuthTypeLocal,
 		Status:       "active",
 		IsAdmin:      isAdmin,
-		DepartmentID: deptID,
+		PrimaryDeptID: deptID,
 	}
 	mustNoError(t, db.Create(&user).Error)
 	return user

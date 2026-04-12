@@ -5,6 +5,6 @@ type UpdateUserRequest struct {
 	Username     *string `json:"username"`
 	Name         *string `json:"name"`
 	Email        *string `json:"email"`
-	DepartmentID *uint   `json:"departmentId"`
+	PrimaryDeptID *uint   `json:"primaryDeptId"`
 	Status       *string `json:"status"`
 }

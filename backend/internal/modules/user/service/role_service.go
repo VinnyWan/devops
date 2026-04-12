@@ -205,7 +205,7 @@ func (s *RoleService) GetRoleUsers(ctx context.Context, tenantID uint, operatorI
 			filtered = append(filtered, user)
 			continue
 		}
-		if user.DepartmentID != nil && scope.AllowsDepartmentID(*user.DepartmentID) {
+		if user.PrimaryDeptID != nil && scope.AllowsDepartmentID(*user.PrimaryDeptID) {
 			filtered = append(filtered, user)
 		}
 	}
