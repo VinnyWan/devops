@@ -61,12 +61,14 @@ func InitDB() error {
 
 	// 自动迁移数据表 (注意顺序：先迁移被依赖的表)
 	err = db.AutoMigrate(
-		&userModel.Tenant{},     // 租户表 (最优先，其他表可能关联)
-		&userModel.Department{}, // 部门表
+		&userModel.Tenant{},         // 租户表 (最优先，其他表可能关联)
+		&userModel.Department{},     // 部门表
 		&userModel.User{},
 		&userModel.Role{},
 		&userModel.Permission{},
-		&userModel.AuditLog{}, // 审计日志
+		&userModel.UserDepartment{}, // 用户-部门多对多
+		&userModel.FieldPermission{}, // 字段级权限
+		&userModel.AuditLog{},       // 审计日志
 		&k8sModel.Cluster{},
 	)
 	if err != nil {

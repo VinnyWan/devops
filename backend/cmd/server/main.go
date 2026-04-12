@@ -85,7 +85,7 @@ func main() {
 	auditRepo := repository.NewAuditRepo(bootstrap.DB)
 	auditService := service.NewAuditService(auditRepo)
 	auditService.StartAuditCleanupTask()
-	if err := bootstrap.InitCasbin(); err != nil {
+	if err := bootstrap.InitCasbin(bootstrap.DB); err != nil {
 		log.Fatal(err)
 	}
 	if err := bootstrap.InitK8sFactory(); err != nil {
