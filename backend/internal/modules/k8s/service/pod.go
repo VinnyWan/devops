@@ -317,6 +317,18 @@ func (s *K8sService) ListPodsByOwner(clusterName string, namespace string, owner
 			return nil, err
 		}
 		selector = metav1.FormatLabelSelector(ds.Spec.Selector)
+	case "Job":
+		job, err := client.BatchV1().Jobs(namespace).Get(context.Background(), ownerName, metav1.GetOptions{})
+		if err != nil {
+			return nil, err
+		}
+		selector = metav1.FormatLabelSelector(job.Spec.Selector)
+	case "CronJob":
+		cj, err := client.BatchV1().CronJobs(namespace).Get(context.Background(), ownerName, metav1.GetOptions{})
+		if err != nil {
+			return nil, err
+		}
+		selector = metav1.FormatLabelSelector(cj.Spec.JobTemplate.Spec.Selector)
 	default:
 		return nil, fmt.Errorf("不支持的控制器类型: %s", ownerType)
 	}

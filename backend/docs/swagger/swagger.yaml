@@ -3827,6 +3827,247 @@ paths:
       summary: 更新 ConfigMap
       tags:
       - K8s资源管理
+  /k8s/cronjob/create:
+    post:
+      consumes:
+      - application/json
+      description: 创建一个新的 CronJob
+      parameters:
+      - description: 集群名称（可选，未传则使用默认集群）
+        in: query
+        name: clusterName
+        type: string
+      - description: 命名空间
+        in: query
+        name: namespace
+        required: true
+        type: string
+      - description: CronJob 对象
+        in: body
+        name: cronjob
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/api.Response'
+      security:
+      - BearerAuth: []
+      summary: 创建 CronJob
+      tags:
+      - K8s资源管理
+  /k8s/cronjob/delete:
+    post:
+      consumes:
+      - application/json
+      description: 删除指定的 CronJob
+      parameters:
+      - description: '参数: {clusterName, namespace, name}'
+        in: body
+        name: request
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/api.Response'
+      security:
+      - BearerAuth: []
+      summary: 删除 CronJob
+      tags:
+      - K8s资源管理
+  /k8s/cronjob/detail:
+    get:
+      consumes:
+      - application/json
+      description: 获取指定 CronJob 的详细信息
+      parameters:
+      - description: 集群名称（可选，未传则使用默认集群）
+        in: query
+        name: clusterName
+        type: string
+      - description: 命名空间
+        in: query
+        name: namespace
+        required: true
+        type: string
+      - description: 资源名称
+        in: query
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/api.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取 CronJob 详情
+      tags:
+      - K8s资源管理
+  /k8s/cronjob/list:
+    get:
+      consumes:
+      - application/json
+      description: 获取 CronJob 列表，namespace 为空时获取所有命名空间
+      parameters:
+      - description: 集群名称（可选，未传则使用默认集群）
+        in: query
+        name: clusterName
+        type: string
+      - description: 命名空间（为空时查询所有命名空间）
+        in: query
+        name: namespace
+        type: string
+      - default: 1
+        description: 页码
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: 每页数量
+        in: query
+        name: pageSize
+        type: integer
+      - description: 关键字搜索（匹配名称）
+        in: query
+        name: keyword
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/api.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取 CronJob 列表
+      tags:
+      - K8s资源管理
+  /k8s/cronjob/pods:
+    get:
+      consumes:
+      - application/json
+      description: 获取指定 CronJob 关联的 Pod 列表
+      parameters:
+      - description: 集群名称（可选，未传则使用默认集群）
+        in: query
+        name: clusterName
+        type: string
+      - description: 命名空间
+        in: query
+        name: namespace
+        required: true
+        type: string
+      - description: 资源名称
+        in: query
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/api.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取 CronJob 关联的 Pod 列表
+      tags:
+      - K8s资源管理
+  /k8s/cronjob/suspend:
+    post:
+      consumes:
+      - application/json
+      description: 暂停或恢复指定的 CronJob
+      parameters:
+      - description: '参数: {clusterName, namespace, name, suspend}'
+        in: body
+        name: request
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/api.Response'
+      security:
+      - BearerAuth: []
+      summary: 暂停/恢复 CronJob
+      tags:
+      - K8s资源管理
+  /k8s/cronjob/yaml:
+    get:
+      consumes:
+      - application/json
+      description: 获取指定 CronJob 的 YAML 内容
+      parameters:
+      - description: 集群名称（可选，未传则使用默认集群）
+        in: query
+        name: clusterName
+        type: string
+      - description: 命名空间
+        in: query
+        name: namespace
+        required: true
+        type: string
+      - description: 资源名称
+        in: query
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/api.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取 CronJob YAML
+      tags:
+      - K8s资源管理
+  /k8s/cronjob/yaml/update:
+    post:
+      consumes:
+      - application/json
+      description: 使用 YAML 内容更新指定 CronJob
+      parameters:
+      - description: '参数: {clusterName, namespace, name, yaml}'
+        in: body
+        name: request
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/api.Response'
+      security:
+      - BearerAuth: []
+      summary: 通过 YAML 更新 CronJob
+      tags:
+      - K8s资源管理
   /k8s/daemonset/create:
     post:
       consumes:
@@ -4556,6 +4797,199 @@ paths:
       security:
       - BearerAuth: []
       summary: 更新 Ingress
+      tags:
+      - K8s资源管理
+  /k8s/job/create:
+    post:
+      consumes:
+      - application/json
+      description: 创建一个新的 Job
+      parameters:
+      - description: 集群名称（可选，未传则使用默认集群）
+        in: query
+        name: clusterName
+        type: string
+      - description: 命名空间
+        in: query
+        name: namespace
+        required: true
+        type: string
+      - description: Job 对象
+        in: body
+        name: job
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/api.Response'
+      security:
+      - BearerAuth: []
+      summary: 创建 Job
+      tags:
+      - K8s资源管理
+  /k8s/job/delete:
+    post:
+      consumes:
+      - application/json
+      description: 删除指定的 Job
+      parameters:
+      - description: '参数: {clusterName, namespace, name}'
+        in: body
+        name: request
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/api.Response'
+      security:
+      - BearerAuth: []
+      summary: 删除 Job
+      tags:
+      - K8s资源管理
+  /k8s/job/detail:
+    get:
+      consumes:
+      - application/json
+      description: 获取指定 Job 的详细信息
+      parameters:
+      - description: 集群名称（可选，未传则使用默认集群）
+        in: query
+        name: clusterName
+        type: string
+      - description: 命名空间
+        in: query
+        name: namespace
+        required: true
+        type: string
+      - description: 资源名称
+        in: query
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/api.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取 Job 详情
+      tags:
+      - K8s资源管理
+  /k8s/job/list:
+    get:
+      consumes:
+      - application/json
+      description: 获取 Job 列表，namespace 为空时获取所有命名空间
+      parameters:
+      - description: 集群名称（可选，未传则使用默认集群）
+        in: query
+        name: clusterName
+        type: string
+      - description: 命名空间（为空时查询所有命名空间）
+        in: query
+        name: namespace
+        type: string
+      - default: 1
+        description: 页码
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: 每页数量
+        in: query
+        name: pageSize
+        type: integer
+      - description: 关键字搜索（匹配名称）
+        in: query
+        name: keyword
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/api.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取 Job 列表
+      tags:
+      - K8s资源管理
+  /k8s/job/pods:
+    get:
+      consumes:
+      - application/json
+      description: 获取指定 Job 关联的 Pod 列表
+      parameters:
+      - description: 集群名称（可选，未传则使用默认集群）
+        in: query
+        name: clusterName
+        type: string
+      - description: 命名空间
+        in: query
+        name: namespace
+        required: true
+        type: string
+      - description: 资源名称
+        in: query
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/api.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取 Job 关联的 Pod 列表
+      tags:
+      - K8s资源管理
+  /k8s/job/yaml:
+    get:
+      consumes:
+      - application/json
+      description: 获取指定 Job 的 YAML 内容
+      parameters:
+      - description: 集群名称（可选，未传则使用默认集群）
+        in: query
+        name: clusterName
+        type: string
+      - description: 命名空间
+        in: query
+        name: namespace
+        required: true
+        type: string
+      - description: 资源名称
+        in: query
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/api.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取 Job YAML
       tags:
       - K8s资源管理
   /k8s/namespace/create:

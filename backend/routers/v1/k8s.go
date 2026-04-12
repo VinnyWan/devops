@@ -137,6 +137,24 @@ func registerCluster(r *gin.RouterGroup) {
 			middleware.SetAuditOperation("删除DaemonSet"),
 			api.DeleteDaemonSet)
 
+		// Job 路由
+		g.GET("/job/list", listPermission, api.ListJobs)
+		g.GET("/job/detail", listPermission, api.GetJobDetail)
+		g.GET("/job/pods", listPermission, api.GetJobPods)
+		g.GET("/job/yaml", listPermission, api.GetJobYAML)
+		g.POST("/job/create", createPermission, middleware.SetAuditOperation("创建Job"), api.CreateJob)
+		g.POST("/job/delete", deletePermission, middleware.SetAuditOperation("删除Job"), api.DeleteJob)
+
+		// CronJob 路由
+		g.GET("/cronjob/list", listPermission, api.ListCronJobs)
+		g.GET("/cronjob/detail", listPermission, api.GetCronJobDetail)
+		g.GET("/cronjob/pods", listPermission, api.GetCronJobPods)
+		g.GET("/cronjob/yaml", listPermission, api.GetCronJobYAML)
+		g.POST("/cronjob/create", createPermission, middleware.SetAuditOperation("创建CronJob"), api.CreateCronJob)
+		g.POST("/cronjob/yaml/update", updatePermission, middleware.SetAuditOperation("YAML更新CronJob"), api.UpdateCronJobYAML)
+		g.POST("/cronjob/suspend", updatePermission, middleware.SetAuditOperation("暂停恢复CronJob"), api.SuspendCronJob)
+		g.POST("/cronjob/delete", deletePermission, middleware.SetAuditOperation("删除CronJob"), api.DeleteCronJob)
+
 		// Pod
 		g.GET("/pod/list", listPermission, api.ListPods)
 		g.GET("/pod/list_by_owner", listPermission, api.ListPodsByOwner)
