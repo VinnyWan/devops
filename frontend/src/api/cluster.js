@@ -8,7 +8,7 @@ export const createCluster = (data) => request.post('/k8s/cluster/create', data)
 
 export const updateCluster = (data) => request.post('/k8s/cluster/update', data)
 
-export const deleteCluster = (id) => request.delete(`/k8s/cluster/delete/${id}`)
+export const deleteCluster = (id) => request.post('/k8s/cluster/delete', { id })
 
 export const getClusterHealth = (id) => request.get(`/k8s/cluster/health/${id}`)
 

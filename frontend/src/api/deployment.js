@@ -6,7 +6,7 @@ export const createDeployment = (data) => request.post('/k8s/deployment/create',
 
 export const updateDeployment = (data) => request.put('/k8s/deployment/update', data)
 
-export const deleteDeployment = (data) => request.delete('/k8s/deployment/delete', { data })
+export const deleteDeployment = (data) => request.post('/k8s/deployment/delete', data)
 
 export const restartDeployment = (data) => request.post('/k8s/deployment/restart', data)
 

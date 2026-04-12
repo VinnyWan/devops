@@ -4,4 +4,4 @@ export const getDaemonSetList = (params) => request.get('/k8s/daemonset/list', {
 
 export const createDaemonSet = (data) => request.post('/k8s/daemonset/create', data)
 
-export const deleteDaemonSet = (data) => request.delete('/k8s/daemonset/delete', { data })
+export const deleteDaemonSet = (data) => request.post('/k8s/daemonset/delete', data)

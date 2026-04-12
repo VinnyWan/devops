@@ -278,7 +278,7 @@ func computeStatefulSetStatus(sts *appsv1.StatefulSet) string {
 		return "Unavailable"
 	}
 	if sts.Spec.Replicas != nil && sts.Status.ReadyReplicas == *sts.Spec.Replicas {
-		return "Available"
+		return "Running"
 	}
 	return "Progressing"
 }

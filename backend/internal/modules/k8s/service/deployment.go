@@ -290,7 +290,7 @@ func computeDeploymentStatus(deploy *appsv1.Deployment) (string, string) {
 		return "Progressing", reason
 	}
 
-	return "Available", ""
+	return "Running", ""
 }
 
 func buildConditionVOs(conditions []appsv1.DeploymentCondition) []DeploymentConditionVO {

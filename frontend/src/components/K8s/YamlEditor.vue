@@ -57,19 +57,20 @@ const handleCopy = async () => {
   font-size: 13px;
   line-height: 1.5;
   padding: 12px;
-  border: 1px solid #dcdfe6;
+  border: 1px solid #333;
   border-radius: 4px;
   resize: vertical;
   box-sizing: border-box;
-  background: #fafafa;
-  color: #303133;
+  background: #1e1e1e;
+  color: #d4d4d4;
 }
 .yaml-textarea:focus {
   outline: none;
   border-color: #409eff;
 }
 .yaml-textarea:read-only {
-  background: #f5f7fa;
+  background: #1e1e1e;
+  color: #d4d4d4;
   cursor: default;
 }
 .yaml-actions {

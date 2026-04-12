@@ -5,6 +5,7 @@ server
 .agents/
 .trae/
 .github/
+.superpowers/
 docs/
 
 # Backend

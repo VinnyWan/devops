@@ -12,12 +12,20 @@ const props = defineProps({
 const tagType = computed(() => {
   const statusMap = {
     Running: 'success',
+    Available: 'success',
     Succeeded: 'success',
+    Completed: 'success',
     Ready: 'success',
+    Scheduled: '',
+    Active: '',
+    Progressing: 'warning',
     Pending: 'warning',
+    Suspended: 'warning',
+    Terminating: 'warning',
+    Unavailable: 'danger',
+    Degraded: 'danger',
     Failed: 'danger',
-    Unknown: 'info',
-    Terminating: 'warning'
+    Unknown: 'info'
   }
   return statusMap[props.status] || 'info'
 })

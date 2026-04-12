@@ -6,4 +6,4 @@ export const createConfigMap = (data) => request.post('/k8s/configmap/create', d
 
 export const updateConfigMap = (data) => request.put('/k8s/configmap/update', data)
 
-export const deleteConfigMap = (data) => request.delete('/k8s/configmap/delete', { data })
+export const deleteConfigMap = (data) => request.post('/k8s/configmap/delete', data)

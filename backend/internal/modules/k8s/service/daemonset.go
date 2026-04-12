@@ -244,7 +244,7 @@ func computeDaemonSetStatus(ds *appsv1.DaemonSet) string {
 		return "Unavailable"
 	}
 	if ds.Status.NumberReady == ds.Status.DesiredNumberScheduled {
-		return "Available"
+		return "Running"
 	}
 	return "Progressing"
 }

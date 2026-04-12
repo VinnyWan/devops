@@ -6,7 +6,7 @@ export const createUser = (data) => request.post('/user/create', data)
 
 export const updateUser = (data) => request.put('/user/update', data)
 
-export const deleteUser = (id) => request.delete(`/user/delete/${id}`)
+export const deleteUser = (id) => request.post(`/user/delete?id=${id}`)
 
 export const getRoleList = (params) => request.get('/role/list', { params })
 

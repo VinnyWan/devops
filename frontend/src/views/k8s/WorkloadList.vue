@@ -32,8 +32,11 @@
       <el-table-column label="镜像" min-width="200">
         <template #default="{ row }">{{ formatImages(row.containers) }}</template>
       </el-table-column>
-      <el-table-column label="副本数" width="100" v-if="activeTab !== 'daemonset'">
-        <template #default="{ row }">{{ row.replicas }}</template>
+      <el-table-column label="READY" width="100">
+        <template #default="{ row }">
+          <template v-if="activeTab === 'daemonset'">{{ row.readyNumber }}/{{ row.desiredNumber }}</template>
+          <template v-else>{{ row.readyReplicas ?? 0 }}/{{ row.replicas ?? 0 }}</template>
+        </template>
       </el-table-column>
       <el-table-column label="创建时间" width="180">
         <template #default="{ row }">{{ formatTime(row.createdAt) }}</template>
@@ -135,18 +138,23 @@
     </el-dialog>
 
     <!-- YAML 编辑弹窗 -->
-    <el-dialog v-model="yamlVisible" :title="yamlTitle" width="800px" destroy-on-close>
-      <YamlEditor v-model="yamlContent" :readonly="yamlReadonly" :show-copy="true" min-height="400px" />
+    <el-dialog v-model="yamlVisible" :title="yamlTitle" width="900px" destroy-on-close top="3vh">
+      <YamlEditor ref="yamlEditorRef" v-model="yamlContent" :readonly="yamlReadonly" :show-copy="false" min-height="600px" />
       <template #footer>
-        <el-button @click="yamlVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleYamlSave" v-if="!yamlReadonly">保存</el-button>
+        <div style="display: flex; justify-content: space-between; width: 100%">
+          <el-button @click="handleYamlCopy">{{ yamlCopyText }}</el-button>
+          <div>
+            <el-button @click="yamlVisible = false">取消</el-button>
+            <el-button type="primary" @click="handleYamlSave" v-if="!yamlReadonly">保存</el-button>
+          </div>
+        </div>
       </template>
     </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import ClusterSelector from '@/components/K8s/ClusterSelector.vue'
@@ -183,9 +191,21 @@ const yamlTitle = ref('YAML')
 const yamlContent = ref('')
 const yamlReadonly = ref(false)
 const yamlMode = ref('') // 'view' | 'edit' | 'create'
+const yamlEditorRef = ref(null)
+const yamlCopyText = ref('复制')
 
 const isJobTab = computed(() => activeTab.value === 'job')
 const isCronJobTab = computed(() => activeTab.value === 'cronjob')
+
+// 集群变化时自动加载数据
+watch(clusterName, (val) => {
+  if (val) fetchData()
+})
+
+// 页面加载时若集群已就绪则自动获取
+onMounted(() => {
+  if (clusterName.value) fetchData()
+})
 
 // 格式化镜像列表
 const formatImages = (containers) => {
@@ -225,8 +245,8 @@ const fetchData = async () => {
       res = await getCronJobList(params)
       break
   }
-  tableData.value = res.data?.list || res.data || []
-  total.value = res.data?.total || res.total || 0
+  tableData.value = res.data?.items || []
+  total.value = res.data?.total || 0
 }
 
 const handleTabChange = () => {
@@ -295,6 +315,17 @@ const handleSuspend = async (row, suspend) => {
   await suspendCronJob({ clusterName: clusterName.value, namespace: row.namespace, name: row.name, suspend })
   ElMessage.success(`${action}成功`)
   fetchData()
+}
+
+// YAML 复制
+const handleYamlCopy = async () => {
+  try {
+    await navigator.clipboard.writeText(yamlContent.value)
+    yamlCopyText.value = '已复制'
+    setTimeout(() => { yamlCopyText.value = '复制' }, 2000)
+  } catch {
+    ElMessage.error('复制失败')
+  }
 }
 
 // YAML 查看

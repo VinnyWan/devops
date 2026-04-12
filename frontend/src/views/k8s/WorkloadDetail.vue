@@ -346,9 +346,9 @@ const confirmScale = async () => {
 const openPodYaml = async (row) => {
   try {
     const res = await request.get('/k8s/pod/yaml', {
-      params: { clusterName: clusterName.value, namespace: namespace.value, podName: row.name }
+      params: { clusterName: clusterName.value, namespace: namespace.value, name: row.name }
     })
-    podYamlContent.value = res.data || ''
+    podYamlContent.value = res.data?.yaml || res.data || ''
     podYamlVisible.value = true
   } catch (error) {
     ElMessage.error(error.response?.data?.message || '获取 Pod YAML 失败')
@@ -360,13 +360,13 @@ const openTerminal = async (row) => {
   currentPod.value = row
   try {
     const shellRes = await request.get('/k8s/pod/detect-shell', {
-      params: { clusterName: clusterName.value, namespace: namespace.value, podName: row.name }
+      params: { clusterName: clusterName.value, namespace: namespace.value, pod: row.name }
     })
-    detectedShell.value = shellRes.data || 'sh'
+    detectedShell.value = shellRes.data?.recommendedShell || 'sh'
   } catch {
     detectedShell.value = 'sh'
   }
-  terminalWsUrl.value = `/k8s/pod/terminal?clusterName=${clusterName.value}&namespace=${namespace.value}&podName=${row.name}&shell=${detectedShell.value}`
+  terminalWsUrl.value = `/api/v1/k8s/pod/terminal?clusterName=${clusterName.value}&namespace=${namespace.value}&pod=${row.name}&shell=${detectedShell.value}`
   terminalVisible.value = true
 }
 
@@ -389,11 +389,11 @@ const fetchLogs = async () => {
     const res = await getPodLogs({
       clusterName: clusterName.value,
       namespace: namespace.value,
-      podName: currentPod.value.name,
+      name: currentPod.value.name,
       container: logContainer.value,
       tailLines: logTailLines.value
     })
-    logContent.value = res.data || ''
+    logContent.value = res.data?.logs || res.data || ''
   } catch (error) {
     ElMessage.error(error.response?.data?.message || '获取日志失败')
   }
@@ -408,7 +408,7 @@ const handleDeletePod = async (row) => {
     await deletePod({
       clusterName: clusterName.value,
       namespace: namespace.value,
-      podName: row.name
+      name: row.name
     })
     ElMessage.success('Pod 已删除，将自动重建')
     loadDetail()

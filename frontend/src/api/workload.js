@@ -4,7 +4,7 @@ export const getPodList = (params) => request.get('/k8s/pod/list', { params })
 
 export const getPodDetail = (params) => request.get('/k8s/pod/detail', { params })
 
-export const deletePod = (data) => request.delete('/k8s/pod/delete', { data })
+export const deletePod = (data) => request.post('/k8s/pod/delete', data)
 
 export const getPodLogs = (params) => request.get('/k8s/pod/logs', { params })
 
