@@ -17,35 +17,39 @@ const routes = [
       },
       {
         path: 'k8s/cluster',
-        component: () => import('../views/K8s/k8s-clusters.vue')
+        component: () => import('../views/k8s/k8s-clusters.vue')
       },
       {
         path: 'k8s/cluster/:name',
-        component: () => import('../views/K8s/ClusterDetail.vue')
+        component: () => import('../views/k8s/ClusterDetail.vue')
       },
       {
         path: 'k8s/node',
-        component: () => import('../views/K8s/NodeList.vue')
+        component: () => import('../views/k8s/NodeList.vue')
+      },
+      {
+        path: 'k8s/node/:clusterName/:nodeName',
+        component: () => import('../views/k8s/NodeDetail.vue')
       },
       {
         path: 'k8s/namespace',
-        component: () => import('../views/K8s/NamespaceList.vue')
+        component: () => import('../views/k8s/NamespaceList.vue')
       },
       {
         path: 'k8s/workload',
-        component: () => import('../views/K8s/WorkloadList.vue')
+        component: () => import('../views/k8s/WorkloadList.vue')
       },
       {
         path: 'k8s/pod/:name',
-        component: () => import('../views/K8s/PodDetail.vue')
+        component: () => import('../views/k8s/PodDetail.vue')
       },
       {
         path: 'k8s/network',
-        component: () => import('../views/K8s/NetworkList.vue')
+        component: () => import('../views/k8s/NetworkList.vue')
       },
       {
         path: 'k8s/config',
-        component: () => import('../views/K8s/ConfigList.vue')
+        component: () => import('../views/k8s/ConfigList.vue')
       },
       {
         path: 'system/user',

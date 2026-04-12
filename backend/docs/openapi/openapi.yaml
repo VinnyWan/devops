@@ -111,21 +111,21 @@ components:
             type: object
         api.CordonNodeRequest:
             properties:
-                clusterId:
-                    type: integer
+                clusterName:
+                    type: string
                 cordon:
                     description: true=不可调度, false=可调度
                     type: boolean
                 name:
                     type: string
             required:
-                - clusterId
+                - clusterName
                 - name
             type: object
         api.DrainNodeRequest:
             properties:
-                clusterId:
-                    type: integer
+                clusterName:
+                    type: string
                 deleteLocalData:
                     type: boolean
                 force:
@@ -137,7 +137,7 @@ components:
                 name:
                     type: string
             required:
-                - clusterId
+                - clusterName
                 - name
             type: object
         api.K8sObject:
@@ -155,8 +155,8 @@ components:
             type: object
         api.UpdateLabelsRequest:
             properties:
-                clusterId:
-                    type: integer
+                clusterName:
+                    type: string
                 labels:
                     additionalProperties:
                         type: string
@@ -164,21 +164,21 @@ components:
                 name:
                     type: string
             required:
-                - clusterId
+                - clusterName
                 - labels
                 - name
             type: object
         api.UpdateTaintsRequest:
             properties:
-                clusterId:
-                    type: integer
+                clusterName:
+                    type: string
                 name:
                     type: string
                 taints:
                     items: {}
                     type: array
             required:
-                - clusterId
+                - clusterName
                 - name
                 - taints
             type: object
@@ -589,6 +589,37 @@ components:
                 - tenantCode
                 - username
             type: object
+        service.NodeAllocatedResource:
+            properties:
+                cpuLimits:
+                    type: string
+                cpuLimitsPercentage:
+                    type: string
+                cpuRequests:
+                    type: string
+                cpuRequestsPercentage:
+                    type: string
+                ephemeralStorageLimits:
+                    type: string
+                ephemeralStorageRequests:
+                    type: string
+                hugepages1GiLimits:
+                    type: string
+                hugepages1GiRequests:
+                    type: string
+                hugepages2MiLimits:
+                    type: string
+                hugepages2MiRequests:
+                    type: string
+                memoryLimits:
+                    type: string
+                memoryLimitsPercentage:
+                    type: string
+                memoryRequests:
+                    type: string
+                memoryRequestsPercentage:
+                    type: string
+            type: object
         service.NodeDetail:
             properties:
                 addresses:
@@ -596,6 +627,16 @@ components:
                     type: array
                 age:
                     type: string
+                allocatable:
+                    $ref: '#/components/schemas/service.NodeResourceQuantity'
+                allocatedResources:
+                    $ref: '#/components/schemas/service.NodeAllocatedResource'
+                annotations:
+                    additionalProperties:
+                        type: string
+                    type: object
+                capacity:
+                    $ref: '#/components/schemas/service.NodeResourceQuantity'
                 conditions:
                     items: {}
                     type: array
@@ -629,6 +670,8 @@ components:
                     additionalProperties:
                         type: string
                     type: object
+                lease:
+                    $ref: '#/components/schemas/service.NodeLeaseInfo'
                 memoryCapacity:
                     type: string
                 memoryUsage:
@@ -639,10 +682,20 @@ components:
                 osImage:
                     description: 操作系统镜像
                     type: string
+                podCIDR:
+                    type: string
+                podCIDRs:
+                    items:
+                        type: string
+                    type: array
                 podCapacity:
                     type: integer
                 podCount:
                     type: integer
+                pods:
+                    $ref: '#/components/schemas/service.NodePodSummary'
+                providerID:
+                    type: string
                 role:
                     description: master, worker
                     type: string
@@ -655,6 +708,15 @@ components:
                     type: array
                 unschedulable:
                     type: boolean
+            type: object
+        service.NodeLeaseInfo:
+            properties:
+                acquireTime:
+                    type: string
+                holderIdentity:
+                    type: string
+                renewTime:
+                    type: string
             type: object
         service.NodeListItem:
             properties:
@@ -721,6 +783,53 @@ components:
                     type: array
                 total:
                     type: integer
+            type: object
+        service.NodePodItem:
+            properties:
+                age:
+                    type: string
+                cpuLimit:
+                    type: string
+                cpuRequest:
+                    type: string
+                createdAt:
+                    type: string
+                memoryLimit:
+                    type: string
+                memoryRequest:
+                    type: string
+                name:
+                    type: string
+                namespace:
+                    type: string
+                restartCount:
+                    type: integer
+                status:
+                    type: string
+            type: object
+        service.NodePodSummary:
+            properties:
+                items:
+                    items:
+                        $ref: '#/components/schemas/service.NodePodItem'
+                    type: array
+                total:
+                    type: integer
+            type: object
+        service.NodeResourceQuantity:
+            properties:
+                cpu:
+                    type: string
+                ephemeralStorage:
+                    type: string
+                hugepages1Gi:
+                    type: string
+                hugepages2Mi:
+                    type: string
+                memory:
+                    type: string
+                pods:
+                    type: string
             type: object
         service.RegisterRequest:
             properties:
@@ -3351,14 +3460,14 @@ paths:
                 - 集群管理
     /k8s/cluster/detail:
         get:
-            description: 根据集群ID获取详细信息
+            description: 根据集群名称获取详细信息
             parameters:
-                - description: 集群ID
+                - description: 集群名称
                   in: query
-                  name: id
+                  name: name
                   required: true
                   schema:
-                    type: integer
+                    type: string
             responses:
                 "200":
                     content:
@@ -3396,12 +3505,12 @@ paths:
         get:
             description: 获取集群事件列表
             parameters:
-                - description: 集群ID
+                - description: 集群名称
                   in: query
-                  name: id
+                  name: name
                   required: true
                   schema:
-                    type: integer
+                    type: string
                 - description: 页码
                   in: query
                   name: page
@@ -3513,12 +3622,12 @@ paths:
         get:
             description: 获取节点列表，包含资源使用情况（若有 Metrics Server）
             parameters:
-                - description: 集群ID
+                - description: 集群名称
                   in: query
-                  name: id
+                  name: name
                   required: true
                   schema:
-                    type: integer
+                    type: string
                 - description: 页码
                   in: query
                   name: page
@@ -3643,12 +3752,12 @@ paths:
         get:
             description: 统计 Service, Ingress 的数量
             parameters:
-                - description: 集群ID
+                - description: 集群名称
                   in: query
-                  name: id
+                  name: name
                   required: true
                   schema:
-                    type: integer
+                    type: string
             responses:
                 "200":
                     content:
@@ -3665,12 +3774,12 @@ paths:
         get:
             description: 统计 PV, PVC 的数量
             parameters:
-                - description: 集群ID
+                - description: 集群名称
                   in: query
-                  name: id
+                  name: name
                   required: true
                   schema:
-                    type: integer
+                    type: string
             responses:
                 "200":
                     content:
@@ -3687,12 +3796,12 @@ paths:
         get:
             description: 统计 Deployment, StatefulSet, DaemonSet, Job, CronJob 的数量
             parameters:
-                - description: 集群ID
+                - description: 集群名称
                   in: query
-                  name: id
+                  name: name
                   required: true
                   schema:
-                    type: integer
+                    type: string
             responses:
                 "200":
                     content:
@@ -3752,11 +3861,11 @@ paths:
         post:
             description: 创建一个新的 ConfigMap
             parameters:
-                - description: 集群ID（可选，未传则使用默认集群）
+                - description: 集群名称（可选，未传则使用默认集群）
                   in: query
-                  name: clusterId
+                  name: clusterName
                   schema:
-                    type: integer
+                    type: string
                 - description: 命名空间
                   in: query
                   name: namespace
@@ -3792,7 +3901,7 @@ paths:
                         schema:
                             additionalProperties: true
                             type: object
-                description: '参数: {clusterId, namespace, name}'
+                description: '参数: {clusterName, namespace, name}'
                 required: true
                 x-originalParamName: request
             responses:
@@ -3811,11 +3920,11 @@ paths:
         get:
             description: 获取指定 ConfigMap 的详细信息
             parameters:
-                - description: 集群ID（可选，未传则使用默认集群）
+                - description: 集群名称（可选，未传则使用默认集群）
                   in: query
-                  name: clusterId
+                  name: clusterName
                   schema:
-                    type: integer
+                    type: string
                 - description: 命名空间
                   in: query
                   name: namespace
@@ -3844,11 +3953,11 @@ paths:
         get:
             description: 获取 ConfigMap 列表，namespace 为空时获取所有命名空间
             parameters:
-                - description: 集群ID（可选，未传则使用默认集群）
+                - description: 集群名称（可选，未传则使用默认集群）
                   in: query
-                  name: clusterId
+                  name: clusterName
                   schema:
-                    type: integer
+                    type: string
                 - description: 命名空间（为空时查询所有命名空间）
                   in: query
                   name: namespace
@@ -3887,11 +3996,11 @@ paths:
         post:
             description: 更新现有的 ConfigMap
             parameters:
-                - description: 集群ID（可选，未传则使用默认集群）
+                - description: 集群名称（可选，未传则使用默认集群）
                   in: query
-                  name: clusterId
+                  name: clusterName
                   schema:
-                    type: integer
+                    type: string
                 - description: 命名空间
                   in: query
                   name: namespace
@@ -3922,11 +4031,11 @@ paths:
         post:
             description: 创建一个新的 DaemonSet
             parameters:
-                - description: 集群ID（可选，未传则使用默认集群）
+                - description: 集群名称（可选，未传则使用默认集群）
                   in: query
-                  name: clusterId
+                  name: clusterName
                   schema:
-                    type: integer
+                    type: string
                 - description: 命名空间
                   in: query
                   name: namespace
@@ -3961,7 +4070,7 @@ paths:
                     application/json:
                         schema:
                             type: object
-                description: '参数: {clusterId, namespace, name}'
+                description: '参数: {clusterName, namespace, name}'
                 required: true
                 x-originalParamName: request
             responses:
@@ -3980,11 +4089,11 @@ paths:
         get:
             description: 获取指定 DaemonSet 的详细信息
             parameters:
-                - description: 集群ID（可选，未传则使用默认集群）
+                - description: 集群名称（可选，未传则使用默认集群）
                   in: query
-                  name: clusterId
+                  name: clusterName
                   schema:
-                    type: integer
+                    type: string
                 - description: 命名空间
                   in: query
                   name: namespace
@@ -4013,11 +4122,11 @@ paths:
         get:
             description: 获取 DaemonSet 列表，namespace 为空时获取所有命名空间
             parameters:
-                - description: 集群ID（可选，未传则使用默认集群）
+                - description: 集群名称（可选，未传则使用默认集群）
                   in: query
-                  name: clusterId
+                  name: clusterName
                   schema:
-                    type: integer
+                    type: string
                 - description: 命名空间（为空时查询所有命名空间）
                   in: query
                   name: namespace
@@ -4060,7 +4169,7 @@ paths:
                     application/json:
                         schema:
                             type: object
-                description: '参数: {clusterId, namespace, name}'
+                description: '参数: {clusterName, namespace, name}'
                 required: true
                 x-originalParamName: request
             responses:
@@ -4079,11 +4188,11 @@ paths:
         post:
             description: 更新现有的 DaemonSet
             parameters:
-                - description: 集群ID（可选，未传则使用默认集群）
+                - description: 集群名称（可选，未传则使用默认集群）
                   in: query
-                  name: clusterId
+                  name: clusterName
                   schema:
-                    type: integer
+                    type: string
                 - description: 命名空间
                   in: query
                   name: namespace
@@ -4114,11 +4223,11 @@ paths:
         get:
             description: 获取指定 DaemonSet 的 YAML 内容
             parameters:
-                - description: 集群ID（可选，未传则使用默认集群）
+                - description: 集群名称（可选，未传则使用默认集群）
                   in: query
-                  name: clusterId
+                  name: clusterName
                   schema:
-                    type: integer
+                    type: string
                 - description: 命名空间
                   in: query
                   name: namespace
@@ -4147,11 +4256,11 @@ paths:
         post:
             description: 使用 YAML 内容更新指定 DaemonSet
             parameters:
-                - description: 集群ID（可选，未传则使用默认集群）
+                - description: 集群名称（可选，未传则使用默认集群）
                   in: query
-                  name: clusterId
+                  name: clusterName
                   schema:
-                    type: integer
+                    type: string
                 - description: 命名空间
                   in: query
                   name: namespace
@@ -4188,11 +4297,11 @@ paths:
         post:
             description: 创建一个新的 Deployment
             parameters:
-                - description: 集群ID（可选，未传则使用默认集群）
+                - description: 集群名称（可选，未传则使用默认集群）
                   in: query
-                  name: clusterId
+                  name: clusterName
                   schema:
-                    type: integer
+                    type: string
                 - description: 命名空间
                   in: query
                   name: namespace
@@ -4227,7 +4336,7 @@ paths:
                     application/json:
                         schema:
                             type: object
-                description: '参数: {clusterId, namespace, name}'
+                description: '参数: {clusterName, namespace, name}'
                 required: true
                 x-originalParamName: request
             responses:
@@ -4246,11 +4355,11 @@ paths:
         get:
             description: 获取指定 Deployment 的详细信息
             parameters:
-                - description: 集群ID（可选，未传则使用默认集群）
+                - description: 集群名称（可选，未传则使用默认集群）
                   in: query
-                  name: clusterId
+                  name: clusterName
                   schema:
-                    type: integer
+                    type: string
                 - description: 命名空间
                   in: query
                   name: namespace
@@ -4279,11 +4388,11 @@ paths:
         get:
             description: 获取 Deployment 列表，namespace 为空时获取所有命名空间
             parameters:
-                - description: 集群ID（可选，未传则使用默认集群）
+                - description: 集群名称（可选，未传则使用默认集群）
                   in: query
-                  name: clusterId
+                  name: clusterName
                   schema:
-                    type: integer
+                    type: string
                 - description: 命名空间（为空时查询所有命名空间）
                   in: query
                   name: namespace
@@ -4322,11 +4431,11 @@ paths:
         get:
             description: 根据 Deployment 获取对应的 Pod 列表
             parameters:
-                - description: 集群ID（可选，未传则使用默认集群）
+                - description: 集群名称（可选，未传则使用默认集群）
                   in: query
-                  name: clusterId
+                  name: clusterName
                   schema:
-                    type: integer
+                    type: string
                 - description: 命名空间
                   in: query
                   name: namespace
@@ -4359,7 +4468,7 @@ paths:
                     application/json:
                         schema:
                             type: object
-                description: '参数: {clusterId, namespace, name}'
+                description: '参数: {clusterName, namespace, name}'
                 required: true
                 x-originalParamName: request
             responses:
@@ -4382,7 +4491,7 @@ paths:
                     application/json:
                         schema:
                             type: object
-                description: '参数: {clusterId, namespace, name, replicas}'
+                description: '参数: {clusterName, namespace, name, replicas}'
                 required: true
                 x-originalParamName: request
             responses:
@@ -4401,11 +4510,11 @@ paths:
         post:
             description: 更新现有的 Deployment
             parameters:
-                - description: 集群ID（可选，未传则使用默认集群）
+                - description: 集群名称（可选，未传则使用默认集群）
                   in: query
-                  name: clusterId
+                  name: clusterName
                   schema:
-                    type: integer
+                    type: string
                 - description: 命名空间
                   in: query
                   name: namespace
@@ -4436,11 +4545,11 @@ paths:
         get:
             description: 获取指定 Deployment 的 YAML 内容
             parameters:
-                - description: 集群ID（可选，未传则使用默认集群）
+                - description: 集群名称（可选，未传则使用默认集群）
                   in: query
-                  name: clusterId
+                  name: clusterName
                   schema:
-                    type: integer
+                    type: string
                 - description: 命名空间
                   in: query
                   name: namespace
@@ -4469,11 +4578,11 @@ paths:
         post:
             description: 使用 YAML 内容更新指定 Deployment
             parameters:
-                - description: 集群ID（可选，未传则使用默认集群）
+                - description: 集群名称（可选，未传则使用默认集群）
                   in: query
-                  name: clusterId
+                  name: clusterName
                   schema:
-                    type: integer
+                    type: string
                 - description: 命名空间
                   in: query
                   name: namespace
@@ -4510,11 +4619,11 @@ paths:
         post:
             description: 创建一个新的 Ingress
             parameters:
-                - description: 集群ID（可选，未传则使用默认集群）
+                - description: 集群名称（可选，未传则使用默认集群）
                   in: query
-                  name: clusterId
+                  name: clusterName
                   schema:
-                    type: integer
+                    type: string
                 - description: 命名空间
                   in: query
                   name: namespace
@@ -4550,7 +4659,7 @@ paths:
                         schema:
                             additionalProperties: true
                             type: object
-                description: '参数: {clusterId, namespace, name}'
+                description: '参数: {clusterName, namespace, name}'
                 required: true
                 x-originalParamName: request
             responses:
@@ -4569,11 +4678,11 @@ paths:
         post:
             description: 获取指定 Ingress 的详细信息
             parameters:
-                - description: 集群ID（可选，未传则使用默认集群）
+                - description: 集群名称（可选，未传则使用默认集群）
                   in: query
-                  name: clusterId
+                  name: clusterName
                   schema:
-                    type: integer
+                    type: string
                 - description: 命名空间
                   in: query
                   name: namespace
@@ -4602,11 +4711,11 @@ paths:
         get:
             description: 获取 Ingress 列表，namespace 为空时获取所有命名空间
             parameters:
-                - description: 集群ID（可选，未传则使用默认集群）
+                - description: 集群名称（可选，未传则使用默认集群）
                   in: query
-                  name: clusterId
+                  name: clusterName
                   schema:
-                    type: integer
+                    type: string
                 - description: 命名空间（为空时查询所有命名空间）
                   in: query
                   name: namespace
@@ -4645,11 +4754,11 @@ paths:
         post:
             description: 更新现有的 Ingress
             parameters:
-                - description: 集群ID（可选，未传则使用默认集群）
+                - description: 集群名称（可选，未传则使用默认集群）
                   in: query
-                  name: clusterId
+                  name: clusterName
                   schema:
-                    type: integer
+                    type: string
                 - description: 命名空间
                   in: query
                   name: namespace
@@ -4680,11 +4789,11 @@ paths:
         get:
             description: 获取指定集群下的所有 Namespace 列表
             parameters:
-                - description: 集群ID（可选，未传则使用默认集群）
+                - description: 集群名称（可选，未传则使用默认集群）
                   in: query
-                  name: clusterId
+                  name: clusterName
                   schema:
-                    type: integer
+                    type: string
             responses:
                 "200":
                     content:
@@ -4740,14 +4849,13 @@ paths:
                 - K8s节点管理
     /k8s/node/detail:
         get:
-            description: 获取单个节点的完整详情，包括 SystemInfo, Conditions, Images 等
+            description: 获取单个节点的完整详情，包括 annotations、lease、conditions、addresses、capacity、allocatable、pods、allocatedResources、systemInfo 与 images
             parameters:
-                - description: 集群ID
+                - description: 集群名称，为空时回退到当前租户默认集群
                   in: query
-                  name: clusterId
-                  required: true
+                  name: clusterName
                   schema:
-                    type: integer
+                    type: string
                 - description: 节点名称
                   in: query
                   name: name
@@ -4759,7 +4867,12 @@ paths:
                     content:
                         application/json:
                             schema:
-                                $ref: '#/components/schemas/service.NodeDetail'
+                                allOf:
+                                    - $ref: '#/components/schemas/api.Response'
+                                    - properties:
+                                        data:
+                                            $ref: '#/components/schemas/service.NodeDetail'
+                                      type: object
                     description: 成功
                 "400":
                     content:
@@ -4799,12 +4912,11 @@ paths:
         get:
             description: 获取与指定节点相关的 K8s 事件
             parameters:
-                - description: 集群ID
+                - description: 集群名称，为空时回退到当前租户默认集群
                   in: query
-                  name: clusterId
-                  required: true
+                  name: clusterName
                   schema:
-                    type: integer
+                    type: string
                 - description: 节点名称
                   in: query
                   name: name
@@ -4873,12 +4985,12 @@ paths:
         get:
             description: 分页获取 Kubernetes 节点列表，包含 Metrics 监控数据和 Pod 数量
             parameters:
-                - description: 集群ID
+                - description: 集群名称
                   in: query
-                  name: clusterId
+                  name: clusterName
                   required: true
                   schema:
-                    type: integer
+                    type: string
                 - description: 页码
                   in: query
                   name: page
@@ -4928,11 +5040,11 @@ paths:
         post:
             description: 创建一个新的 Pod
             parameters:
-                - description: 集群ID（可选，未传则使用默认集群）
+                - description: 集群名称（可选，未传则使用默认集群）
                   in: query
-                  name: clusterId
+                  name: clusterName
                   schema:
-                    type: integer
+                    type: string
                 - description: 命名空间
                   in: query
                   name: namespace
@@ -4968,7 +5080,7 @@ paths:
                         schema:
                             additionalProperties: true
                             type: object
-                description: '参数: {clusterId, namespace, name}'
+                description: '参数: {clusterName, namespace, name}'
                 required: true
                 x-originalParamName: request
             responses:
@@ -4989,11 +5101,11 @@ paths:
                 根据 Deployment/StatefulSet/DaemonSet 获取 Pod 列表
                 聚合 Pod 基础信息、容器状态、事件、卷等完整诊断数据
             parameters:
-                - description: 集群ID（可选，未传则使用默认集群）
+                - description: 集群名称（可选，未传则使用默认集群）
                   in: query
-                  name: clusterId
+                  name: clusterName
                   schema:
-                    type: integer
+                    type: string
                 - description: 命名空间
                   in: query
                   name: namespace
@@ -5012,11 +5124,11 @@ paths:
                   required: true
                   schema:
                     type: string
-                - description: 集群ID（可选，未传则使用默认集群）
+                - description: 集群名称（可选，未传则使用默认集群）
                   in: query
-                  name: clusterId
+                  name: clusterName
                   schema:
-                    type: integer
+                    type: string
                 - description: 命名空间
                   in: query
                   name: namespace
@@ -5047,11 +5159,11 @@ paths:
         get:
             description: 获取指定 Pod 的详细信息
             parameters:
-                - description: 集群ID（可选，未传则使用默认集群）
+                - description: 集群名称（可选，未传则使用默认集群）
                   in: query
-                  name: clusterId
+                  name: clusterName
                   schema:
-                    type: integer
+                    type: string
                 - description: 命名空间
                   in: query
                   name: namespace
@@ -5080,11 +5192,11 @@ paths:
         get:
             description: 检测指定Pod容器中可用的shell类型
             parameters:
-                - description: 集群ID（可选，未传则使用默认集群）
+                - description: 集群名称（可选，未传则使用默认集群）
                   in: query
-                  name: clusterId
+                  name: clusterName
                   schema:
-                    type: integer
+                    type: string
                 - description: 命名空间
                   in: query
                   name: namespace
@@ -5118,11 +5230,11 @@ paths:
         get:
             description: 获取指定 Pod 的事件列表
             parameters:
-                - description: 集群ID（可选，未传则使用默认集群）
+                - description: 集群名称（可选，未传则使用默认集群）
                   in: query
-                  name: clusterId
+                  name: clusterName
                   schema:
-                    type: integer
+                    type: string
                 - description: 命名空间
                   in: query
                   name: namespace
@@ -5151,11 +5263,11 @@ paths:
         get:
             description: 获取 Pod 列表，namespace 为空时获取所有命名空间
             parameters:
-                - description: 集群ID（可选，未传则使用默认集群）
+                - description: 集群名称（可选，未传则使用默认集群）
                   in: query
-                  name: clusterId
+                  name: clusterName
                   schema:
-                    type: integer
+                    type: string
                 - description: 命名空间（为空时查询所有命名空间）
                   in: query
                   name: namespace
@@ -5196,11 +5308,11 @@ paths:
                 根据 Deployment/StatefulSet/DaemonSet 获取 Pod 列表
                 聚合 Pod 基础信息、容器状态、事件、卷等完整诊断数据
             parameters:
-                - description: 集群ID（可选，未传则使用默认集群）
+                - description: 集群名称（可选，未传则使用默认集群）
                   in: query
-                  name: clusterId
+                  name: clusterName
                   schema:
-                    type: integer
+                    type: string
                 - description: 命名空间
                   in: query
                   name: namespace
@@ -5219,11 +5331,11 @@ paths:
                   required: true
                   schema:
                     type: string
-                - description: 集群ID（可选，未传则使用默认集群）
+                - description: 集群名称（可选，未传则使用默认集群）
                   in: query
-                  name: clusterId
+                  name: clusterName
                   schema:
-                    type: integer
+                    type: string
                 - description: 命名空间
                   in: query
                   name: namespace
@@ -5254,11 +5366,11 @@ paths:
         get:
             description: 获取指定 Pod 的日志内容
             parameters:
-                - description: 集群ID（可选，未传则使用默认集群）
+                - description: 集群名称（可选，未传则使用默认集群）
                   in: query
-                  name: clusterId
+                  name: clusterName
                   schema:
-                    type: integer
+                    type: string
                 - description: 命名空间
                   in: query
                   name: namespace
@@ -5298,11 +5410,11 @@ paths:
         get:
             description: WebSocket 进入 Pod 命令行（shell=bash/sh，可选 container，支持 resize）
             parameters:
-                - description: 集群ID（可选，未传则使用默认集群）
+                - description: 集群名称（可选，未传则使用默认集群）
                   in: query
-                  name: clusterId
+                  name: clusterName
                   schema:
-                    type: integer
+                    type: string
                 - description: 命名空间
                   in: query
                   name: namespace
@@ -5345,11 +5457,11 @@ paths:
         post:
             description: 更新现有的 Pod
             parameters:
-                - description: 集群ID（可选，未传则使用默认集群）
+                - description: 集群名称（可选，未传则使用默认集群）
                   in: query
-                  name: clusterId
+                  name: clusterName
                   schema:
-                    type: integer
+                    type: string
                 - description: 命名空间
                   in: query
                   name: namespace
@@ -5380,11 +5492,11 @@ paths:
         get:
             description: 获取指定 Pod 的 YAML 内容
             parameters:
-                - description: 集群ID（可选，未传则使用默认集群）
+                - description: 集群名称（可选，未传则使用默认集群）
                   in: query
-                  name: clusterId
+                  name: clusterName
                   schema:
-                    type: integer
+                    type: string
                 - description: 命名空间
                   in: query
                   name: namespace
@@ -5413,11 +5525,11 @@ paths:
         post:
             description: 使用 YAML 内容更新指定 Pod
             parameters:
-                - description: 集群ID（可选，未传则使用默认集群）
+                - description: 集群名称（可选，未传则使用默认集群）
                   in: query
-                  name: clusterId
+                  name: clusterName
                   schema:
-                    type: integer
+                    type: string
                 - description: 命名空间
                   in: query
                   name: namespace
@@ -5469,11 +5581,11 @@ paths:
         get:
             description: 通用接口，获取任意K8s资源的YAML格式
             parameters:
-                - description: 集群ID（可选，未传则使用默认集群）
+                - description: 集群名称（可选，未传则使用默认集群）
                   in: query
-                  name: clusterId
+                  name: clusterName
                   schema:
-                    type: integer
+                    type: string
                 - description: 资源类型（pod/deployment/service/ingress等）
                   in: query
                   name: resourceType
@@ -5507,11 +5619,11 @@ paths:
         post:
             description: 创建一个新的 Service
             parameters:
-                - description: 集群ID（可选，未传则使用默认集群）
+                - description: 集群名称（可选，未传则使用默认集群）
                   in: query
-                  name: clusterId
+                  name: clusterName
                   schema:
-                    type: integer
+                    type: string
                 - description: 命名空间
                   in: query
                   name: namespace
@@ -5547,7 +5659,7 @@ paths:
                         schema:
                             additionalProperties: true
                             type: object
-                description: '参数: {clusterId, namespace, name}'
+                description: '参数: {clusterName, namespace, name}'
                 required: true
                 x-originalParamName: request
             responses:
@@ -5566,11 +5678,11 @@ paths:
         get:
             description: 获取指定 Service 的详细信息
             parameters:
-                - description: 集群ID（可选，未传则使用默认集群）
+                - description: 集群名称（可选，未传则使用默认集群）
                   in: query
-                  name: clusterId
+                  name: clusterName
                   schema:
-                    type: integer
+                    type: string
                 - description: 命名空间
                   in: query
                   name: namespace
@@ -5592,18 +5704,18 @@ paths:
                     description: 成功
             security:
                 - BearerAuth: []
-            summary: 获取 Service 详情
+            summary: 获取 Service详情
             tags:
                 - K8s资源管理
     /k8s/service/list:
         get:
             description: 获取 Service 列表，namespace 为空时获取所有命名空间
             parameters:
-                - description: 集群ID（可选，未传则使用默认集群）
+                - description: 集群名称（可选，未传则使用默认集群）
                   in: query
-                  name: clusterId
+                  name: clusterName
                   schema:
-                    type: integer
+                    type: string
                 - description: 命名空间（为空时查询所有命名空间）
                   in: query
                   name: namespace
@@ -5642,11 +5754,11 @@ paths:
         post:
             description: 更新现有的 Service
             parameters:
-                - description: 集群ID（可选，未传则使用默认集群）
+                - description: 集群名称（可选，未传则使用默认集群）
                   in: query
-                  name: clusterId
+                  name: clusterName
                   schema:
-                    type: integer
+                    type: string
                 - description: 命名空间
                   in: query
                   name: namespace
@@ -5677,11 +5789,11 @@ paths:
         post:
             description: 创建一个新的 StatefulSet
             parameters:
-                - description: 集群ID（可选，未传则使用默认集群）
+                - description: 集群名称（可选，未传则使用默认集群）
                   in: query
-                  name: clusterId
+                  name: clusterName
                   schema:
-                    type: integer
+                    type: string
                 - description: 命名空间
                   in: query
                   name: namespace
@@ -5716,7 +5828,7 @@ paths:
                     application/json:
                         schema:
                             type: object
-                description: '参数: {clusterId, namespace, name}'
+                description: '参数: {clusterName, namespace, name}'
                 required: true
                 x-originalParamName: request
             responses:
@@ -5735,11 +5847,11 @@ paths:
         get:
             description: 获取指定 StatefulSet 的详细信息
             parameters:
-                - description: 集群ID（可选，未传则使用默认集群）
+                - description: 集群名称（可选，未传则使用默认集群）
                   in: query
-                  name: clusterId
+                  name: clusterName
                   schema:
-                    type: integer
+                    type: string
                 - description: 命名空间
                   in: query
                   name: namespace
@@ -5768,11 +5880,11 @@ paths:
         get:
             description: 获取 StatefulSet 列表，namespace 为空时获取所有命名空间
             parameters:
-                - description: 集群ID（可选，未传则使用默认集群）
+                - description: 集群名称（可选，未传则使用默认集群）
                   in: query
-                  name: clusterId
+                  name: clusterName
                   schema:
-                    type: integer
+                    type: string
                 - description: 命名空间（为空时查询所有命名空间）
                   in: query
                   name: namespace
@@ -5815,7 +5927,7 @@ paths:
                     application/json:
                         schema:
                             type: object
-                description: '参数: {clusterId, namespace, name}'
+                description: '参数: {clusterName, namespace, name}'
                 required: true
                 x-originalParamName: request
             responses:
@@ -5838,7 +5950,7 @@ paths:
                     application/json:
                         schema:
                             type: object
-                description: '参数: {clusterId, namespace, name, replicas}'
+                description: '参数: {clusterName, namespace, name, replicas}'
                 required: true
                 x-originalParamName: request
             responses:
@@ -5857,11 +5969,11 @@ paths:
         post:
             description: 更新现有的 StatefulSet
             parameters:
-                - description: 集群ID（可选，未传则使用默认集群）
+                - description: 集群名称（可选，未传则使用默认集群）
                   in: query
-                  name: clusterId
+                  name: clusterName
                   schema:
-                    type: integer
+                    type: string
                 - description: 命名空间
                   in: query
                   name: namespace
@@ -5892,11 +6004,11 @@ paths:
         get:
             description: 获取指定 StatefulSet 的 YAML 内容
             parameters:
-                - description: 集群ID（可选，未传则使用默认集群）
+                - description: 集群名称（可选，未传则使用默认集群）
                   in: query
-                  name: clusterId
+                  name: clusterName
                   schema:
-                    type: integer
+                    type: string
                 - description: 命名空间
                   in: query
                   name: namespace
@@ -5925,11 +6037,11 @@ paths:
         post:
             description: 使用 YAML 内容更新指定 StatefulSet
             parameters:
-                - description: 集群ID（可选，未传则使用默认集群）
+                - description: 集群名称（可选，未传则使用默认集群）
                   in: query
-                  name: clusterId
+                  name: clusterName
                   schema:
-                    type: integer
+                    type: string
                 - description: 命名空间
                   in: query
                   name: namespace
