@@ -40,6 +40,10 @@ const routes = [
         component: () => import('../views/k8s/WorkloadList.vue')
       },
       {
+        path: 'k8s/workload/:kind/:clusterName/:namespace/:name',
+        component: () => import('../views/k8s/WorkloadDetail.vue')
+      },
+      {
         path: 'k8s/pod/:name',
         component: () => import('../views/k8s/PodDetail.vue')
       },
