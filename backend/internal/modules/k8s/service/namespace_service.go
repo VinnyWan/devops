@@ -2,46 +2,79 @@ package service
 
 import (
 	"context"
+	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-type NamespaceListVO struct {
-	Name string `json:"name"`
+type NamespaceVO struct {
+	Name              string    `json:"name"`
+	Status            string    `json:"status"`
+	CreationTimestamp time.Time `json:"creationTimestamp"`
 }
 
-func (s *K8sService) ListNamespaces(clusterName string) ([]NamespaceListVO, error) {
-	if err := s.ensureReady(); err != nil {
-		return nil, err
-	}
+type NamespaceListResponse struct {
+	Total int64         `json:"total"`
+	Items []NamespaceVO `json:"items"`
+}
 
-	// 1️⃣ 查询集群
-	cluster, err := s.clusterService.GetByExactName(clusterName)
+func (s *K8sService) ListNamespaces(clusterName string, keyword string, page, pageSize int) (*NamespaceListResponse, error) {
+	cc, err := s.getClusterClient(clusterName)
 	if err != nil {
 		return nil, err
 	}
 
-	// 2️⃣ 获取 client（自动重建）
-	client, err := s.clientFactory.GetClient(cluster)
+	list, err := cc.Client.CoreV1().Namespaces().List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		return nil, s.handleClientError(clusterName, err)
+	}
+
+	filtered := filterByKeywordFields(list.Items, keyword, func(item corev1.Namespace) []string {
+		return []string{item.Name}
+	})
+
+	paged, total := paginateItems(filtered, page, pageSize)
+
+	result := make([]NamespaceVO, 0, len(paged))
+	for _, item := range paged {
+		result = append(result, NamespaceVO{
+			Name:              item.Name,
+			Status:            string(item.Status.Phase),
+			CreationTimestamp: item.CreationTimestamp.Time,
+		})
+	}
+	return &NamespaceListResponse{Total: total, Items: result}, nil
+}
+
+func (s *K8sService) CreateNamespace(clusterName string, name string) (*NamespaceVO, error) {
+	cc, err := s.getClusterClient(clusterName)
 	if err != nil {
 		return nil, err
 	}
 
-	// 3️⃣ 调用 K8s API
-	nsList, err := client.CoreV1().
-		Namespaces().
-		List(context.Background(), metav1.ListOptions{})
+	ns := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+		},
+	}
+
+	created, err := cc.Client.CoreV1().Namespaces().Create(context.Background(), ns, metav1.CreateOptions{})
 	if err != nil {
-		// ❗调用失败 → 移除 client，下次自动重建
-		s.clientFactory.RemoveClient(cluster.Name)
-		return nil, err
+		return nil, s.handleClientError(clusterName, err)
 	}
 
-	// 4️⃣ 转 VO
-	result := make([]NamespaceListVO, 0, len(nsList.Items))
-	for _, ns := range nsList.Items {
-		result = append(result, NamespaceListVO{Name: ns.Name})
-	}
+	return &NamespaceVO{
+		Name:              created.Name,
+		Status:            string(created.Status.Phase),
+		CreationTimestamp: created.CreationTimestamp.Time,
+	}, nil
+}
 
-	return result, nil
+func (s *K8sService) DeleteNamespace(clusterName string, name string) error {
+	cc, err := s.getClusterClient(clusterName)
+	if err != nil {
+		return err
+	}
+	return cc.Client.CoreV1().Namespaces().Delete(context.Background(), name, metav1.DeleteOptions{})
 }

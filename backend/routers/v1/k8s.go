@@ -43,7 +43,15 @@ func registerCluster(r *gin.RouterGroup) {
 		g.GET("/cluster/events", listPermission, api.ClusterEvents)
 
 		// Namespace管理
-		g.GET("/namespaces/list", listPermission, api.NamespaceList)
+		g.GET("/namespace/list", listPermission, api.NamespaceList)
+		g.POST("/namespace/create",
+			createPermission,
+			middleware.SetAuditOperation("创建Namespace"),
+			api.CreateNamespace)
+		g.POST("/namespace/delete",
+			deletePermission,
+			middleware.SetAuditOperation("删除Namespace"),
+			api.DeleteNamespace)
 
 		// Deployment
 		g.GET("/deployment/list", listPermission, api.ListDeployments)

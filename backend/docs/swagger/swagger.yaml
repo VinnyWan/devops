@@ -4558,16 +4558,96 @@ paths:
       summary: 更新 Ingress
       tags:
       - K8s资源管理
-  /k8s/namespaces/list:
+  /k8s/namespace/create:
+    post:
+      consumes:
+      - application/json
+      description: 创建一个新的 Namespace
+      parameters:
+      - description: '参数: {clusterName, name}'
+        in: body
+        name: request
+        required: true
+        schema:
+          additionalProperties: true
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/api.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/api.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/api.Response'
+      security:
+      - BearerAuth: []
+      summary: 创建 Namespace
+      tags:
+      - K8s资源管理
+  /k8s/namespace/delete:
+    post:
+      consumes:
+      - application/json
+      description: 删除指定的 Namespace
+      parameters:
+      - description: '参数: {clusterName, name}'
+        in: body
+        name: request
+        required: true
+        schema:
+          additionalProperties: true
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/api.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/api.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/api.Response'
+      security:
+      - BearerAuth: []
+      summary: 删除 Namespace
+      tags:
+      - K8s资源管理
+  /k8s/namespace/list:
     get:
       consumes:
       - application/json
-      description: 获取指定集群下的所有 Namespace 列表
+      description: 获取指定集群下的 Namespace 列表，支持分页和关键字搜索
       parameters:
       - description: 集群名称（可选，未传则使用默认集群）
         in: query
         name: clusterName
         type: string
+      - description: 关键字搜索
+        in: query
+        name: keyword
+        type: string
+      - default: 1
+        description: 页码
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: 每页数量
+        in: query
+        name: pageSize
+        type: integer
       produces:
       - application/json
       responses:
