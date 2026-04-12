@@ -16,6 +16,7 @@ require (
 	github.com/nacos-group/nacos-sdk-go/v2 v2.3.5
 	github.com/redis/go-redis/v9 v9.17.3
 	github.com/spf13/viper v1.18.2
+	github.com/stretchr/testify v1.11.1
 	github.com/swaggo/files v1.0.1
 	github.com/swaggo/gin-swagger v1.6.1
 	github.com/swaggo/swag v1.16.6
@@ -86,7 +87,7 @@ require (
 	github.com/go-playground/locales v0.14.1 // indirect
 	github.com/go-playground/universal-translator v0.18.1 // indirect
 	github.com/go-playground/validator/v10 v10.20.0 // indirect
-	github.com/go-sql-driver/mysql v1.8.1 // indirect
+	github.com/go-sql-driver/mysql v1.9.3 // indirect
 	github.com/goccy/go-json v0.10.2 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/mock v1.6.0 // indirect
@@ -94,6 +95,7 @@ require (
 	github.com/google/gnostic-models v0.6.8 // indirect
 	github.com/google/go-cmp v0.6.0 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
+	github.com/google/pprof v0.0.0-20250317173921-a4b03ec1a45e // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
@@ -130,7 +132,6 @@ require (
 	github.com/spf13/afero v1.11.0 // indirect
 	github.com/spf13/cast v1.6.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
-	github.com/stretchr/testify v1.11.1 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/tjfoc/gmsm v1.4.1 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
@@ -140,7 +141,7 @@ require (
 	github.com/yuin/gopher-lua v1.1.1 // indirect
 	go.uber.org/multierr v1.10.0 // indirect
 	golang.org/x/arch v0.8.0 // indirect
-	golang.org/x/exp v0.0.0-20230905200255-921286631fa9 // indirect
+	golang.org/x/exp v0.0.0-20251219203646-944ab1f22d93 // indirect
 	golang.org/x/mod v0.31.0 // indirect
 	golang.org/x/net v0.48.0 // indirect
 	golang.org/x/sys v0.40.0 // indirect
