@@ -1,12 +1,17 @@
 .DS_Store
 ._*
 server
-.claude/
 .agents/
-.trae/
+.claude/
 .github/
 .superpowers/
+.trae/
+.worktrees/
 docs/
+images/
+CLAUDE.md
+AGENTS.md
+skills-lock.json
 
 # Backend
 backend/CLAUDE.md
