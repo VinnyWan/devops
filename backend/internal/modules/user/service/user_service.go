@@ -20,6 +20,7 @@ type UserService struct {
 	permissionRepo *repository.PermissionRepo
 	userDeptRepo   *repository.UserDepartmentRepo
 	deptRepo       *repository.DepartmentRepo
+	fieldPermRepo  *repository.FieldPermissionRepo
 	scopeSvc       *AccessScopeService
 }
 
@@ -34,6 +35,7 @@ func NewUserService(db *gorm.DB) *UserService {
 		permissionRepo: repository.NewPermissionRepo(db),
 		userDeptRepo:   userDeptRepo,
 		deptRepo:       deptRepo,
+		fieldPermRepo:  repository.NewFieldPermissionRepo(db),
 		scopeSvc:       NewAccessScopeService(userRepo, deptRepo, userDeptRepo).WithRoleRepo(roleRepo),
 	}
 }
@@ -461,4 +463,94 @@ func (s *UserService) invalidateUserCache(ctx context.Context, tenantID uint, us
 
 func (s *UserService) invalidateUserPermsCache(ctx context.Context, tenantID uint, userID uint) {
 	redis.Del(ctx, fmt.Sprintf("tenant:%d:user:perms:%d", tenantID, userID))
+}
+
+// UserAllPermissions 用户全部权限（菜单/按钮/字段/API 四合一）
+type UserAllPermissions struct {
+	Menus      []MenuPermission             `json:"menus"`
+	Buttons    map[string][]string          `json:"buttons"`
+	FieldRules map[string]map[string]string `json:"fieldRules"`
+	APIs       []string                     `json:"apis"`
+}
+
+// MenuPermission 菜单权限
+type MenuPermission struct {
+	Name     string           `json:"name"`
+	Path     string           `json:"path"`
+	Icon     string           `json:"icon"`
+	Children []MenuPermission `json:"children,omitempty"`
+}
+
+// GetUserAllPermissions 获取用户全部权限（含菜单/按钮/字段/API）
+func (s *UserService) GetUserAllPermissions(ctx context.Context, tenantID, userID uint) (*UserAllPermissions, error) {
+	// 1. 获取所有权限
+	perms, err := s.GetUserPermissions(tenantID, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user permissions: %w", err)
+	}
+
+	result := &UserAllPermissions{
+		Buttons:    make(map[string][]string),
+		FieldRules: make(map[string]map[string]string),
+	}
+
+	// 2. 按 Type 分类
+	var menuPerms []model.Permission
+	for _, p := range perms {
+		switch p.Type {
+		case model.PermissionTypeMenu:
+			menuPerms = append(menuPerms, p)
+		case model.PermissionTypeButton:
+			result.Buttons[p.Resource] = append(result.Buttons[p.Resource], p.Action)
+		case model.PermissionTypeAPI:
+			result.APIs = append(result.APIs, fmt.Sprintf("%s:%s", p.Resource, p.Action))
+		}
+	}
+
+	// 3. 构建菜单树
+	result.Menus = buildMenuTree(menuPerms, nil)
+
+	// 4. 获取用户角色ID列表，查询字段权限
+	user, err := s.userRepo.GetByIDWithPermissionsInTenant(tenantID, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user roles: %w", err)
+	}
+
+	var roleIDs []uint
+	for _, role := range user.Roles {
+		roleIDs = append(roleIDs, role.ID)
+	}
+
+	if len(roleIDs) > 0 {
+		fieldPerms, err := s.fieldPermRepo.GetByRoleIDs(roleIDs)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get field permissions: %w", err)
+		}
+		for _, fp := range fieldPerms {
+			if _, ok := result.FieldRules[fp.Resource]; !ok {
+				result.FieldRules[fp.Resource] = make(map[string]string)
+			}
+			result.FieldRules[fp.Resource][fp.FieldName] = string(fp.Action)
+		}
+	}
+
+	return result, nil
+}
+
+// buildMenuTree 递归构建菜单树
+func buildMenuTree(perms []model.Permission, parentID *uint) []MenuPermission {
+	var trees []MenuPermission
+	for _, p := range perms {
+		if p.ParentID == nil && parentID == nil || p.ParentID != nil && parentID != nil && *p.ParentID == *parentID {
+			node := MenuPermission{
+				Name: p.Name,
+				Path: p.Path,
+				Icon: p.Icon,
+			}
+			childParentID := p.ID
+			node.Children = buildMenuTree(perms, &childParentID)
+			trees = append(trees, node)
+		}
+	}
+	return trees
 }
