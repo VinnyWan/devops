@@ -86,6 +86,11 @@ func InitDB() error {
 		return err
 	}
 
+	// 迁移 users.department_id -> user_departments（在 AutoMigrate 之后、种子数据之前）
+	if err := migrateUserDepartments(db); err != nil {
+		logger.Log.Warn("用户部门迁移失败（非致命）", zap.Error(err))
+	}
+
 	DB = db
 
 	if err := seedPermissions(db); err != nil {
@@ -238,62 +243,64 @@ WHERE table_schema = DATABASE() AND table_name = ? AND index_name = ?`,
 
 // seedPermissions 幂等初始化权限种子数据，已存在的记录会跳过
 func seedPermissions(db *gorm.DB) error {
-	permissions := []userModel.Permission{
-		{Name: "查看用户", Resource: "user", Action: "list"},
-		{Name: "创建用户", Resource: "user", Action: "create"},
-		{Name: "更新用户", Resource: "user", Action: "update"},
-		{Name: "删除用户", Resource: "user", Action: "delete"},
-		{Name: "重置密码", Resource: "user", Action: "reset_password"},
-		{Name: "分配角色", Resource: "user", Action: "assign_roles"},
-		{Name: "锁定用户", Resource: "user", Action: "lock"},
-		{Name: "解锁用户", Resource: "user", Action: "unlock"},
-		{Name: "查看部门", Resource: "department", Action: "list"},
-		{Name: "创建部门", Resource: "department", Action: "create"},
-		{Name: "更新部门", Resource: "department", Action: "update"},
-		{Name: "删除部门", Resource: "department", Action: "delete"},
-		{Name: "查看角色", Resource: "role", Action: "list"},
-		{Name: "创建角色", Resource: "role", Action: "create"},
-		{Name: "更新角色", Resource: "role", Action: "update"},
-		{Name: "删除角色", Resource: "role", Action: "delete"},
-		{Name: "查看集群", Resource: "cluster", Action: "list"},
-		{Name: "创建集群", Resource: "cluster", Action: "create"},
-		{Name: "更新集群", Resource: "cluster", Action: "update"},
-		{Name: "删除集群", Resource: "cluster", Action: "delete"},
-		{Name: "查看权限", Resource: "permission", Action: "list"},
-		{Name: "创建权限", Resource: "permission", Action: "create"},
-		{Name: "更新权限", Resource: "permission", Action: "update"},
-		{Name: "删除权限", Resource: "permission", Action: "delete"},
-		{Name: "查看审计日志", Resource: "audit", Action: "list"},
+	createdCount := 0
+
+	// --- API 权限种子 ---
+	apiPermissions := []userModel.Permission{
+		{Name: "查看用户", Type: userModel.PermissionTypeAPI, Resource: "user", Action: "list"},
+		{Name: "创建用户", Type: userModel.PermissionTypeAPI, Resource: "user", Action: "create"},
+		{Name: "更新用户", Type: userModel.PermissionTypeAPI, Resource: "user", Action: "update"},
+		{Name: "删除用户", Type: userModel.PermissionTypeAPI, Resource: "user", Action: "delete"},
+		{Name: "重置密码", Type: userModel.PermissionTypeAPI, Resource: "user", Action: "reset_password"},
+		{Name: "分配角色", Type: userModel.PermissionTypeAPI, Resource: "user", Action: "assign_roles"},
+		{Name: "锁定用户", Type: userModel.PermissionTypeAPI, Resource: "user", Action: "lock"},
+		{Name: "解锁用户", Type: userModel.PermissionTypeAPI, Resource: "user", Action: "unlock"},
+		{Name: "查看部门", Type: userModel.PermissionTypeAPI, Resource: "department", Action: "list"},
+		{Name: "创建部门", Type: userModel.PermissionTypeAPI, Resource: "department", Action: "create"},
+		{Name: "更新部门", Type: userModel.PermissionTypeAPI, Resource: "department", Action: "update"},
+		{Name: "删除部门", Type: userModel.PermissionTypeAPI, Resource: "department", Action: "delete"},
+		{Name: "查看角色", Type: userModel.PermissionTypeAPI, Resource: "role", Action: "list"},
+		{Name: "创建角色", Type: userModel.PermissionTypeAPI, Resource: "role", Action: "create"},
+		{Name: "更新角色", Type: userModel.PermissionTypeAPI, Resource: "role", Action: "update"},
+		{Name: "删除角色", Type: userModel.PermissionTypeAPI, Resource: "role", Action: "delete"},
+		{Name: "查看集群", Type: userModel.PermissionTypeAPI, Resource: "cluster", Action: "list"},
+		{Name: "创建集群", Type: userModel.PermissionTypeAPI, Resource: "cluster", Action: "create"},
+		{Name: "更新集群", Type: userModel.PermissionTypeAPI, Resource: "cluster", Action: "update"},
+		{Name: "删除集群", Type: userModel.PermissionTypeAPI, Resource: "cluster", Action: "delete"},
+		{Name: "查看权限", Type: userModel.PermissionTypeAPI, Resource: "permission", Action: "list"},
+		{Name: "创建权限", Type: userModel.PermissionTypeAPI, Resource: "permission", Action: "create"},
+		{Name: "更新权限", Type: userModel.PermissionTypeAPI, Resource: "permission", Action: "update"},
+		{Name: "删除权限", Type: userModel.PermissionTypeAPI, Resource: "permission", Action: "delete"},
+		{Name: "查看审计日志", Type: userModel.PermissionTypeAPI, Resource: "audit", Action: "list"},
 		// 应用管理权限
-		{Name: "查看应用", Resource: "app", Action: "list"},
-		{Name: "创建应用", Resource: "app", Action: "create"},
-		{Name: "更新应用", Resource: "app", Action: "update"},
-		{Name: "删除应用", Resource: "app", Action: "delete"},
+		{Name: "查看应用", Type: userModel.PermissionTypeAPI, Resource: "app", Action: "list"},
+		{Name: "创建应用", Type: userModel.PermissionTypeAPI, Resource: "app", Action: "create"},
+		{Name: "更新应用", Type: userModel.PermissionTypeAPI, Resource: "app", Action: "update"},
+		{Name: "删除应用", Type: userModel.PermissionTypeAPI, Resource: "app", Action: "delete"},
 		// 告警管理权限
-		{Name: "查看告警", Resource: "alert", Action: "list"},
-		{Name: "创建告警规则", Resource: "alert", Action: "create"},
-		{Name: "更新告警规则", Resource: "alert", Action: "update"},
-		{Name: "删除告警规则", Resource: "alert", Action: "delete"},
+		{Name: "查看告警", Type: userModel.PermissionTypeAPI, Resource: "alert", Action: "list"},
+		{Name: "创建告警规则", Type: userModel.PermissionTypeAPI, Resource: "alert", Action: "create"},
+		{Name: "更新告警规则", Type: userModel.PermissionTypeAPI, Resource: "alert", Action: "update"},
+		{Name: "删除告警规则", Type: userModel.PermissionTypeAPI, Resource: "alert", Action: "delete"},
 		// 日志管理权限
-		{Name: "查看日志", Resource: "log", Action: "list"},
+		{Name: "查看日志", Type: userModel.PermissionTypeAPI, Resource: "log", Action: "list"},
 		// 监控管理权限
-		{Name: "查看监控", Resource: "monitor", Action: "list"},
+		{Name: "查看监控", Type: userModel.PermissionTypeAPI, Resource: "monitor", Action: "list"},
 		// Harbor 管理权限
-		{Name: "查看Harbor", Resource: "harbor", Action: "list"},
+		{Name: "查看Harbor", Type: userModel.PermissionTypeAPI, Resource: "harbor", Action: "list"},
 		// CI/CD 管理权限
-		{Name: "查看CI/CD", Resource: "cicd", Action: "list"},
-		{Name: "创建CI/CD", Resource: "cicd", Action: "create"},
-		{Name: "更新CI/CD", Resource: "cicd", Action: "update"},
-		{Name: "删除CI/CD", Resource: "cicd", Action: "delete"},
+		{Name: "查看CI/CD", Type: userModel.PermissionTypeAPI, Resource: "cicd", Action: "list"},
+		{Name: "创建CI/CD", Type: userModel.PermissionTypeAPI, Resource: "cicd", Action: "create"},
+		{Name: "更新CI/CD", Type: userModel.PermissionTypeAPI, Resource: "cicd", Action: "update"},
+		{Name: "删除CI/CD", Type: userModel.PermissionTypeAPI, Resource: "cicd", Action: "delete"},
 		// 租户管理权限
-		{Name: "查看租户", Resource: "tenant", Action: "list"},
-		{Name: "创建租户", Resource: "tenant", Action: "create"},
-		{Name: "更新租户", Resource: "tenant", Action: "update"},
-		{Name: "删除租户", Resource: "tenant", Action: "delete"},
+		{Name: "查看租户", Type: userModel.PermissionTypeAPI, Resource: "tenant", Action: "list"},
+		{Name: "创建租户", Type: userModel.PermissionTypeAPI, Resource: "tenant", Action: "create"},
+		{Name: "更新租户", Type: userModel.PermissionTypeAPI, Resource: "tenant", Action: "update"},
+		{Name: "删除租户", Type: userModel.PermissionTypeAPI, Resource: "tenant", Action: "delete"},
 	}
 
-	createdCount := 0
-	for _, perm := range permissions {
+	for _, perm := range apiPermissions {
 		var existing userModel.Permission
 		result := db.Where("resource = ? AND action = ?", perm.Resource, perm.Action).First(&existing)
 		if result.Error == gorm.ErrRecordNotFound {
@@ -304,8 +311,152 @@ func seedPermissions(db *gorm.DB) error {
 		}
 	}
 
+	// --- 菜单权限种子 ---
+	// 先插入顶级菜单，获取 ID 后再插入子菜单
+	menuSystem := userModel.Permission{
+		Name: "系统管理", Type: userModel.PermissionTypeMenu, Resource: "system", Action: "view",
+		Path: "/system", Icon: "Setting", Sort: 100,
+	}
+	var existingSystem userModel.Permission
+	if db.Where("resource = ? AND action = ?", menuSystem.Resource, menuSystem.Action).First(&existingSystem).Error == gorm.ErrRecordNotFound {
+		if err := db.Create(&menuSystem).Error; err != nil {
+			return fmt.Errorf("创建菜单权限 %s:%s 失败: %w", menuSystem.Resource, menuSystem.Action, err)
+		}
+		createdCount++
+	} else {
+		menuSystem.ID = existingSystem.ID
+	}
+
+	// 系统管理下的子菜单
+	subMenus := []userModel.Permission{
+		{Name: "用户管理", Type: userModel.PermissionTypeMenu, Resource: "user", Action: "view", Path: "/system/user", Icon: "User", Sort: 101, ParentID: &menuSystem.ID},
+		{Name: "角色管理", Type: userModel.PermissionTypeMenu, Resource: "role", Action: "view", Path: "/system/role", Icon: "Lock", Sort: 102, ParentID: &menuSystem.ID},
+		{Name: "权限管理", Type: userModel.PermissionTypeMenu, Resource: "permission", Action: "view", Path: "/system/permission", Icon: "Key", Sort: 103, ParentID: &menuSystem.ID},
+		{Name: "部门管理", Type: userModel.PermissionTypeMenu, Resource: "department", Action: "view", Path: "/system/department", Icon: "OfficeBuilding", Sort: 104, ParentID: &menuSystem.ID},
+	}
+	// 注意：子菜单的 resource 与 API 权重复（如 user:view），需用 type=menu 区分
+	for _, menu := range subMenus {
+		var existing userModel.Permission
+		result := db.Where("type = ? AND resource = ? AND action = ?", userModel.PermissionTypeMenu, menu.Resource, menu.Action).First(&existing)
+		if result.Error == gorm.ErrRecordNotFound {
+			if err := db.Create(&menu).Error; err != nil {
+				return fmt.Errorf("创建菜单权限 %s:%s 失败: %w", menu.Resource, menu.Action, err)
+			}
+			createdCount++
+		}
+	}
+
+	// 租户管理菜单（顶级）
+	menuTenant := userModel.Permission{
+		Name: "租户管理", Type: userModel.PermissionTypeMenu, Resource: "tenant", Action: "view",
+		Path: "/platform/tenant", Icon: "House", Sort: 200,
+	}
+	var existingTenant userModel.Permission
+	if db.Where("type = ? AND resource = ? AND action = ?", userModel.PermissionTypeMenu, menuTenant.Resource, menuTenant.Action).First(&existingTenant).Error == gorm.ErrRecordNotFound {
+		if err := db.Create(&menuTenant).Error; err != nil {
+			return fmt.Errorf("创建菜单权限 %s:%s 失败: %w", menuTenant.Resource, menuTenant.Action, err)
+		}
+		createdCount++
+	}
+
+	// --- 按钮权限种子 ---
+	buttonPermissions := []userModel.Permission{
+		{Name: "创建用户", Type: userModel.PermissionTypeButton, Resource: "user", Action: "create_btn"},
+		{Name: "编辑用户", Type: userModel.PermissionTypeButton, Resource: "user", Action: "update_btn"},
+		{Name: "删除用户", Type: userModel.PermissionTypeButton, Resource: "user", Action: "delete_btn"},
+		{Name: "创建角色", Type: userModel.PermissionTypeButton, Resource: "role", Action: "create_btn"},
+		{Name: "编辑角色", Type: userModel.PermissionTypeButton, Resource: "role", Action: "update_btn"},
+		{Name: "删除角色", Type: userModel.PermissionTypeButton, Resource: "role", Action: "delete_btn"},
+	}
+	for _, btn := range buttonPermissions {
+		var existing userModel.Permission
+		result := db.Where("type = ? AND resource = ? AND action = ?", userModel.PermissionTypeButton, btn.Resource, btn.Action).First(&existing)
+		if result.Error == gorm.ErrRecordNotFound {
+			if err := db.Create(&btn).Error; err != nil {
+				return fmt.Errorf("创建按钮权限 %s:%s 失败: %w", btn.Resource, btn.Action, err)
+			}
+			createdCount++
+		}
+	}
+
 	if createdCount > 0 {
 		logger.Log.Info(fmt.Sprintf("权限种子数据初始化完成，新增 %d 条记录", createdCount))
+	}
+	return nil
+}
+
+// migrateUserDepartments 将旧表 users.department_id 迁移到 user_departments 表
+// 幂等设计：可重复执行不出错
+func migrateUserDepartments(db *gorm.DB) error {
+	// 检查 users 表是否还有 department_id 列
+	var colCount int64
+	err := db.Raw(
+		`SELECT COUNT(1) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'users' AND column_name = 'department_id'`,
+	).Scan(&colCount).Error
+	if err != nil {
+		return fmt.Errorf("检查 users.department_id 列失败: %w", err)
+	}
+	if colCount == 0 {
+		// 旧列已不存在，无需迁移
+		return nil
+	}
+
+	// 查询需要迁移的记录：department_id 非空 且 user_departments 中尚无对应记录
+	type migrateRow struct {
+		UserID       uint `gorm:"column:id"`
+		DepartmentID uint `gorm:"column:department_id"`
+		TenantID     *uint `gorm:"column:tenant_id"`
+	}
+	var rows []migrateRow
+	err = db.Table("users").
+		Select("id, department_id, tenant_id").
+		Where("department_id IS NOT NULL AND department_id > 0").
+		Find(&rows).Error
+	if err != nil {
+		return fmt.Errorf("查询待迁移用户部门数据失败: %w", err)
+	}
+	if len(rows) == 0 {
+		return nil
+	}
+
+	migratedCount := 0
+	for _, row := range rows {
+		// 检查 user_departments 中是否已有该记录（幂等）
+		var existCount int64
+		db.Table("user_departments").
+			Where("user_id = ? AND dept_id = ?", row.UserID, row.DepartmentID).
+			Count(&existCount)
+		if existCount > 0 {
+			continue
+		}
+
+		// 插入 user_departments 记录
+		ud := userModel.UserDepartment{
+			UserID:    row.UserID,
+			DeptID:    row.DepartmentID,
+			IsPrimary: true,
+		}
+		if err := db.Create(&ud).Error; err != nil {
+			logger.Log.Warn("迁移用户部门关联失败，跳过",
+				zap.Uint("userID", row.UserID),
+				zap.Uint("deptID", row.DepartmentID),
+				zap.Error(err))
+			continue
+		}
+		migratedCount++
+	}
+
+	// 将 users.department_id 的值复制到 users.primary_dept_id
+	err = db.Table("users").
+		Where("department_id IS NOT NULL AND department_id > 0").
+		Where("primary_dept_id IS NULL").
+		Update("primary_dept_id", gorm.Expr("department_id")).Error
+	if err != nil {
+		return fmt.Errorf("回填 users.primary_dept_id 失败: %w", err)
+	}
+
+	if migratedCount > 0 {
+		logger.Log.Info(fmt.Sprintf("用户部门迁移完成，迁移 %d 条记录", migratedCount))
 	}
 	return nil
 }
