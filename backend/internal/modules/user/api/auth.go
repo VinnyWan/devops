@@ -70,6 +70,9 @@ func Login(c *gin.Context) {
 
 	resp, err := getAuthService().Login(c.Request.Context(), &req, c.ClientIP(), c.Request.UserAgent())
 	if err != nil {
+		go func() {
+			_ = getLoginLogService().CreateLoginLog(req.Username, c.ClientIP(), c.Request.UserAgent(), "failed", err.Error())
+		}()
 		logger.Log.Warn("Login failed", zap.String("username", req.Username), zap.Error(err))
 		c.JSON(http.StatusUnauthorized, gin.H{
 			"code":    401,
@@ -77,6 +80,10 @@ func Login(c *gin.Context) {
 		})
 		return
 	}
+
+	go func() {
+		_ = getLoginLogService().CreateLoginLog(req.Username, c.ClientIP(), c.Request.UserAgent(), "success", "登录成功")
+	}()
 
 	setSessionCookie(c, resp.SessionID, sessionCookieMaxAge())
 	c.JSON(http.StatusOK, gin.H{
@@ -178,6 +185,9 @@ func OIDCCallback(c *gin.Context) {
 
 	resp, err := getAuthService().LoginOIDC(c.Request.Context(), code, state, c.ClientIP(), c.Request.UserAgent())
 	if err != nil {
+		go func() {
+			_ = getLoginLogService().CreateLoginLog("oidc", c.ClientIP(), c.Request.UserAgent(), "failed", err.Error())
+		}()
 		logger.Log.Error("OIDC Login failed", zap.Error(err))
 		c.JSON(http.StatusUnauthorized, gin.H{
 			"code":    401,
@@ -185,6 +195,10 @@ func OIDCCallback(c *gin.Context) {
 		})
 		return
 	}
+
+	go func() {
+		_ = getLoginLogService().CreateLoginLog(resp.User.Username, c.ClientIP(), c.Request.UserAgent(), "success", "OIDC登录成功")
+	}()
 
 	setSessionCookie(c, resp.SessionID, sessionCookieMaxAge())
 	c.JSON(http.StatusOK, gin.H{
