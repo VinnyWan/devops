@@ -18,11 +18,13 @@ type IngressVO struct {
 	Name           string            `json:"name"`
 	Namespace      string            `json:"namespace"`
 	IngressClass   string            `json:"ingressClass"`
+	Address        string            `json:"address"`
 	Hosts          []string          `json:"hosts"`
 	Paths          []string          `json:"paths"`
 	BackendService string            `json:"backendService"`
 	BackendPort    string            `json:"backendPort"`
 	Labels         map[string]string `json:"labels"`
+	Annotations    map[string]string `json:"annotations"`
 	CreatedAt      time.Time         `json:"createdAt"`
 }
 
@@ -58,16 +60,18 @@ func (s *K8sService) ListIngresses(clusterName string, namespace string, page, p
 	} else {
 		allItems = make([]IngressVO, 0, len(list.Items))
 		for _, item := range list.Items {
-			ingressClass, hosts, paths, backendService, backendPort := extractIngressDetails(item)
+			ingressClass, address, hosts, paths, backendService, backendPort := extractIngressDetails(item)
 			allItems = append(allItems, IngressVO{
 				Name:           item.Name,
 				Namespace:      item.Namespace,
 				IngressClass:   ingressClass,
+				Address:        address,
 				Hosts:          hosts,
 				Paths:          paths,
 				BackendService: backendService,
 				BackendPort:    backendPort,
 				Labels:         item.Labels,
+				Annotations:    item.Annotations,
 				CreatedAt:      item.CreationTimestamp.Time,
 			})
 		}
@@ -86,9 +90,17 @@ func (s *K8sService) ListIngresses(clusterName string, namespace string, page, p
 	return &IngressListResponse{Total: total, Items: paged}, nil
 }
 
-func extractIngressDetails(item networkingv1.Ingress) (ingressClass string, hosts []string, paths []string, backendService string, backendPort string) {
+func extractIngressDetails(item networkingv1.Ingress) (ingressClass string, address string, hosts []string, paths []string, backendService string, backendPort string) {
 	if item.Spec.IngressClassName != nil {
 		ingressClass = *item.Spec.IngressClassName
+	}
+	// Extract address from status
+	for _, ing := range item.Status.LoadBalancer.Ingress {
+		if ing.IP != "" {
+			address = ing.IP
+		} else if ing.Hostname != "" {
+			address = ing.Hostname
+		}
 	}
 	if item.Spec.DefaultBackend != nil {
 		backendService = item.Spec.DefaultBackend.Service.Name
@@ -218,11 +230,13 @@ func ingressVOFromUnstructured(item unstructured.Unstructured) IngressVO {
 		Name:           item.GetName(),
 		Namespace:      item.GetNamespace(),
 		IngressClass:   ingressClass,
+		Address:        "",
 		Hosts:          hosts,
 		Paths:          paths,
 		BackendService: backendService,
 		BackendPort:    backendPort,
 		Labels:         item.GetLabels(),
+		Annotations:    item.GetAnnotations(),
 		CreatedAt:      item.GetCreationTimestamp().Time,
 	}
 }

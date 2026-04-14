@@ -22,8 +22,14 @@
       </el-table-column>
       <el-table-column prop="type" label="类型" width="120" />
       <el-table-column prop="clusterIP" label="ClusterIP" width="140" />
-      <el-table-column label="端口" min-width="180">
+      <el-table-column label="端口" min-width="140">
         <template #default="{ row }">{{ (row.ports || []).join(', ') }}</template>
+      </el-table-column>
+      <el-table-column label="目标端口" min-width="120">
+        <template #default="{ row }">{{ (row.targetPort || []).join(', ') || '-' }}</template>
+      </el-table-column>
+      <el-table-column label="Endpoints" min-width="200">
+        <template #default="{ row }">{{ (row.endpoints || []).join(', ') || '-' }}</template>
       </el-table-column>
       <el-table-column label="选择器" min-width="160">
         <template #default="{ row }">
@@ -51,20 +57,23 @@
           <el-link type="primary">{{ row.name }}</el-link>
         </template>
       </el-table-column>
-      <el-table-column prop="ingressClass" label="类型" width="120">
+      <el-table-column label="IngressClass" width="120">
         <template #default="{ row }">{{ row.ingressClass || '-' }}</template>
       </el-table-column>
-      <el-table-column label="主机" min-width="180">
+      <el-table-column label="地址" width="140">
+        <template #default="{ row }">{{ row.address || '-' }}</template>
+      </el-table-column>
+      <el-table-column label="主机" min-width="160">
         <template #default="{ row }">{{ (row.hosts || []).join(', ') || '-' }}</template>
       </el-table-column>
-      <el-table-column label="路径" width="120">
+      <el-table-column label="路径" width="100">
         <template #default="{ row }">{{ (row.paths || []).join(', ') || '-' }}</template>
       </el-table-column>
-      <el-table-column prop="backendService" label="后端Service" width="140">
-        <template #default="{ row }">{{ row.backendService || '-' }}</template>
-      </el-table-column>
-      <el-table-column prop="backendPort" label="端口" width="100">
-        <template #default="{ row }">{{ row.backendPort || '-' }}</template>
+      <el-table-column label="后端Service" width="140">
+        <template #default="{ row }">
+          <span v-if="row.backendService">{{ row.backendService }}:{{ row.backendPort }}</span>
+          <span v-else>-</span>
+        </template>
       </el-table-column>
       <el-table-column label="创建时间" width="180">
         <template #default="{ row }">{{ formatTime(row.createdAt) }}</template>
