@@ -30,6 +30,8 @@ func SetDB(database *gorm.DB) {
 	auditOnce = sync.Once{}
 	tenantService = nil
 	tenantOnce = sync.Once{}
+	loginLogService = nil
+	loginLogOnce = sync.Once{}
 }
 
 // GetCurrentUserID 从上下文中安全获取当前用户ID
