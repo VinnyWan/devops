@@ -121,13 +121,14 @@ func GetUserInfo(c *gin.Context) {
 
 // List godoc
 // @Summary 获取用户列表
-// @Description 获取用户列表（支持分页和关键词搜索）
+// @Description 获取用户列表（支持分页、关键词搜索和部门筛选）
 // @Tags 用户管理
 // @Produce json
 // @Security BearerAuth
 // @Param page query int false "页码" default(1)
 // @Param pageSize query int false "每页数量" default(10)
 // @Param keyword query string false "搜索关键词（用户名、姓名、邮箱）"
+// @Param departmentId query int false "部门ID（可选，按部门筛选用户）"
 // @Success 200 {object} map[string]interface{} "用户列表"
 // @Failure 500 {object} map[string]interface{} "服务器错误"
 // @Router /user/list [get]
@@ -137,7 +138,17 @@ func List(c *gin.Context) {
 	keyword := c.Query("keyword")
 	tenantID := GetCurrentTenantID(c)
 	operatorID := GetCurrentUserID(c)
-	users, total, err := getService().ListUsers(c.Request.Context(), tenantID, operatorID, page, pageSize, keyword)
+
+	// 解析可选的部门ID筛选参数
+	var departmentID *uint
+	if deptIDStr := c.Query("departmentId"); deptIDStr != "" {
+		if id, err := strconv.ParseUint(deptIDStr, 10, 32); err == nil {
+			deptID := uint(id)
+			departmentID = &deptID
+		}
+	}
+
+	users, total, err := getService().ListUsers(c.Request.Context(), tenantID, operatorID, page, pageSize, keyword, departmentID)
 	if err != nil {
 		logger.Log.Error("Failed to list users", zap.Error(err))
 		writeModuleError(c, err, http.StatusInternalServerError)

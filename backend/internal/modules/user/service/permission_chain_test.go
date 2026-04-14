@@ -243,7 +243,7 @@ func TestUserService_ListUsers_RespectsDepartmentTreeScope(t *testing.T) {
 	bindUserRoles(t, db, operator, []model.Role{scopeRole})
 
 	svc := NewUserService(db)
-	items, total, err := svc.ListUsers(context.Background(), tenant.ID, operator.ID, 1, 20, "")
+	items, total, err := svc.ListUsers(context.Background(), tenant.ID, operator.ID, 1, 20, "", nil)
 	mustNoError(t, err)
 	if total != 3 {
 		t.Fatalf("expected 3 accessible users, got %d", total)
