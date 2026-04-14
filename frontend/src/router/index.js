@@ -56,6 +56,10 @@ const routes = [
         component: () => import('../views/k8s/ConfigList.vue')
       },
       {
+        path: 'k8s/storage',
+        component: () => import('../views/k8s/StorageList.vue')
+      },
+      {
         path: 'system/user',
         component: () => import('../views/System/UserList.vue')
       },

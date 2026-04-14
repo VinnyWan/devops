@@ -21,7 +21,6 @@
           <el-menu-item index="/k8s/network">网络管理</el-menu-item>
           <el-menu-item index="/k8s/storage">存储管理</el-menu-item>
           <el-menu-item index="/k8s/config">配置管理</el-menu-item>
-          <el-menu-item index="/k8s/diagnose">应用诊断</el-menu-item>
         </el-sub-menu>
         <el-sub-menu index="system">
           <template #title>

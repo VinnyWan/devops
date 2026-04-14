@@ -93,45 +93,45 @@ func GetConfigMapDetail(c *gin.Context) {
 
 // CreateConfigMap godoc
 // @Summary 创建 ConfigMap
-// @Description 创建一个新的 ConfigMap
+// @Description 通过 YAML 创建一个新的 ConfigMap
 // @Tags K8s资源管理
 // @Accept json
 // @Produce json
-// @Param clusterName query string false "集群名称（可选，未传则使用默认集群）"
-// @Param namespace query string true "命名空间"
-// @Param configmap body K8sObject true "ConfigMap 对象"
+// @Param request body object true "参数: {clusterName, namespace, yaml}"
 // @Success 200 {object} Response "成功"
 // @Security BearerAuth
 // @Router /k8s/configmap/create [post]
 func CreateConfigMap(c *gin.Context) {
-	namespace := c.Query("namespace")
-
-	if namespace == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "参数不完整"})
-		return
+	var req struct {
+		ClusterName string `json:"clusterName"`
+		Namespace   string `json:"namespace" binding:"required"`
+		YAML        string `json:"yaml" binding:"required"`
 	}
 
-	clusterName, err := resolveClusterName(c)
-	if err != nil {
+	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 		return
 	}
 
-	var cm corev1.ConfigMap
-	if err := c.ShouldBindJSON(&cm); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
-		return
+	clusterName := req.ClusterName
+	if clusterName == "" {
+		var err error
+		clusterName, err = resolveClusterName(c)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
+			return
+		}
 	}
 
-	service, err := getK8sService()
+	svc, err := getK8sService()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
 		return
 	}
 
-	data, err := service.CreateConfigMap(clusterName, namespace, &cm)
+	data, err := svc.CreateConfigMapByYAML(clusterName, req.Namespace, req.YAML)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+		handleK8sError(c, err)
 		return
 	}
 
@@ -228,4 +228,94 @@ func DeleteConfigMap(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "删除成功"})
+}
+
+// GetConfigMapYAML godoc
+// @Summary 获取 ConfigMap YAML
+// @Description 获取指定 ConfigMap 的 YAML 格式
+// @Tags K8s资源管理
+// @Accept json
+// @Produce json
+// @Param clusterName query string false "集群名称"
+// @Param namespace query string true "命名空间"
+// @Param name query string true "资源名称"
+// @Success 200 {object} Response "成功"
+// @Security BearerAuth
+// @Router /k8s/configmap/yaml [get]
+func GetConfigMapYAML(c *gin.Context) {
+	namespace := c.Query("namespace")
+	name := c.Query("name")
+
+	if namespace == "" || name == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "参数不完整"})
+		return
+	}
+
+	clusterName, err := resolveClusterName(c)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
+		return
+	}
+
+	svc, err := getK8sService()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+		return
+	}
+
+	yamlStr, err := svc.GetResourceYAML(clusterName, "configmap", namespace, name)
+	if err != nil {
+		handleK8sError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"code": 200, "data": gin.H{"yaml": yamlStr}})
+}
+
+// UpdateConfigMapYAML godoc
+// @Summary 通过 YAML 更新 ConfigMap
+// @Description 使用 YAML 内容更新指定 ConfigMap
+// @Tags K8s资源管理
+// @Accept json
+// @Produce json
+// @Param request body object true "参数: {clusterName, namespace, name, yaml}"
+// @Success 200 {object} Response "成功"
+// @Security BearerAuth
+// @Router /k8s/configmap/yaml/update [post]
+func UpdateConfigMapYAML(c *gin.Context) {
+	var req struct {
+		ClusterName string `json:"clusterName"`
+		Namespace   string `json:"namespace" binding:"required"`
+		Name        string `json:"name" binding:"required"`
+		YAML        string `json:"yaml" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
+		return
+	}
+
+	clusterName := req.ClusterName
+	if clusterName == "" {
+		var err error
+		clusterName, err = resolveClusterName(c)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
+			return
+		}
+	}
+
+	svc, err := getK8sService()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+		return
+	}
+
+	data, err := svc.UpdateConfigMapByYAML(clusterName, req.Namespace, req.Name, req.YAML)
+	if err != nil {
+		handleK8sError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"code": 200, "data": data})
 }

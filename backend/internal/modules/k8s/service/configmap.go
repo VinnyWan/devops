@@ -2,11 +2,13 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/yaml"
 )
 
 type ConfigMapVO struct {
@@ -20,6 +22,7 @@ type ConfigMapVO struct {
 type ConfigMapListVO struct {
 	Name      string    `json:"name"`
 	Namespace string    `json:"namespace"`
+	DataCount int       `json:"dataCount"`
 	CreatedAt time.Time `json:"createdAt"`
 }
 
@@ -59,6 +62,7 @@ func (s *K8sService) ListConfigMaps(clusterName string, namespace string, page, 
 		result = append(result, ConfigMapListVO{
 			Name:      item.Name,
 			Namespace: item.Namespace,
+			DataCount: len(item.Data),
 			CreatedAt: item.CreationTimestamp.Time,
 		})
 	}
@@ -106,10 +110,69 @@ func (s *K8sService) CreateConfigMap(clusterName string, namespace string, cm *c
 	return cc.Client.CoreV1().ConfigMaps(namespace).Create(context.Background(), cm, metav1.CreateOptions{})
 }
 
+func (s *K8sService) CreateConfigMapByYAML(clusterName string, namespace, rawYAML string) (*corev1.ConfigMap, error) {
+	if err := s.ensureReady(); err != nil {
+		return nil, err
+	}
+
+	var cm corev1.ConfigMap
+	if err := yaml.Unmarshal([]byte(rawYAML), &cm); err != nil {
+		return nil, fmt.Errorf("invalid yaml: %w", err)
+	}
+
+	cm.Namespace = namespace
+	cm.ResourceVersion = ""
+
+	return s.CreateConfigMap(clusterName, namespace, &cm)
+}
+
 func (s *K8sService) UpdateConfigMap(clusterName string, namespace string, cm *corev1.ConfigMap) (*corev1.ConfigMap, error) {
 	cc, err := s.getClusterClient(clusterName)
 	if err != nil {
 		return nil, err
 	}
 	return cc.Client.CoreV1().ConfigMaps(namespace).Update(context.Background(), cm, metav1.UpdateOptions{})
+}
+
+func (s *K8sService) UpdateConfigMapByYAML(clusterName string, namespace, name, rawYAML string) (*corev1.ConfigMap, error) {
+	if err := s.ensureReady(); err != nil {
+		return nil, err
+	}
+
+	current, err := s.GetConfigMapDetail(clusterName, namespace, name)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get current configmap: %w", err)
+	}
+
+	cmObj, err := s.getConfigMapObject(clusterName, namespace, name)
+	if err != nil {
+		return nil, err
+	}
+
+	var desired corev1.ConfigMap
+	if err := yaml.Unmarshal([]byte(rawYAML), &desired); err != nil {
+		return nil, fmt.Errorf("invalid yaml: %w", err)
+	}
+
+	if desired.Name != "" && desired.Name != name {
+		return nil, fmt.Errorf("不允许修改 metadata.name")
+	}
+	if desired.Namespace != "" && desired.Namespace != namespace {
+		return nil, fmt.Errorf("不允许修改 metadata.namespace")
+	}
+
+	desired.Namespace = namespace
+	desired.Name = name
+	desired.ResourceVersion = cmObj.ResourceVersion
+	_ = current
+
+	return s.UpdateConfigMap(clusterName, namespace, &desired)
+}
+
+func (s *K8sService) getConfigMapObject(clusterName string, namespace, name string) (*corev1.ConfigMap, error) {
+	cc, err := s.getClusterClient(clusterName)
+	if err != nil {
+		return nil, err
+	}
+	return cc.Client.CoreV1().ConfigMaps(namespace).Get(context.Background(), name, metav1.GetOptions{})
 }

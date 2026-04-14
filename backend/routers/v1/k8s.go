@@ -205,6 +205,7 @@ func registerCluster(r *gin.RouterGroup) {
 			// ConfigMap
 		g.GET("/configmap/list", listPermission, api.ListConfigMaps)
 		g.GET("/configmap/detail", listPermission, api.GetConfigMapDetail)
+		g.GET("/configmap/yaml", listPermission, api.GetConfigMapYAML)
 		g.POST("/configmap/create",
 			createPermission,
 			middleware.SetAuditOperation("创建ConfigMap"),
@@ -213,6 +214,10 @@ func registerCluster(r *gin.RouterGroup) {
 			updatePermission,
 			middleware.SetAuditOperation("更新ConfigMap"),
 			api.UpdateConfigMap)
+		g.POST("/configmap/yaml/update",
+			updatePermission,
+			middleware.SetAuditOperation("YAML更新ConfigMap"),
+			api.UpdateConfigMapYAML)
 		g.POST("/configmap/delete",
 			deletePermission,
 			middleware.SetAuditOperation("删除ConfigMap"),
@@ -259,7 +264,28 @@ func registerCluster(r *gin.RouterGroup) {
 			middleware.SetAuditOperation("更新节点污点"),
 			api.UpdateNodeTaints)
 
-		// 通用资源YAML接口
+			// Storage
+		g.GET("/storageclass/list", listPermission, api.ListStorageClasses)
+		g.POST("/storageclass/yaml/update",
+			updatePermission,
+			middleware.SetAuditOperation("YAML更新StorageClass"),
+			api.UpdateStorageClassYAML)
+		g.GET("/pv/list", listPermission, api.ListPersistentVolumes)
+		g.POST("/pv/yaml/update",
+			updatePermission,
+			middleware.SetAuditOperation("YAML更新PV"),
+			api.UpdatePVYAML)
+		g.GET("/pvc/list", listPermission, api.ListPersistentVolumeClaims)
+		g.POST("/pvc/yaml/update",
+			updatePermission,
+			middleware.SetAuditOperation("YAML更新PVC"),
+			api.UpdatePVCYAML)
+		g.POST("/pvc/delete",
+			deletePermission,
+			middleware.SetAuditOperation("删除PVC"),
+			api.DeletePVC)
+
+			// 通用资源YAML接口
 		g.GET("/resource/yaml", listPermission, api.GetResourceYAML)
 		g.GET("/resource/types", listPermission, api.GetSupportedResourceTypes)
 	}
