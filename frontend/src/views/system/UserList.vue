@@ -61,7 +61,7 @@ const fetchData = async () => {
   loading.value = true
   try {
     const res = await getUserList()
-    tableData.value = res.data || []
+    tableData.value = res.data.list || []
   } finally {
     loading.value = false
   }
