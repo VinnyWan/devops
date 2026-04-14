@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
@@ -14,11 +15,15 @@ import (
 )
 
 type IngressVO struct {
-	Name      string            `json:"name"`
-	Namespace string            `json:"namespace"`
-	Hosts     []string          `json:"hosts"`
-	Labels    map[string]string `json:"labels"`
-	CreatedAt time.Time         `json:"createdAt"`
+	Name           string            `json:"name"`
+	Namespace      string            `json:"namespace"`
+	IngressClass   string            `json:"ingressClass"`
+	Hosts          []string          `json:"hosts"`
+	Paths          []string          `json:"paths"`
+	BackendService string            `json:"backendService"`
+	BackendPort    string            `json:"backendPort"`
+	Labels         map[string]string `json:"labels"`
+	CreatedAt      time.Time         `json:"createdAt"`
 }
 
 // IngressListResponse Ingress 列表分页响应
@@ -53,16 +58,17 @@ func (s *K8sService) ListIngresses(clusterName string, namespace string, page, p
 	} else {
 		allItems = make([]IngressVO, 0, len(list.Items))
 		for _, item := range list.Items {
-			hosts := make([]string, 0)
-			for _, rule := range item.Spec.Rules {
-				hosts = append(hosts, rule.Host)
-			}
+			ingressClass, hosts, paths, backendService, backendPort := extractIngressDetails(item)
 			allItems = append(allItems, IngressVO{
-				Name:      item.Name,
-				Namespace: item.Namespace,
-				Hosts:     hosts,
-				Labels:    item.Labels,
-				CreatedAt: item.CreationTimestamp.Time,
+				Name:           item.Name,
+				Namespace:      item.Namespace,
+				IngressClass:   ingressClass,
+				Hosts:          hosts,
+				Paths:          paths,
+				BackendService: backendService,
+				BackendPort:    backendPort,
+				Labels:         item.Labels,
+				CreatedAt:      item.CreationTimestamp.Time,
 			})
 		}
 	}
@@ -78,6 +84,39 @@ func (s *K8sService) ListIngresses(clusterName string, namespace string, page, p
 
 	paged, total := paginateItems(filtered, page, pageSize)
 	return &IngressListResponse{Total: total, Items: paged}, nil
+}
+
+func extractIngressDetails(item networkingv1.Ingress) (ingressClass string, hosts []string, paths []string, backendService string, backendPort string) {
+	if item.Spec.IngressClassName != nil {
+		ingressClass = *item.Spec.IngressClassName
+	}
+	if item.Spec.DefaultBackend != nil {
+		backendService = item.Spec.DefaultBackend.Service.Name
+		if item.Spec.DefaultBackend.Service.Port.Name != "" {
+			backendPort = item.Spec.DefaultBackend.Service.Port.Name
+		} else {
+			backendPort = fmt.Sprintf("%d", item.Spec.DefaultBackend.Service.Port.Number)
+		}
+	}
+	for _, rule := range item.Spec.Rules {
+		if rule.Host != "" {
+			hosts = append(hosts, rule.Host)
+		}
+		if rule.HTTP != nil {
+			for _, path := range rule.HTTP.Paths {
+				paths = append(paths, path.Path)
+				if backendService == "" && path.Backend.Service != nil {
+					backendService = path.Backend.Service.Name
+					if path.Backend.Service.Port.Name != "" {
+						backendPort = path.Backend.Service.Port.Name
+					} else {
+						backendPort = fmt.Sprintf("%d", path.Backend.Service.Port.Number)
+					}
+				}
+			}
+		}
+	}
+	return
 }
 
 func isIngressAPINotSupported(err error) bool {
@@ -114,6 +153,20 @@ func listIngressesWithFallback(dynamicClient dynamic.Interface, namespace string
 
 func ingressVOFromUnstructured(item unstructured.Unstructured) IngressVO {
 	hosts := make([]string, 0)
+	paths := make([]string, 0)
+	var ingressClass, backendService, backendPort string
+
+	if ic, found, _ := unstructured.NestedString(item.Object, "spec", "ingressClassName"); found {
+		ingressClass = ic
+	}
+
+	if svcName, found, _ := unstructured.NestedString(item.Object, "spec", "defaultBackend", "serviceName"); found {
+		backendService = svcName
+	}
+	if portName, found, _ := unstructured.NestedString(item.Object, "spec", "defaultBackend", "servicePort"); found {
+		backendPort = portName
+	}
+
 	if rules, found, _ := unstructured.NestedSlice(item.Object, "spec", "rules"); found {
 		for _, rule := range rules {
 			ruleMap, ok := rule.(map[string]interface{})
@@ -124,15 +177,53 @@ func ingressVOFromUnstructured(item unstructured.Unstructured) IngressVO {
 			if ok && host != "" {
 				hosts = append(hosts, host)
 			}
+			httpVal, ok := ruleMap["http"].(map[string]interface{})
+			if !ok {
+				continue
+			}
+			httpPaths, ok := httpVal["paths"].([]interface{})
+			if !ok {
+				continue
+			}
+			for _, p := range httpPaths {
+				pathMap, ok := p.(map[string]interface{})
+				if !ok {
+					continue
+				}
+				if pathStr, ok := pathMap["path"].(string); ok {
+					paths = append(paths, pathStr)
+				}
+				if backendService == "" {
+					if svcName, ok := pathMap["backend"].(map[string]interface{}); ok {
+						if sn, ok := svcName["serviceName"].(string); ok {
+							backendService = sn
+						}
+						if sp, ok := svcName["servicePort"]; ok {
+							switch v := sp.(type) {
+							case string:
+								backendPort = v
+							case float64:
+								backendPort = fmt.Sprintf("%.0f", v)
+							case int:
+								backendPort = fmt.Sprintf("%d", v)
+							}
+						}
+					}
+				}
+			}
 		}
 	}
 
 	return IngressVO{
-		Name:      item.GetName(),
-		Namespace: item.GetNamespace(),
-		Hosts:     hosts,
-		Labels:    item.GetLabels(),
-		CreatedAt: item.GetCreationTimestamp().Time,
+		Name:           item.GetName(),
+		Namespace:      item.GetNamespace(),
+		IngressClass:   ingressClass,
+		Hosts:          hosts,
+		Paths:          paths,
+		BackendService: backendService,
+		BackendPort:    backendPort,
+		Labels:         item.GetLabels(),
+		CreatedAt:      item.GetCreationTimestamp().Time,
 	}
 }
 
