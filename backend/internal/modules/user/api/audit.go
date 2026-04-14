@@ -60,6 +60,7 @@ func ListAuditLogs(c *gin.Context) {
 
 	req := service.AuditListRequest{
 		Username:  c.Query("username"),
+		Method:    c.Query("method"),
 		Operation: c.Query("operation"),
 		Resource:  c.Query("resource"),
 		Keyword:   c.Query("keyword"),

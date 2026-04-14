@@ -115,7 +115,7 @@ const fetchData = async () => {
     }
     if (filters.username) params.username = filters.username
     if (filters.operation) params.operation = filters.operation
-    if (filters.method) params.keyword = filters.method
+    if (filters.method) params.method = filters.method
     if (dateRange.value && dateRange.value.length === 2) {
       params.startAt = dateRange.value[0]
       params.endAt = dateRange.value[1]

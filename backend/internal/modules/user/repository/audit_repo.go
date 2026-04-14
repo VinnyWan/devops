@@ -15,6 +15,7 @@ type AuditRepo struct {
 type AuditQuery struct {
 	UserID    *uint
 	Username  string
+	Method    string
 	Operation string
 	Resource  string
 	Keyword   string
@@ -96,6 +97,9 @@ func (r *AuditRepo) buildListQuery(query AuditQuery) *gorm.DB {
 	}
 	if query.Username != "" {
 		tx = tx.Where("username LIKE ?", "%"+query.Username+"%")
+	}
+	if query.Method != "" {
+		tx = tx.Where("method = ?", query.Method)
 	}
 	if query.Operation != "" {
 		tx = tx.Where("operation LIKE ?", "%"+query.Operation+"%")

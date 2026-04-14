@@ -71,7 +71,9 @@ func Login(c *gin.Context) {
 	resp, err := getAuthService().Login(c.Request.Context(), &req, c.ClientIP(), c.Request.UserAgent())
 	if err != nil {
 		go func() {
-			_ = getLoginLogService().CreateLoginLog(req.Username, c.ClientIP(), c.Request.UserAgent(), "failed", err.Error())
+			if err := getLoginLogService().CreateLoginLog(req.Username, c.ClientIP(), c.Request.UserAgent(), "failed", err.Error()); err != nil {
+				logger.Log.Warn("Failed to record login log", zap.Error(err))
+			}
 		}()
 		logger.Log.Warn("Login failed", zap.String("username", req.Username), zap.Error(err))
 		c.JSON(http.StatusUnauthorized, gin.H{
@@ -82,7 +84,9 @@ func Login(c *gin.Context) {
 	}
 
 	go func() {
-		_ = getLoginLogService().CreateLoginLog(req.Username, c.ClientIP(), c.Request.UserAgent(), "success", "登录成功")
+		if err := getLoginLogService().CreateLoginLog(req.Username, c.ClientIP(), c.Request.UserAgent(), "success", "登录成功"); err != nil {
+			logger.Log.Warn("Failed to record login log", zap.Error(err))
+		}
 	}()
 
 	setSessionCookie(c, resp.SessionID, sessionCookieMaxAge())
@@ -186,7 +190,9 @@ func OIDCCallback(c *gin.Context) {
 	resp, err := getAuthService().LoginOIDC(c.Request.Context(), code, state, c.ClientIP(), c.Request.UserAgent())
 	if err != nil {
 		go func() {
-			_ = getLoginLogService().CreateLoginLog("oidc", c.ClientIP(), c.Request.UserAgent(), "failed", err.Error())
+			if err := getLoginLogService().CreateLoginLog("-", c.ClientIP(), c.Request.UserAgent(), "failed", err.Error()); err != nil {
+				logger.Log.Warn("Failed to record login log", zap.Error(err))
+			}
 		}()
 		logger.Log.Error("OIDC Login failed", zap.Error(err))
 		c.JSON(http.StatusUnauthorized, gin.H{
@@ -197,7 +203,9 @@ func OIDCCallback(c *gin.Context) {
 	}
 
 	go func() {
-		_ = getLoginLogService().CreateLoginLog(resp.User.Username, c.ClientIP(), c.Request.UserAgent(), "success", "OIDC登录成功")
+		if err := getLoginLogService().CreateLoginLog(resp.User.Username, c.ClientIP(), c.Request.UserAgent(), "success", "OIDC登录成功"); err != nil {
+			logger.Log.Warn("Failed to record login log", zap.Error(err))
+		}
 	}()
 
 	setSessionCookie(c, resp.SessionID, sessionCookieMaxAge())

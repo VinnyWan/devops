@@ -18,6 +18,7 @@ type AuditService struct {
 type AuditListRequest struct {
 	UserID    *uint
 	Username  string
+	Method    string
 	Operation string
 	Resource  string
 	Keyword   string
@@ -118,6 +119,7 @@ func buildAuditQuery(req AuditListRequest) (repository.AuditQuery, error) {
 	query := repository.AuditQuery{
 		UserID:    req.UserID,
 		Username:  req.Username,
+		Method:    req.Method,
 		Operation: req.Operation,
 		Resource:  req.Resource,
 		Keyword:   req.Keyword,
