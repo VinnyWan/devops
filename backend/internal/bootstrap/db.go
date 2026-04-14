@@ -66,7 +66,8 @@ func InitDB() error {
 		&userModel.User{},
 		&userModel.Role{},
 		&userModel.Permission{},
-		&userModel.AuditLog{}, // 审计日志
+		&userModel.AuditLog{},   // 审计日志
+			&userModel.LoginLog{}, // 登录日志
 		&k8sModel.Cluster{},
 	)
 	if err != nil {
@@ -262,6 +263,7 @@ func seedPermissions(db *gorm.DB) error {
 		{Name: "更新权限", Resource: "permission", Action: "update", Description: "更新权限"},
 		{Name: "删除权限", Resource: "permission", Action: "delete", Description: "删除权限"},
 		{Name: "查看审计日志", Resource: "audit", Action: "list", Description: "查看操作审计日志"},
+			{Name: "查看登录日志", Resource: "login-log", Action: "list", Description: "查看登录日志"},
 		// 应用管理权限
 		{Name: "查看应用", Resource: "app", Action: "list", Description: "查看应用列表"},
 		{Name: "创建应用", Resource: "app", Action: "create", Description: "创建新应用"},
