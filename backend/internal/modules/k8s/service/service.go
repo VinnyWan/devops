@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -13,7 +14,8 @@ type ServiceVO struct {
 	Namespace string            `json:"namespace"`
 	Type      string            `json:"type"`
 	ClusterIP string            `json:"clusterIP"`
-	Ports     []int32           `json:"ports"`
+	Ports     []string          `json:"ports"`
+	Selector  map[string]string `json:"selector"`
 	Labels    map[string]string `json:"labels"`
 	CreatedAt time.Time         `json:"createdAt"`
 }
@@ -48,9 +50,13 @@ func (s *K8sService) ListServices(clusterName string, namespace string, page, pa
 
 	result := make([]ServiceVO, 0, len(paged))
 	for _, item := range paged {
-		ports := make([]int32, 0, len(item.Spec.Ports))
+		ports := make([]string, 0, len(item.Spec.Ports))
 		for _, p := range item.Spec.Ports {
-			ports = append(ports, p.Port)
+			if p.NodePort != 0 {
+				ports = append(ports, fmt.Sprintf("%d:%d/%s", p.Port, p.NodePort, p.Protocol))
+			} else {
+				ports = append(ports, fmt.Sprintf("%d/%s", p.Port, p.Protocol))
+			}
 		}
 		result = append(result, ServiceVO{
 			Name:      item.Name,
@@ -58,6 +64,7 @@ func (s *K8sService) ListServices(clusterName string, namespace string, page, pa
 			Type:      string(item.Spec.Type),
 			ClusterIP: item.Spec.ClusterIP,
 			Ports:     ports,
+			Selector:  item.Spec.Selector,
 			Labels:    item.Labels,
 			CreatedAt: item.CreationTimestamp.Time,
 		})
@@ -76,9 +83,13 @@ func (s *K8sService) GetServiceDetail(clusterName string, namespace, name string
 		return nil, err
 	}
 
-	ports := make([]int32, 0, len(item.Spec.Ports))
+	ports := make([]string, 0, len(item.Spec.Ports))
 	for _, p := range item.Spec.Ports {
-		ports = append(ports, p.Port)
+		if p.NodePort != 0 {
+			ports = append(ports, fmt.Sprintf("%d:%d/%s", p.Port, p.NodePort, p.Protocol))
+		} else {
+			ports = append(ports, fmt.Sprintf("%d/%s", p.Port, p.Protocol))
+		}
 	}
 
 	return &ServiceVO{
@@ -87,6 +98,7 @@ func (s *K8sService) GetServiceDetail(clusterName string, namespace, name string
 		Type:      string(item.Spec.Type),
 		ClusterIP: item.Spec.ClusterIP,
 		Ports:     ports,
+		Selector:  item.Spec.Selector,
 		Labels:    item.Labels,
 		CreatedAt: item.CreationTimestamp.Time,
 	}, nil
