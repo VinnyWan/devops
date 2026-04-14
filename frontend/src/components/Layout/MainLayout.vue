@@ -33,6 +33,14 @@
           <el-menu-item index="/system/department">部门管理</el-menu-item>
           <el-menu-item index="/system/permission">权限管理</el-menu-item>
         </el-sub-menu>
+        <el-sub-menu index="audit">
+          <template #title>
+            <el-icon><Notebook /></el-icon>
+            <span>操作审计</span>
+          </template>
+          <el-menu-item index="/audit/operation">操作日志</el-menu-item>
+          <el-menu-item index="/audit/login">登录日志</el-menu-item>
+        </el-sub-menu>
       </el-menu>
     </el-aside>
     <el-container>
@@ -56,7 +64,7 @@
 
 <script setup>
 import { ref } from 'vue'
-import { HomeFilled, Grid, Setting, Expand, Fold } from '@element-plus/icons-vue'
+import { HomeFilled, Grid, Setting, Expand, Fold, Notebook } from '@element-plus/icons-vue'
 import { useUserStore } from '../../stores/user'
 import { useRouter } from 'vue-router'
 import Breadcrumb from './Breadcrumb.vue'

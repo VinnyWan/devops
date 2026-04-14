@@ -70,6 +70,14 @@ const routes = [
       {
         path: 'system/permission',
         component: () => import('../views/System/PermissionList.vue')
+      },
+      {
+        path: 'audit/operation',
+        component: () => import('../views/Audit/OperationLog.vue')
+      },
+      {
+        path: 'audit/login',
+        component: () => import('../views/Audit/LoginLog.vue')
       }
     ]
   }
