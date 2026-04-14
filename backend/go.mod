@@ -12,7 +12,9 @@ require (
 	github.com/go-ldap/ldap/v3 v3.4.12
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.3
+	github.com/lionsoul2014/ip2region/binding/golang v0.0.0-20260409130608-36c9de10bb8f
 	github.com/mattn/go-sqlite3 v1.14.22
+	github.com/mssola/useragent v1.0.0
 	github.com/nacos-group/nacos-sdk-go/v2 v2.3.5
 	github.com/redis/go-redis/v9 v9.17.3
 	github.com/spf13/viper v1.18.2
