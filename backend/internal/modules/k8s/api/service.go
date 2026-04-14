@@ -229,3 +229,51 @@ func DeleteService(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "删除成功"})
 }
+
+// UpdateServiceYAML godoc
+// @Summary 通过 YAML 更新 Service
+// @Description 使用 YAML 内容更新指定 Service
+// @Tags K8s资源管理
+// @Accept json
+// @Produce json
+// @Param request body object true "参数: {clusterName, namespace, name, yaml}"
+// @Success 200 {object} Response "成功"
+// @Security BearerAuth
+// @Router /k8s/service/yaml/update [post]
+func UpdateServiceYAML(c *gin.Context) {
+	var req struct {
+		ClusterName string `json:"clusterName"`
+		Namespace   string `json:"namespace" binding:"required"`
+		Name        string `json:"name" binding:"required"`
+		YAML        string `json:"yaml" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
+		return
+	}
+
+	clusterName := req.ClusterName
+	if clusterName == "" {
+		var err error
+		clusterName, err = resolveClusterName(c)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
+			return
+		}
+	}
+
+	svc, err := getK8sService()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+		return
+	}
+
+	data, err := svc.UpdateServiceByYAML(clusterName, req.Namespace, req.Name, req.YAML)
+	if err != nil {
+		handleK8sError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"code": 200, "data": data})
+}

@@ -197,8 +197,12 @@ func registerCluster(r *gin.RouterGroup) {
 			deletePermission,
 			middleware.SetAuditOperation("删除Service"),
 			api.DeleteService)
+			g.POST("/service/yaml/update",
+				updatePermission,
+				middleware.SetAuditOperation("YAML更新Service"),
+				api.UpdateServiceYAML)
 
-		// ConfigMap
+			// ConfigMap
 		g.GET("/configmap/list", listPermission, api.ListConfigMaps)
 		g.GET("/configmap/detail", listPermission, api.GetConfigMapDetail)
 		g.POST("/configmap/create",
@@ -229,8 +233,12 @@ func registerCluster(r *gin.RouterGroup) {
 			deletePermission,
 			middleware.SetAuditOperation("删除Ingress"),
 			api.DeleteIngress)
+			g.POST("/ingress/yaml/update",
+				updatePermission,
+				middleware.SetAuditOperation("YAML更新Ingress"),
+				api.UpdateIngressYAML)
 
-		// Node Management
+			// Node Management
 		g.GET("/nodes", listPermission, api.NodeList)
 		g.GET("/node/detail", listPermission, api.GetNodeDetail)
 		g.GET("/node/events", listPermission, api.GetNodeEvents)
