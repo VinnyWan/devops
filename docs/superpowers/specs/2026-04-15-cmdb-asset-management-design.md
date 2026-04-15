@@ -1,8 +1,18 @@
-# CMDB 资产管理模块设计
+# CMDB 资产管理模块 - 第一阶段：核心管理
+
+> **分阶段说明**：CMDB 模块分三阶段实现。
+> - **第一阶段（本文档）**：主机管理、分组管理、凭据管理
+> - [第二阶段](./2026-04-15-cmdb-phase2-terminal-design.md)：SSH Web 终端、终端审计
+> - [第三阶段](./2026-04-15-cmdb-phase3-cloud-permission-design.md)：云账号管理、权限配置
 
 ## 概述
 
-为 DevOps 运维平台新增 CMDB（Configuration Management Database）模块，提供完整的 IT 资产管理能力。模块包含 6 个子系统：主机管理、分组管理、凭据管理、Web 终端（实时 SSH + 审计回放）、云账号管理、权限配置。
+为 DevOps 运维平台新增 CMDB（Configuration Management Database）模块的第一阶段，提供核心的 IT 资产管理能力。
+
+**本阶段包含三个子系统**：
+1. **主机管理**：服务器资产录入、批量导入、连接测试、状态监控
+2. **分组管理**：三级固定层级（业务→环境→地域）的主机分组
+3. **凭据管理**：SSH 密码和密钥的统一管理、加密存储
 
 所有功能通过统一的 RESTful API 提供服务，复用现有 Session + RBAC 权限体系进行鉴权。
 
@@ -74,75 +84,11 @@
 - 创建/更新时接收明文，入库前加密
 - 使用时服务端解密，不传输到前端
 
-### CloudAccount（云账号）
+<!-- 云账号管理模型 → 见第三阶段 -->
 
-| 字段 | 类型 | 说明 |
-|---|---|---|
-| id | uint | 主键 |
-| tenant_id | uint | 租户 ID |
-| name | string(100) | 账号名称 |
-| provider | string(20) | 云厂商：tencent |
-| secret_id | string(500) | API 密钥 ID（AES-256 加密） |
-| secret_key | string(500) | API 密钥 Key（AES-256 加密） |
-| status | string(20) | 状态：active/error |
-| last_sync_at | timestamp | 最后同步时间 |
-| sync_interval | int | 同步间隔（分钟），默认 60 |
-| description | string(500) | 描述 |
+<!-- 终端会话模型 → 见第二阶段 -->
 
-索引：`uk_cloud_tenant_provider_name` (tenant_id, provider, name)
-
-### CloudResource（云资源）
-
-| 字段 | 类型 | 说明 |
-|---|---|---|
-| id | uint | 主键 |
-| tenant_id | uint | 租户 ID |
-| cloud_account_id | uint | 云账号 ID |
-| resource_type | string(30) | 资源类型：cvm/vpc/subnet/security_group/cbs |
-| resource_id | string(100) | 云资源 ID |
-| region | string(50) | 地域 |
-| name | string(200) | 资源名称 |
-| state | string(30) | 资源状态 |
-| spec | json | 资源规格详情 |
-| synced_at | timestamp | 同步时间 |
-
-索引：`uk_cloud_res` (cloud_account_id, resource_type, resource_id)
-
-### TerminalSession（终端会话）
-
-| 字段 | 类型 | 说明 |
-|---|---|---|
-| id | uint | 主键 |
-| tenant_id | uint | 租户 ID |
-| user_id | uint | 操作用户 ID |
-| username | string(100) | 用户名（冗余） |
-| host_id | uint | 连接的主机 ID |
-| host_ip | string(45) | 主机 IP（冗余） |
-| credential_id | uint | 使用的凭据 ID |
-| client_ip | string(45) | 客户端 IP |
-| started_at | timestamp | 开始时间 |
-| finished_at | timestamp | 结束时间 |
-| duration | int | 持续时间（秒） |
-| recording_path | string(500) | 录像文件路径（asciinema v2 格式） |
-| file_size | int64 | 录像文件大小（字节） |
-| status | string(20) | 状态：active/closed/interrupted |
-
-索引：`idx_terminal_user` (user_id)、`idx_terminal_host` (host_id)、`idx_terminal_time` (started_at)
-
-### HostPermission（主机权限）
-
-| 字段 | 类型 | 说明 |
-|---|---|---|
-| id | uint | 主键 |
-| tenant_id | uint | 租户 ID |
-| user_id | uint | 用户 ID |
-| host_group_id | uint | 授权的分组 ID |
-| permission | string(20) | 权限：view/terminal/admin |
-| created_by | uint | 创建者用户 ID |
-
-索引：`uk_perm_user_group` (tenant_id, user_id, host_group_id, permission)
-
-权限继承：授权到父级分组时，子分组及其中主机自动继承权限。admin 权限包含 view + terminal。
+<!-- 主机权限模型 → 见第三阶段 -->
 
 ## API 设计
 
@@ -183,36 +129,11 @@
 | DELETE | `/cmdb/credentials/:id` | 删除凭据（检查是否被主机引用） | `cmdb:credential:delete` |
 | POST | `/cmdb/credentials/:id/test` | 测试凭据（连接指定主机验证） | `cmdb:credential:test` |
 
-### Web 终端
+<!-- Web 终端 API → 见第二阶段 -->
 
-| 方法 | 路径 | 说明 | 权限 |
-|---|---|---|---|
-| GET (WS) | `/cmdb/terminal/connect` | SSH 终端 WebSocket 连接，参数：host_id | `cmdb:terminal:connect` |
-| GET | `/cmdb/terminal/sessions` | 终端会话列表（按用户/主机/时间筛选） | `cmdb:terminal:list` |
-| GET | `/cmdb/terminal/sessions/:id` | 会话详情 | `cmdb:terminal:get` |
-| GET | `/cmdb/terminal/sessions/:id/recording` | 获取会话录像（asciinema v2 格式） | `cmdb:terminal:replay` |
+<!-- 云账号管理 API → 见第三阶段 -->
 
-### 云账号管理
-
-| 方法 | 路径 | 说明 | 权限 |
-|---|---|---|---|
-| GET | `/cmdb/cloud-accounts` | 云账号列表 | `cmdb:cloud:list` |
-| GET | `/cmdb/cloud-accounts/:id` | 账号详情 | `cmdb:cloud:get` |
-| POST | `/cmdb/cloud-accounts` | 添加云账号 | `cmdb:cloud:create` |
-| PUT | `/cmdb/cloud-accounts/:id` | 更新云账号 | `cmdb:cloud:update` |
-| DELETE | `/cmdb/cloud-accounts/:id` | 删除云账号 | `cmdb:cloud:delete` |
-| POST | `/cmdb/cloud-accounts/:id/sync` | 手动触发同步 | `cmdb:cloud:sync` |
-| GET | `/cmdb/cloud-accounts/:id/resources` | 同步的资源列表（按类型筛选） | `cmdb:cloud:list` |
-
-### 主机权限
-
-| 方法 | 路径 | 说明 | 权限 |
-|---|---|---|---|
-| GET | `/cmdb/permissions` | 权限规则列表（按用户/分组筛选） | `cmdb:permission:list` |
-| POST | `/cmdb/permissions` | 授予权限 | `cmdb:permission:create` |
-| PUT | `/cmdb/permissions/:id` | 更新权限 | `cmdb:permission:update` |
-| DELETE | `/cmdb/permissions/:id` | 删除权限 | `cmdb:permission:delete` |
-| GET | `/cmdb/permissions/my-hosts` | 当前用户可访问的主机列表 | 登录即可访问 |
+<!-- 主机权限 API → 见第三阶段 -->
 
 ## 凭据加密方案
 
@@ -223,84 +144,29 @@
 - **密钥管理**：密钥配置在服务端，不入数据库，不通过网络传输
 - **API 安全**：凭据的 CRUD 接口永远不返回加密字段（password、private_key、passphrase）
 
-## SSH Web 终端
+<!-- SSH Web 终端 → 见第二阶段 -->
 
-### 实时终端流程
+<!-- 云账号同步 → 见第三阶段 -->
 
-1. 前端通过 WebSocket 连接 `/api/v1/cmdb/terminal/connect?host_id=X`，携带 Session Cookie
-2. 后端中间件校验 Session 有效性
-3. 后端校验用户对目标主机的终端权限（HostPermission）
-4. 查询主机信息和关联凭据，服务端解密密码/密钥
-5. 通过 `golang.org/x/crypto/ssh` 建立到目标主机的 SSH 连接
-6. 创建 TerminalSession 记录（status=active）
-7. 双向数据转发：WebSocket ↔ SSH 连接
-8. 同时开启终端录像录制（asciinema v2 格式，写入文件）
-9. WebSocket 断开时：关闭 SSH 连接、停止录制、更新 TerminalSession（status=closed, finished_at, duration, file_size）
-
-### 终端审计回放
-
-- 录像格式采用 **asciinema v2** 标准格式（JSON Lines，每行包含时间戳和输出内容）
-- 前端使用 xterm.js + 自建播放器渲染录像（或使用 asciinema-player 组件）
-- 会话列表支持按用户、主机 IP、时间范围筛选
-- 录像文件存储在服务端本地磁盘，路径配置在 `config.yaml: terminal.recording_dir`
-
-## 云账号同步
-
-### 腾讯云同步流程
-
-1. 解密 CloudAccount 的 SecretId/SecretKey
-2. 使用腾讯云 SDK 调用以下 API：
-   - `DescribeInstances` → 同步 CVM 实例到 Host 表（按 cloud_instance_id 匹配更新或新建）
-   - `DescribeVpcs` → 同步 VPC 到 CloudResource 表
-   - `DescribeSubnets` → 同步子网到 CloudResource 表
-   - `DescribeSecurityGroups` → 同步安全组到 CloudResource 表
-   - `DescribeVolumes` → 同步 CBS 云硬盘到 CloudResource 表
-3. 更新 CloudAccount.last_sync_at
-4. 同步失败时记录错误日志，更新 status=error
-
-### 定时同步
-
-- 使用 Go ticker 或 cron 实现定时同步，间隔由 CloudAccount.sync_interval 配置
-- 支持手动触发同步（POST /cmdb/cloud-accounts/:id/sync）
-
-## 权限模型
-
-### CMDB 权限种子数据
-
-在系统启动时，向 permissions 表注册以下权限：
-
-| 资源 | 动作 | 说明 |
-|---|---|---|
-| cmdb:host | list/get/create/update/delete/test | 主机管理 |
-| cmdb:group | list/get/create/update/delete | 分组管理 |
-| cmdb:credential | list/get/create/update/delete/test | 凭据管理 |
-| cmdb:terminal | connect/list/get/replay | Web 终端 |
-| cmdb:cloud | list/get/create/update/delete/sync | 云账号 |
-| cmdb:permission | list/create/update/delete | 权限配置 |
-
-### 主机访问权限（HostPermission）
-
-独立于系统 RBAC 的资产级权限控制，决定用户可以访问哪些主机：
-
-- **view**：查看主机详情
-- **terminal**：使用 Web 终端连接主机（隐含 view）
-- **admin**：管理主机（修改、删除，隐含 view + terminal）
-
-权限基于分组授权，支持继承：授权到一级分组时，其下所有二级、三级分组及主机都继承权限。
+<!-- 权限模型（主机权限） → 见第三阶段 -->
 
 ## 前端设计
 
 ### 路由
 
 ```javascript
-// 新增 CMDB 路由
+// 第一阶段 CMDB 路由
 { path: '/cmdb/hosts', component: HostList }
 { path: '/cmdb/groups', component: GroupList }
 { path: '/cmdb/credentials', component: CredentialList }
-{ path: '/cmdb/terminal', component: TerminalList }
-{ path: '/cmdb/terminal/:id/replay', component: TerminalReplay }
-{ path: '/cmdb/cloud-accounts', component: CloudAccountList }
-{ path: '/cmdb/permissions', component: PermissionList }
+
+// 第二阶段新增
+// { path: '/cmdb/terminal', component: TerminalList }
+// { path: '/cmdb/terminal/:id/replay', component: TerminalReplay }
+
+// 第三阶段新增
+// { path: '/cmdb/cloud-accounts', component: CloudAccountList }
+// { path: '/cmdb/permissions', component: PermissionList }
 ```
 
 ### API 模块
@@ -309,10 +175,9 @@
 frontend/src/api/cmdb/
 ├── host.js           # 主机管理 API
 ├── group.js          # 分组管理 API
-├── credential.js     # 凭据管理 API
-├── terminal.js       # 终端 API
-├── cloudAccount.js   # 云账号 API
-└── permission.js     # 权限 API
+└── credential.js     # 凭据管理 API
+# 第二阶段新增：terminal.js
+# 第三阶段新增：cloudAccount.js, permission.js
 ```
 
 ### 侧边栏导航
@@ -320,13 +185,13 @@ frontend/src/api/cmdb/
 在 MainLayout.vue 中新增 CMDB 菜单分组：
 
 ```
-资产管理
+资产管理（CMDB）
 ├── 主机管理    /cmdb/hosts
 ├── 分组管理    /cmdb/groups
-├── 凭据管理    /cmdb/credentials
-├── 终端审计    /cmdb/terminal
-├── 云账号      /cmdb/cloud-accounts
-└── 权限配置    /cmdb/permissions
+└── 凭据管理    /cmdb/credentials
+# 第二阶段新增：├── 终端审计    /cmdb/terminal
+# 第三阶段新增：├── 云账号      /cmdb/cloud-accounts
+#              └── 权限配置    /cmdb/permissions
 ```
 
 ### 复用现有组件
@@ -342,66 +207,53 @@ backend/internal/modules/cmdb/
 ├── model/
 │   ├── host.go
 │   ├── group.go
-│   ├── credential.go
-│   ├── cloud_account.go
-│   ├── cloud_resource.go
-│   ├── terminal.go
-│   └── permission.go
+│   └── credential.go
+# 第二阶段新增：├── terminal.go
+# 第三阶段新增：├── cloud_account.go, cloud_resource.go, permission.go
 ├── repository/
 │   ├── host.go
 │   ├── group.go
-│   ├── credential.go
-│   ├── cloud_account.go
-│   ├── cloud_resource.go
-│   ├── terminal.go
-│   └── permission.go
+│   └── credential.go
+# 第二阶段新增：├── terminal.go
+# 第三阶段新增：├── cloud_account.go, cloud_resource.go, permission.go
 ├── service/
 │   ├── host.go           # 含批量导入、连接测试、统计
 │   ├── group.go          # 含层级校验
-│   ├── credential.go     # 含加解密
-│   ├── cloud_sync.go     # 腾讯云同步
-│   ├── terminal.go       # 终端会话管理
-│   └── permission.go     # 权限检查
+│   └── credential.go     # 含加解密（复用 utils.Crypto）
+# 第二阶段新增：├── terminal.go
+# 第三阶段新增：├── cloud_sync.go, permission.go
 ├── api/
 │   ├── host.go
 │   ├── group.go
-│   ├── credential.go
-│   ├── cloud_account.go
-│   ├── terminal.go       # WebSocket 升级 + SSH
-│   └── permission.go
-├── terminal/
-│   ├── ssh.go            # SSH 连接池管理
-│   ├── recorder.go       # asciinema v2 录制
-│   └── replay.go         # 录像读取
-└── crypto/
-    └── aes.go            # AES-256-GCM 加解密
+│   └── credential.go
+# 第二阶段新增：├── terminal.go (WebSocket)
+# 第三阶段新增：├── cloud_account.go, permission.go
+# 第二阶段新增：terminal/ 子目录（ssh.go, recorder.go, replay.go）
 ```
 
 ## 依赖新增
 
 ### 后端 Go 依赖
 
-- `golang.org/x/crypto/ssh` — SSH 客户端
-- `github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common` — 腾讯云 SDK 基础
-- `github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cvm` — CVM API
-- `github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vpc` — VPC API
-- `github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cbs` — CBS API
+**第一阶段无新增依赖**（复用现有的 `golang.org/x/crypto` 进行加解密）
+**第二阶段新增**：`golang.org/x/crypto/ssh` — SSH 客户端
+**第三阶段新增**：腾讯云 SDK
 
 ### 前端依赖
 
-- 无新增主要依赖（xterm.js 已有，Element Plus 已有）
+- 无新增（Element Plus 已有）
 
 ## 配置项
 
 ```yaml
-# config.yaml 新增
-crypto:
-  aes_key: "32-byte-hex-encoded-key"  # AES-256 密钥
+# 第一阶段：复用现有 crypto.secret 配置，无需新增
 
-terminal:
-  recording_dir: "./data/recordings"  # 终端录像存储目录
-  max_session_duration: 86400          # 最大会话时长（秒），默认 24 小时
+# 第二阶段新增
+# terminal:
+#   recording_dir: "./data/recordings"
+#   max_session_duration: 86400
 
-cloud:
-  sync_concurrency: 5                  # 并发同步数
+# 第三阶段新增
+# cloud:
+#   sync_concurrency: 5
 ```
