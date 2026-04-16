@@ -1,228 +1,581 @@
-# CMDB 资产管理模块 - 第二阶段：SSH Web 终端与审计
+# CMDB 资产管理模块 - 第二阶段：SSH Web 终端与终端审计
 
-> **依赖前提**：本阶段依赖第一阶段（主机管理、分组管理、凭据管理）已完成。
+> 依赖前提：第一阶段（主机管理、分组管理、凭据管理）已完成。
+> 
+> 本文档为第二阶段实施规格，覆盖可直接落地的首版范围，不包含第三阶段的云账号同步和主机级细粒度授权。
 
-## 概述
+## 1. 目标
 
-为 CMDB 模块增加 SSH Web 终端能力，使用户可以通过浏览器直接连接到已录入的服务器，并记录所有终端操作用于审计回放。
+第二阶段只解决一个问题：让用户可以从已纳管主机直接进入浏览器终端，并且整个连接过程可审计、可回放。
 
-## 功能范围
+首版必须形成完整闭环：
 
-1. **实时 SSH 终端**：通过 WebSocket 建立浏览器到服务器的 SSH 连接
-2. **终端会话记录**：记录每次连接的元信息（用户、主机、时间、IP）
-3. **操作录像录制**：以 asciinema v2 格式录制终端操作
-4. **审计回放**：按用户、主机、时间筛选历史会话并回放录像
+1. 从主机列表进入 SSH Web 终端
+2. 连接过程创建终端会话记录
+3. 完整记录输入输出流
+4. 会话结束后生成可回放录像
+5. 在终端审计页面按条件查看和回放历史会话
 
-## 数据模型
+## 2. 明确边界
 
-### TerminalSession（终端会话）
+### 本阶段包含
+
+- 从主机管理页直接发起终端连接
+- WebSocket 到 SSH 的双向桥接
+- 终端会话元信息存储
+- 完整输入输出录制
+- 审计列表页
+- 录像回放页
+- 全局终端权限控制
+- 本地文件系统录像存储
+
+### 本阶段不包含
+
+- 按主机或按分组的细粒度授权
+- 云账号接入和云主机同步
+- 多凭据选择
+- 输入内容脱敏编辑
+- 对象存储或外部文件服务
+- 跨租户共享会话或录像
+
+## 3. 已确认的产品决策
+
+### 3.1 首版范围
+
+第二阶段首版直接做到完整闭环：Web SSH + 会话记录 + 录像回放。
+
+### 3.2 权限模型
+
+第二阶段先只做全局终端权限，不做主机级或分组级授权。
+
+权限资源定义：
+
+- `cmdb:terminal connect`
+- `cmdb:terminal list`
+- `cmdb:terminal get`
+- `cmdb:terminal replay`
+
+第三阶段再补主机/分组级授权，把全局权限升级为“是否可用终端功能”，细粒度权限升级为“能连哪些主机”。
+
+### 3.3 入口位置
+
+终端入口放在 `frontend/src/views/Cmdb/HostList.vue` 的操作列。
+
+每条主机记录新增一个主操作按钮：
+
+- 终端连接
+
+“终端审计”作为独立菜单和独立页面存在，不做“终端中心”。
+
+### 3.4 凭据来源
+
+首版只允许使用主机上已经绑定的凭据。
+
+规则：
+
+- 主机未绑定凭据，不允许发起终端连接
+- 连接时不弹凭据选择框
+- 连接时不允许临时指定其他凭据
+
+这样可以保证终端连接、审计记录、主机资产之间关系稳定，避免首版把凭据选择和审计归属做复杂。
+
+### 3.5 录像内容
+
+首版记录完整输入输出流：
+
+- 用户输入记入录像
+- SSH 输出记入录像
+- 回放时按原始顺序还原
+
+### 3.6 存储方式
+
+录像首版落本地文件系统。
+
+后续如果录制量变大，再迁移到对象存储。首版不为对象存储预留额外抽象层。
+
+## 4. 前端设计
+
+## 4.1 页面与路由
+
+新增页面：
+
+- `/cmdb/terminal/sessions`，终端审计列表页
+- `/cmdb/terminal/replay/:id`，终端回放页
+
+在资产管理菜单下新增：
+
+- 终端审计
+
+不增加“终端连接”单独菜单项，因为终端连接是主机上下文动作，不是独立业务对象。
+
+## 4.2 主机列表中的终端入口
+
+文件：`frontend/src/views/Cmdb/HostList.vue`
+
+在操作列中新增按钮，顺序调整为：
+
+- 终端连接
+- 测试连接
+- 编辑
+- 删除
+
+点击“终端连接”后的行为：
+
+1. 如果主机未绑定 `credentialId`，前端直接提示“请先为主机绑定凭据”
+2. 如果主机已绑定凭据，打开终端弹窗
+3. 弹窗中挂载通用终端组件并建立 WebSocket 连接
+
+首版终端体验采用 `el-dialog`，不跳转独立连接页。原因是这更贴合主机管理的工作流，用户连接结束后可以直接继续管理主机。
+
+## 4.3 终端组件复用
+
+复用 `frontend/src/components/K8s/Terminal.vue` 的 xterm.js 能力，但要改造成通用终端组件，而不是继续绑定 K8s 语义。
+
+组件应保留以下输入输出：
+
+- `wsUrl`
+- `visible`
+- `fit()` 暴露方法
+- 处理 `stdout` / `stderr` / `error` / `closed`
+
+这样 K8s Pod 终端和 CMDB SSH 终端可以共用一套前端终端外壳。
+
+## 4.4 终端审计列表页
+
+文件：`frontend/src/views/Cmdb/TerminalSessionList.vue`
+
+展示字段：
+
+- 主机名
+- 主机 IP
+- 用户名
+- 客户端 IP
+- 开始时间
+- 持续时长
+- 状态
+- 操作
+
+筛选项首版保留：
+
+- 主机关键字
+- 用户关键字
+- 状态
+- 时间范围
+
+操作列只保留：
+
+- 回放
+
+## 4.5 回放页
+
+文件：`frontend/src/views/Cmdb/TerminalReplay.vue`
+
+结构分为三块：
+
+1. 顶部会话元信息
+2. 中间只读终端区域
+3. 底部播放控制条
+
+控制条首版支持：
+
+- 播放 / 暂停
+- 重新播放
+- 倍速切换：1x / 2x / 4x
+- 当前进度 / 总时长显示
+
+首版不做关键帧定位、命令检索、输入高亮、下载录像。
+
+## 5. 后端设计
+
+## 5.1 目录结构与职责
+
+所有代码继续放在 CMDB 模块内，不新建平级大模块。
+
+建议目录：
+
+```text
+backend/internal/modules/cmdb/
+├── model/
+│   └── terminal.go
+├── repository/
+│   └── terminal.go
+├── service/
+│   └── terminal.go
+├── api/
+│   └── terminal.go
+└── terminal/
+    ├── ssh.go
+    ├── bridge.go
+    ├── recorder.go
+    └── replay.go
+```
+
+职责划分：
+
+- `model/terminal.go`：终端会话模型定义
+- `repository/terminal.go`：会话列表、详情、状态更新
+- `service/terminal.go`：主机、凭据、会话编排逻辑
+- `api/terminal.go`：WebSocket 升级、列表接口、详情接口、录像读取接口
+- `terminal/ssh.go`：SSH client/session/pty 建立与 resize
+- `terminal/bridge.go`：WebSocket 与 SSH 双向数据桥接
+- `terminal/recorder.go`：asciinema v2 写入
+- `terminal/replay.go`：读取 cast 文件并返回回放数据
+
+## 5.2 路由设计
+
+继续沿用当前 CMDB 的非 REST 风格。
+
+路由前缀：`/api/v1/cmdb/terminal`
+
+| 方法 | 路径 | 说明 | 权限 |
+|---|---|---|---|
+| GET（WebSocket） | `/connect?hostId=1` | 建立 SSH 终端连接 | `cmdb:terminal connect` |
+| GET | `/list` | 会话列表 | `cmdb:terminal list` |
+| GET | `/detail?id=1` | 会话详情 | `cmdb:terminal get` |
+| GET | `/recording?id=1` | 获取会话录像内容 | `cmdb:terminal replay` |
+
+不提供 create/update/delete，会话创建和关闭由终端连接生命周期驱动。
+
+## 5.3 WebSocket 协议
+
+客户端发送：
+
+```json
+{"operation":"stdin","data":"ls\n"}
+{"operation":"resize","cols":120,"rows":30}
+```
+
+服务端发送：
+
+```json
+{"operation":"stdout","data":"total 8\r\n"}
+{"operation":"stderr","data":"permission denied\r\n"}
+{"operation":"error","data":"ssh auth failed"}
+{"operation":"closed","data":"connection closed"}
+```
+
+协议保持和现有 K8s 终端风格一致，便于复用前端通用终端组件。
+
+## 5.4 建连流程
+
+```text
+用户在主机列表点击“终端连接”
+    ↓
+前端建立 WebSocket: /api/v1/cmdb/terminal/connect?hostId=X
+    ↓
+后端完成 Session/Bearer 认证
+    ↓
+校验 cmdb:terminal connect 权限
+    ↓
+按租户查询主机
+    ↓
+校验主机已绑定 credentialId
+    ↓
+按租户查询凭据并解密
+    ↓
+建立 SSH 连接并申请 PTY
+    ↓
+创建 TerminalSession(status=active)
+    ↓
+创建 cast 文件并写入 header
+    ↓
+启动双向桥接与录制
+```
+
+关键规则：
+
+- SSH 建立成功后才创建 `TerminalSession`
+- 连接前失败不产生会话记录
+- 连接前失败只进入普通审计日志
+
+## 5.5 关闭流程
+
+```text
+浏览器主动关闭 / 网络中断 / SSH 断开 / 后端结束连接
+    ↓
+停止双向桥接
+    ↓
+关闭 recorder
+    ↓
+关闭 SSH session/client
+    ↓
+更新 TerminalSession
+      - finishedAt
+      - duration
+      - fileSize
+      - status=closed 或 interrupted
+    ↓
+向前端发送 closed 消息（若连接仍可写）
+```
+
+状态规则：
+
+- 用户主动正常关闭，记为 `closed`
+- 网络异常、远端断开、非预期关闭，记为 `interrupted`
+
+## 6. 数据模型
+
+文件：`backend/internal/modules/cmdb/model/terminal.go`
+
+### 6.1 TerminalSession
 
 | 字段 | 类型 | 说明 |
 |---|---|---|
 | id | uint | 主键 |
 | tenant_id | uint | 租户 ID |
-| user_id | uint | 操作用户 ID |
-| username | string(100) | 用户名（冗余，方便查询） |
-| host_id | uint | 连接的主机 ID（外键 → cmdb_hosts） |
-| host_ip | string(45) | 主机 IP（冗余） |
+| user_id | uint | 用户 ID |
+| username | string(100) | 用户名冗余 |
+| host_id | uint | 主机 ID |
+| host_ip | string(45) | 主机 IP 冗余 |
+| host_name | string(255) | 主机名冗余 |
 | credential_id | uint | 使用的凭据 ID |
 | client_ip | string(45) | 客户端 IP |
 | started_at | timestamp | 开始时间 |
-| finished_at | timestamp | 结束时间（可为 NULL） |
-| duration | int | 持续时间（秒） |
+| finished_at | timestamp nullable | 结束时间 |
+| duration | int | 持续秒数 |
 | recording_path | string(500) | 录像文件路径 |
-| file_size | int64 | 录像文件大小（字节） |
-| status | string(20) | 状态：active/closed/interrupted |
+| file_size | int64 | 文件大小 |
+| status | string(20) | active / closed / interrupted |
+| created_at | timestamp | 创建时间 |
+| updated_at | timestamp | 更新时间 |
+| deleted_at | gorm.DeletedAt | 软删 |
 
 索引：
-- `idx_terminal_user` (user_id)
-- `idx_terminal_host` (host_id)
-- `idx_terminal_time` (started_at)
-- `idx_terminal_status` (status)
 
-## API 设计
+- `idx_cmdb_terminal_tenant_started` (`tenant_id`, `started_at`)
+- `idx_cmdb_terminal_tenant_host` (`tenant_id`, `host_id`)
+- `idx_cmdb_terminal_tenant_user` (`tenant_id`, `user_id`)
+- `idx_cmdb_terminal_tenant_status` (`tenant_id`, `status`)
 
-路由前缀：`/api/v1/cmdb/terminal/`
+首版不建“逐条命令表”或“逐帧事件表”，录像内容只存在文件系统。
 
-| 方法 | 路径 | 说明 | 权限 |
-|---|---|---|---|
-| WS GET | `/connect` | SSH 终端 WebSocket 连接，参数：host_id | `cmdb:terminal:connect` |
-| GET | `/sessions` | 终端会话列表（分页、筛选） | `cmdb:terminal:list` |
-| GET | `/sessions/:id` | 会话详情 | `cmdb:terminal:get` |
-| GET | `/sessions/:id/recording` | 获取会话录像文件 | `cmdb:terminal:replay` |
+## 7. 录像格式与存储
 
-### WebSocket 连接协议
+## 7.1 录像格式
 
-**连接 URL**：`ws://host/api/v1/cmdb/terminal/connect?host_id=X`
+使用 asciinema v2 格式。
 
-**客户端 → 服务端消息**（JSON）：
-```json
-{"operation": "stdin", "data": "ls\n"}
-{"operation": "resize", "cols": 120, "rows": 30}
-```
-
-**服务端 → 客户端消息**（JSON）：
-```json
-{"operation": "stdout", "data": "total 48\r\n"}
-{"operation": "stderr", "data": "error message\r\n"}
-{"operation": "closed", "reason": "connection closed"}
-```
-
-## 核心流程
-
-### 1. 建立终端连接
-
-```
-用户点击"连接终端"
-    ↓
-前端建立 WebSocket 连接（携带 Session Cookie）
-    ↓
-后端中间件校验 Session 有效性
-    ↓
-后端校验用户对目标主机的 cmdb:terminal:connect 权限
-    ↓
-查询主机信息（host_id）和关联凭据
-    ↓
-使用 utils.Decrypt() 解密凭据密码/私钥
-    ↓
-建立 SSH 连接（golang.org/x/crypto/ssh）
-    ↓
-创建 TerminalSession 记录（status=active）
-    ↓
-启动 asciinema v2 格式录像录制
-    ↓
-双向数据转发：WebSocket ↔ SSH
-```
-
-### 2. 录像格式（asciinema v2）
+header 示例：
 
 ```json
-{"version": 2, "width": 120, "height": 30, "timestamp": 1713136800.000}
-[1.234, "o", "Welcome to Ubuntu\r\n"]
-[2.456, "o", "user@host:~$ "]
-[3.789, "i", "ls\r\n"]
-[4.012, "o", "\r\ntotal 48\r\n"]
-...
+{"version":2,"width":120,"height":30,"timestamp":1713136800}
 ```
 
-每行格式：`[elapsed_seconds, output_type, data]`
-- `output_type`: "o" (output) 或 "i" (input)
+事件示例：
 
-### 3. 连接关闭
-
-```
-WebSocket 断开或用户主动关闭
-    ↓
-关闭 SSH 连接
-    ↓
-停止录像录制
-    ↓
-更新 TerminalSession：
-    - status = closed
-    - finished_at = now()
-    - duration = finished_at - started_at
-    - file_size = 录像文件大小
-    ↓
-返回给前端连接关闭消息
+```json
+[0.532,"i","ls\n"]
+[0.913,"o","total 8\r\n"]
 ```
 
-## 前端设计
+规则：
 
-### 页面路由
+- 用户输入记为 `i`
+- 服务端输出记为 `o`
+- 时间使用相对会话开始时间的秒偏移
 
-```javascript
-{ path: '/cmdb/terminal', component: TerminalList }
-{ path: '/cmdb/terminal/:id/replay', component: TerminalReplay }
+## 7.2 存储目录
+
+首版录像目录：
+
+```text
+backend/data/recordings/cmdb-terminal/YYYYMMDD/
 ```
 
-### 组件复用
+文件名：
 
-- 复用 `components/K8s/Terminal.vue` 的 xterm.js 封装
-- 复用 Element Plus 的 ElTable、ElPagination、ElDatePicker 等组件
-
-### TerminalList.vue（会话列表）
-
-- 表格列：用户、主机 IP、客户端 IP、开始时间、持续时间、状态、操作
-- 筛选条件：用户（下拉）、主机（下拉）、时间范围（日期选择器）、状态（全部/进行中/已关闭/中断）
-- 操作列：[回放] 按钮
-
-### TerminalReplay.vue（录像回放）
-
-- 头部：会话信息（用户、主机、时间等）
-- 主体：xterm.js 组件（只读模式）
-- 控制栏：播放/暂停、进度条、播放速度（1x/2x/4x）
-
-## 后端目录结构
-
-```
-backend/internal/modules/cmdb/
-├── model/
-│   └── terminal.go           # TerminalSession 模型
-├── repository/
-│   └── terminal.go           # 会话 CRUD
-├── service/
-│   └── terminal.go           # 终端会话管理逻辑
-├── api/
-│   └── terminal.go           # WebSocket 升级 + SSH
-├── terminal/
-│   ├── ssh.go                # SSH 连接管理
-│   ├── recorder.go           # asciinema v2 录制
-│   └── replay.go             # 录像文件读取
+```text
+terminal_<sessionId>.cast
 ```
 
-## 配置项
+不把 `userId`、`hostId` 拼入文件名。文件与业务关系由数据库维护，文件名保持简单，后续迁移更容易。
+
+## 7.3 回放读取方式
+
+首版不直接把 cast 文件原样下发给前端播放器。
+
+回放接口由后端读取 cast 文件，解析为前端可直接消费的数据结构返回。这样后续如果要增加：
+
+- 脱敏
+- 水印
+- 权限控制扩展
+- 录像下载控制
+
+都可以在服务端统一处理。
+
+## 8. 认证、权限与安全
+
+### 8.1 认证
+
+继续复用当前 session / Bearer 认证方式，不新增终端专用认证模型。
+
+### 8.2 权限
+
+第二阶段只校验全局终端权限，不校验主机级授权。
+
+### 8.3 租户隔离
+
+所有主机、凭据、会话查询都必须按租户范围读取。
+
+连接终端时：
+
+- 只能读取租户内主机
+- 只能读取该主机关联的租户内凭据
+- 只能查看租户内终端会话和录像
+
+### 8.4 敏感信息保护
+
+- 凭据只在后端解密
+- 凭据永不返回前端
+- 录像文件只通过受控接口读取
+- 未授权用户不能直接读文件路径
+
+### 8.5 超时控制
+
+首版必须有两个保护：
+
+- 最大会话时长
+- 空闲超时
+
+建议配置：
 
 ```yaml
-# config.yaml 新增
 terminal:
-  recording_dir: "./data/recordings"  # 终端录像存储目录
-  max_session_duration: 86400          # 最大会话时长（秒），默认 24 小时
-  idle_timeout: 300                    # 空闲超时（秒），默认 5 分钟
+  recording_dir: "./data/recordings/cmdb-terminal"
+  max_session_duration: 86400
+  idle_timeout: 300
 ```
 
-## 依赖新增
+## 9. 审计规则
 
-### 后端
+### 9.1 TerminalSession 的含义
 
-- `golang.org/x/crypto/ssh` — SSH 客户端（可能已存在）
+`TerminalSession` 只代表“真正建立成功的终端会话”。
+
+以下情况不创建 TerminalSession：
+
+- 主机不存在
+- 主机未绑定凭据
+- 凭据不存在
+- SSH 认证失败
+- 目标不可达
+- PTY 建立失败
+
+### 9.2 普通审计日志
+
+连接前失败仍要进入普通审计日志，便于排查和追责。
+
+因此第二阶段存在两条审计线：
+
+1. 普通审计日志，记录连接尝试、失败、查看录像等动作
+2. TerminalSession，记录真正建立成功的终端会话与录像
+
+## 10. 错误处理
+
+### 10.1 连接前错误
+
+前端收到明确提示，连接直接失败：
+
+- 无权限
+- 主机未绑定凭据
+- 凭据不存在
+- SSH 认证失败
+- 目标不可达
+
+### 10.2 连接中错误
+
+如果连接已建立，中途断开：
+
+- 页面提示连接关闭
+- 会话标记为 `closed` 或 `interrupted`
+- 已写入的录像保持可回放
+
+### 10.3 录像读取错误
+
+- 文件不存在，返回“录像不存在或已损坏”
+- 解析失败，返回“录像解析失败”
+- 会话不存在或越权访问，返回 404 或 403
+
+## 11. 与现有代码的集成点
 
 ### 前端
 
-- 无新增（xterm.js 已在 K8s 模块中使用）
+- 复用 `frontend/src/components/K8s/Terminal.vue`
+- 在 `frontend/src/views/Cmdb/HostList.vue` 增加入口
+- 在 `frontend/src/components/Layout/MainLayout.vue` 增加“终端审计”菜单
+- 在 `frontend/src/components/Layout/Breadcrumb.vue` 增加对应面包屑
 
-## 权限种子数据
+### 后端
 
-在 `bootstrap/db.go` 的 `seedPermissions()` 中新增：
+- 参考 `backend/internal/modules/k8s/api/terminal.go` 的 WebSocket 生命周期和同源校验写法
+- 在 `backend/routers/v1/cmdb.go` 注册终端相关路由
+- 在 `backend/internal/bootstrap/db.go` 增加 TerminalSession 模型迁移和权限种子
+- 复用 Phase 1 的主机、凭据、租户隔离逻辑
 
-```go
-{Name: "连接终端", Resource: "cmdb:terminal", Action: "connect", Description: "SSH Web 终端连接"},
-{Name: "查看终端会话", Resource: "cmdb:terminal", Action: "list", Description: "查看终端会话列表"},
-{Name: "查看会话详情", Resource: "cmdb:terminal", Action: "get", Description: "查看终端会话详情"},
-{Name: "回放会话录像", Resource: "cmdb:terminal", Action: "replay", Description: "回放终端操作录像"},
-```
+## 12. 测试策略
 
-## 侧边栏导航
+第二阶段验收不能只靠 build，至少覆盖四层。
 
-在 MainLayout.vue 的 CMDB 菜单分组中新增：
+### 12.1 Service 单测
 
-```html
-<el-menu-item index="/cmdb/terminal">终端审计</el-menu-item>
-```
+- 只有租户内主机能被读取
+- 只有租户内凭据能被读取
+- 主机未绑定凭据时拒绝连接
+- 成功连接后正确创建会话
+- 关闭时正确写回状态、时长、文件大小
 
-## 与现有模块的集成
+### 12.2 Recorder 单测
 
-- **复用凭据管理**：通过 credential_id 关联，使用 Phase 1 的凭据加解密逻辑
-- **复用主机管理**：通过 host_id 关联，查询主机 IP、端口等信息
-- **复用权限中间件**：使用 RequirePermission("cmdb:terminal", "connect")
-- **复用审计中间件**：终端连接操作记录到审计日志
+- cast header 正确
+- 输入输出事件格式正确
+- 文件关闭后内容可解析
 
-## 文件命名规范
+### 12.3 API 集成测试
 
-录像文件命名：`terminal_{session_id}_{user_id}_{host_id}_{timestamp}.cast`
+- 未登录不能连接
+- 无权限不能连接
+- 未绑定凭据不能连接
+- 会话列表可查
+- 会话详情可查
+- 回放接口可读
 
-## 安全考虑
+### 12.4 手工联调
 
-1. **凭据不传输到前端**：凭据解密仅在服务端进行
-2. **会话超时**：idle_timeout 后自动断开空闲连接
-3. **权限校验**：每次连接都校验用户是否有权限访问目标主机
-4. **录像保护**：录像文件存储在服务端，前端只能读取无法篡改
+- 从主机管理页打开终端
+- 执行数条命令
+- 正常关闭
+- 到终端审计页查到记录
+- 打开回放页可重播刚才会话
+
+## 13. 实施顺序
+
+实现顺序按下面四块推进：
+
+1. **后端基础层**
+   - TerminalSession 模型
+   - 仓储、列表、详情、录像读取接口
+   - 路由和权限种子
+2. **终端桥接层**
+   - SSH 建连
+   - WebSocket 双向桥接
+   - recorder 写 cast
+   - 会话关闭收尾
+3. **前端接入层**
+   - 主机列表“终端连接”入口
+   - 通用终端组件改造
+   - 审计列表页
+4. **回放与联调层**
+   - 回放页
+   - 冒烟测试
+   - 联调修正
+
+## 14. 推迟到第三阶段的内容
+
+以下内容明确推迟到第三阶段：
+
+- 按主机或分组的细粒度终端授权
+- 终端权限和主机权限统一校验
+- 云主机同步后自动接入终端权限体系
+- 录像脱敏和高级审计分析
+
+这是刻意的分阶段边界，不是遗漏。
