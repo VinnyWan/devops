@@ -18,7 +18,10 @@ const breadcrumbMap = {
   '/dashboard': [{ title: '仪表盘' }],
   '/k8s/cluster': [{ title: '容器管理' }, { title: '集群管理', to: '/k8s/cluster' }],
   '/k8s/node': [{ title: '容器管理' }, { title: '节点管理', to: '/k8s/node' }],
-  '/system/user': [{ title: '系统管理' }, { title: '用户管理' }]
+  '/system/user': [{ title: '系统管理' }, { title: '用户管理' }],
+  '/cmdb/hosts': [{ title: '资产管理' }, { title: '主机管理' }],
+  '/cmdb/groups': [{ title: '资产管理' }, { title: '分组管理' }],
+  '/cmdb/credentials': [{ title: '资产管理' }, { title: '凭据管理' }]
 }
 
 const breadcrumbs = computed(() => {

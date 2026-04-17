@@ -82,6 +82,18 @@ const routes = [
       {
         path: 'audit/login',
         component: () => import('../views/Audit/LoginLog.vue')
+      },
+      {
+        path: 'cmdb/hosts',
+        component: () => import('../views/Cmdb/HostList.vue')
+      },
+      {
+        path: 'cmdb/groups',
+        component: () => import('../views/Cmdb/GroupList.vue')
+      },
+      {
+        path: 'cmdb/credentials',
+        component: () => import('../views/Cmdb/CredentialList.vue')
       }
     ]
   }

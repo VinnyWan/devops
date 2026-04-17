@@ -14,6 +14,7 @@ import (
 	"devops-platform/internal/bootstrap"
 	"devops-platform/internal/middleware"
 	k8sAPI "devops-platform/internal/modules/k8s/api"
+	cmdbAPI "devops-platform/internal/modules/cmdb/api"
 	userAPI "devops-platform/internal/modules/user/api"
 	"devops-platform/internal/modules/user/repository"
 	"devops-platform/internal/modules/user/service"
@@ -93,6 +94,9 @@ func main() {
 	}
 	// 设置 K8s 服务的 DB 实例和客户端工厂
 	k8sAPI.SetK8sDB(bootstrap.DB, bootstrap.K8sFactory)
+
+	// 设置 CMDB 服务的 DB 实例
+	cmdbAPI.SetDB(bootstrap.DB)
 
 	r := routers.InitRouter()
 	port := config.Cfg.GetString("server.port")

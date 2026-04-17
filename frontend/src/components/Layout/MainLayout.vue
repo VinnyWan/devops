@@ -40,21 +40,32 @@
           <el-menu-item index="/audit/operation">操作日志</el-menu-item>
           <el-menu-item index="/audit/login">登录日志</el-menu-item>
         </el-sub-menu>
+        <el-sub-menu index="cmdb">
+          <template #title>
+            <el-icon><Monitor /></el-icon>
+            <span>资产管理</span>
+          </template>
+          <el-menu-item index="/cmdb/hosts">主机管理</el-menu-item>
+          <el-menu-item index="/cmdb/groups">分组管理</el-menu-item>
+          <el-menu-item index="/cmdb/credentials">凭据管理</el-menu-item>
+        </el-sub-menu>
       </el-menu>
     </el-aside>
     <el-container>
       <el-header>
-        <el-icon class="menu-toggle" @click="toggleCollapse">
-          <Expand v-if="isCollapse" />
-          <Fold v-else />
-        </el-icon>
+        <div class="header-left">
+          <el-icon class="menu-toggle" @click="toggleCollapse">
+            <Expand v-if="isCollapse" />
+            <Fold v-else />
+          </el-icon>
+          <Breadcrumb />
+        </div>
         <div class="header-right">
           <span>{{ userStore.userInfo?.username }}</span>
           <el-button @click="handleLogout" link>退出</el-button>
         </div>
       </el-header>
       <el-main>
-        <Breadcrumb style="margin-bottom: 16px" />
         <router-view />
       </el-main>
     </el-container>
@@ -63,7 +74,7 @@
 
 <script setup>
 import { ref } from 'vue'
-import { HomeFilled, Grid, Setting, Expand, Fold, Notebook } from '@element-plus/icons-vue'
+import { HomeFilled, Grid, Setting, Expand, Fold, Notebook, Monitor } from '@element-plus/icons-vue'
 import { useUserStore } from '../../stores/user'
 import { useRouter } from 'vue-router'
 import Breadcrumb from './Breadcrumb.vue'
@@ -147,6 +158,11 @@ const handleLogout = () => {
   display: flex;
   gap: var(--spacing-md);
   align-items: center;
+}
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 .el-main {
   background: var(--color-bg);
