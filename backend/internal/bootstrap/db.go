@@ -2,6 +2,7 @@ package bootstrap
 
 import (
 	"devops-platform/config"
+	cmdbModel "devops-platform/internal/modules/cmdb/model"
 	k8sModel "devops-platform/internal/modules/k8s/model"
 	userModel "devops-platform/internal/modules/user/model"
 	"devops-platform/internal/pkg/logger"
@@ -66,9 +67,13 @@ func InitDB() error {
 		&userModel.User{},
 		&userModel.Role{},
 		&userModel.Permission{},
-		&userModel.AuditLog{},   // 审计日志
-			&userModel.LoginLog{}, // 登录日志
+		&userModel.AuditLog{}, // 审计日志
+		&userModel.LoginLog{}, // 登录日志
 		&k8sModel.Cluster{},
+		&cmdbModel.Host{},
+		&cmdbModel.HostGroup{},
+		&cmdbModel.Credential{},
+		&cmdbModel.TerminalSession{},
 	)
 	if err != nil {
 		return err
@@ -263,7 +268,7 @@ func seedPermissions(db *gorm.DB) error {
 		{Name: "更新权限", Resource: "permission", Action: "update", Description: "更新权限"},
 		{Name: "删除权限", Resource: "permission", Action: "delete", Description: "删除权限"},
 		{Name: "查看审计日志", Resource: "audit", Action: "list", Description: "查看操作审计日志"},
-			{Name: "查看登录日志", Resource: "login-log", Action: "list", Description: "查看登录日志"},
+		{Name: "查看登录日志", Resource: "login-log", Action: "list", Description: "查看登录日志"},
 		// 应用管理权限
 		{Name: "查看应用", Resource: "app", Action: "list", Description: "查看应用列表"},
 		{Name: "创建应用", Resource: "app", Action: "create", Description: "创建新应用"},
@@ -290,6 +295,25 @@ func seedPermissions(db *gorm.DB) error {
 		{Name: "创建租户", Resource: "tenant", Action: "create", Description: "创建新租户"},
 		{Name: "更新租户", Resource: "tenant", Action: "update", Description: "更新租户信息"},
 		{Name: "删除租户", Resource: "tenant", Action: "delete", Description: "删除租户"},
+		// CMDB 资产管理权限
+		{Name: "查看主机列表", Resource: "cmdb:host", Action: "list", Description: "查看主机列表"},
+		{Name: "查看主机详情", Resource: "cmdb:host", Action: "get", Description: "查看主机详情"},
+		{Name: "创建主机", Resource: "cmdb:host", Action: "create", Description: "创建主机"},
+		{Name: "更新主机", Resource: "cmdb:host", Action: "update", Description: "更新主机"},
+		{Name: "删除主机", Resource: "cmdb:host", Action: "delete", Description: "删除主机"},
+		{Name: "测试主机连接", Resource: "cmdb:host", Action: "test", Description: "测试主机 SSH 连接"},
+		{Name: "查看分组", Resource: "cmdb:group", Action: "list", Description: "查看分组列表"},
+		{Name: "创建分组", Resource: "cmdb:group", Action: "create", Description: "创建分组"},
+		{Name: "更新分组", Resource: "cmdb:group", Action: "update", Description: "更新分组"},
+		{Name: "删除分组", Resource: "cmdb:group", Action: "delete", Description: "删除分组"},
+		{Name: "查看凭据", Resource: "cmdb:credential", Action: "list", Description: "查看凭据列表"},
+		{Name: "创建凭据", Resource: "cmdb:credential", Action: "create", Description: "创建凭据"},
+		{Name: "更新凭据", Resource: "cmdb:credential", Action: "update", Description: "更新凭据"},
+		{Name: "删除凭据", Resource: "cmdb:credential", Action: "delete", Description: "删除凭据"},
+		{Name: "连接终端", Resource: "cmdb:terminal", Action: "connect", Description: "连接 SSH Web 终端"},
+		{Name: "查看终端会话", Resource: "cmdb:terminal", Action: "list", Description: "查看终端会话列表"},
+		{Name: "查看终端详情", Resource: "cmdb:terminal", Action: "get", Description: "查看终端会话详情"},
+		{Name: "回放终端录像", Resource: "cmdb:terminal", Action: "replay", Description: "回放终端录像"},
 	}
 
 	createdCount := 0

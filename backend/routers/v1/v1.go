@@ -39,4 +39,5 @@ func Register(r *gin.Engine) {
 	registerAudit(auth)
 	registerLoginLog(auth)
 	registerTenant(auth)
+	registerCMDB(auth)
 }
