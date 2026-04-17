@@ -107,6 +107,7 @@ func (s *TerminalService) CloseSession(tenantID, sessionID uint, finishedAt time
 	session.Duration = duration
 	session.FileSize = fileSize
 	session.Status = status
+	session.CloseReason = closeReason
 
 	return s.terminalRepo.UpdateInTenant(tenantID, session)
 }

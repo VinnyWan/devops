@@ -24,6 +24,7 @@ type TerminalSession struct {
 	RecordingPath string         `gorm:"size:500;not null" json:"-"`
 	FileSize      int64          `gorm:"default:0" json:"fileSize"`
 	Status        string         `gorm:"size:20;not null;default:'active';index:idx_cmdb_terminal_tenant_status,priority:2" json:"status"`
+	CloseReason   string         `gorm:"size:100" json:"closeReason"`
 	CreatedAt     time.Time      `gorm:"index" json:"createdAt"`
 	UpdatedAt     time.Time      `json:"updatedAt"`
 	DeletedAt     gorm.DeletedAt `gorm:"index" json:"-"`
