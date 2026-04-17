@@ -283,26 +283,14 @@ func TerminalConnect(c *gin.Context) {
 	}()
 
 	firstErr := <-errCh
-	status := "closed"
-	closeReason := "Connection closed."
-	switch {
-	case errors.Is(firstErr, cmdbterminal.ErrTerminalIdleTimeout):
-		status = "idle_timeout"
-		closeReason = "Terminal idle timeout."
-	case errors.Is(firstErr, cmdbterminal.ErrTerminalMaxDuration):
-		status = "max_duration"
-		closeReason = "Terminal max session duration exceeded."
-	case firstErr != nil && !isNormalTerminalClose(firstErr):
-		status = "interrupted"
-		closeReason = firstErr.Error()
-	}
+	status, closeReason, closeMessage := resolveTerminalCloseOutcome(firstErr)
 
-	bridge.CloseWithReason(closeReason)
+	bridge.CloseWithReason(closeMessage)
 	wg.Wait()
 
 	fileSize := terminalRecordingFileSize(recordingPath)
 	finishedAt := time.Now()
-	if err := svc.CloseSession(tenantID, tempSession.ID, finishedAt, fileSize, status); err != nil {
+	if err := svc.CloseSession(tenantID, tempSession.ID, finishedAt, fileSize, status, closeReason); err != nil {
 		writeSocketMessage(cmdbterminal.WSMessage{Operation: "error", Data: fmt.Sprintf("关闭终端会话失败: %v", err)})
 	}
 }
@@ -332,11 +320,28 @@ func terminalRecordingFileSize(path string) int64 {
 	return info.Size()
 }
 
+func resolveTerminalCloseOutcome(err error) (status string, closeReason string, closeMessage string) {
+	status = "closed"
+	closeReason = "用户主动关闭或连接正常结束"
+	closeMessage = "Connection closed."
+
+	switch {
+	case errors.Is(err, cmdbterminal.ErrTerminalIdleTimeout):
+		return "idle_timeout", "空闲超时自动断开", "Terminal idle timeout."
+	case errors.Is(err, cmdbterminal.ErrTerminalMaxDuration):
+		return "max_duration", "会话时长超限自动断开", "Terminal max session duration exceeded."
+	case err == nil || isNormalTerminalClose(err):
+		return status, closeReason, closeMessage
+	default:
+		return "interrupted", "连接异常中断", err.Error()
+	}
+}
+
 func markTerminalInterrupted(svc *service.TerminalService, tenantID uint, session *model.TerminalSession) {
 	if svc == nil || session == nil {
 		return
 	}
-	_ = svc.CloseSession(tenantID, session.ID, time.Now(), terminalRecordingFileSize(session.RecordingPath), "interrupted")
+	_ = svc.CloseSession(tenantID, session.ID, time.Now(), terminalRecordingFileSize(session.RecordingPath), "interrupted", "连接异常中断")
 }
 
 func isNormalTerminalClose(err error) bool {

@@ -89,7 +89,7 @@ func (s *TerminalService) CreateSession(tenantID, userID uint, username string, 
 	return session, nil
 }
 
-func (s *TerminalService) CloseSession(tenantID, sessionID uint, finishedAt time.Time, fileSize int64, status string) error {
+func (s *TerminalService) CloseSession(tenantID, sessionID uint, finishedAt time.Time, fileSize int64, status string, closeReason string) error {
 	session, err := s.terminalRepo.GetByIDInTenant(tenantID, sessionID)
 	if err != nil {
 		return err
