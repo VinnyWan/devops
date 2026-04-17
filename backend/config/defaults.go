@@ -45,7 +45,7 @@ func SetDefaults(v *viper.Viper) {
 	v.SetDefault("terminal.recording_dir", "./data/recordings/cmdb-terminal")
 	v.SetDefault("terminal.max_session_duration", 86400)
 	v.SetDefault("terminal.idle_timeout", 300)
-	v.SetDefault("terminal.known_hosts_path", "./data/known_hosts")
+	v.SetDefault("terminal.known_hosts_path", "")
 
 	// LDAP 默认配置（默认关闭）
 	v.SetDefault("ldap.enable", false)

@@ -21,7 +21,7 @@ type TerminalSession struct {
 	StartedAt     time.Time      `gorm:"not null;index:idx_cmdb_terminal_tenant_started,priority:2" json:"startedAt"`
 	FinishedAt    *time.Time     `json:"finishedAt"`
 	Duration      int            `gorm:"default:0" json:"duration"`
-	RecordingPath string         `gorm:"size:500;not null" json:"recordingPath"`
+	RecordingPath string         `gorm:"size:500;not null" json:"-"`
 	FileSize      int64          `gorm:"default:0" json:"fileSize"`
 	Status        string         `gorm:"size:20;not null;default:'active';index:idx_cmdb_terminal_tenant_status,priority:2" json:"status"`
 	CreatedAt     time.Time      `gorm:"index" json:"createdAt"`

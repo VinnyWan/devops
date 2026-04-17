@@ -22,6 +22,7 @@ let terminal = null
 let fitAddon = null
 let ws = null
 let initialized = false
+let closeMessageShown = false
 
 const resolveWsUrl = (rawUrl) => {
   if (!rawUrl) return ''
@@ -66,6 +67,7 @@ const handleSocketMessage = (payload) => {
       emit('error', content || 'WebSocket connection error')
       break
     case 'closed':
+      closeMessageShown = true
       write(`\r\n\x1b[33m${content || 'Connection closed.'}\x1b[0m\r\n`)
       break
     default:
@@ -78,6 +80,7 @@ const handleSocketMessage = (payload) => {
 const connectWebSocket = () => {
   if (!props.wsUrl) return
 
+  closeMessageShown = false
   const wsFullUrl = resolveWsUrl(props.wsUrl)
   if (!wsFullUrl) return
 
@@ -107,6 +110,9 @@ const connectWebSocket = () => {
   }
 
   ws.onclose = (event) => {
+    if (closeMessageShown) {
+      return
+    }
     const reason = event.reason || 'Connection closed.'
     write(`\r\n\x1b[33m${reason}\x1b[0m\r\n`)
   }

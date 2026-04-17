@@ -37,9 +37,6 @@ var terminalUpgrader = websocket.Upgrader{
 		if strings.EqualFold(u.Host, r.Host) {
 			return true
 		}
-		if strings.HasPrefix(u.Host, "localhost:") || strings.HasPrefix(u.Host, "127.0.0.1:") {
-			return true
-		}
 		return false
 	},
 }
@@ -143,6 +140,11 @@ func TerminalRecording(c *gin.Context) {
 			return
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "获取终端录屏失败", "error": err.Error()})
+		return
+	}
+
+	if session.Status == "active" {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "终端录屏尚未结束，暂不可回放"})
 		return
 	}
 
@@ -283,16 +285,19 @@ func TerminalConnect(c *gin.Context) {
 	firstErr := <-errCh
 	status := "closed"
 	closeReason := "Connection closed."
-	if firstErr != nil && !isNormalTerminalClose(firstErr) {
+	switch {
+	case errors.Is(firstErr, cmdbterminal.ErrTerminalIdleTimeout):
+		status = "idle_timeout"
+		closeReason = "Terminal idle timeout."
+	case errors.Is(firstErr, cmdbterminal.ErrTerminalMaxDuration):
+		status = "max_duration"
+		closeReason = "Terminal max session duration exceeded."
+	case firstErr != nil && !isNormalTerminalClose(firstErr):
 		status = "interrupted"
 		closeReason = firstErr.Error()
 	}
 
-	if status == "closed" {
-		bridge.CloseWithReason(closeReason)
-	} else {
-		bridge.Close()
-	}
+	bridge.CloseWithReason(closeReason)
 	wg.Wait()
 
 	fileSize := terminalRecordingFileSize(recordingPath)

@@ -51,9 +51,9 @@
       <el-table-column label="时长(秒)" width="100">
         <template #default="{ row }">{{ row.duration ?? 0 }}</template>
       </el-table-column>
-      <el-table-column label="操作" width="120" fixed="right">
+      <el-table-column label="操作" width="140" fixed="right">
         <template #default="{ row }">
-          <el-button size="small" type="primary" @click="handleReplay(row)">回放</el-button>
+          <el-button size="small" type="primary" @click="handleReplay(row)" :disabled="row.status === 'active'">回放</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -110,8 +110,8 @@ const handleReplay = (row) => {
   router.push(`/cmdb/terminal/replay/${row.id}`)
 }
 
-const statusTagType = (val) => ({ active: 'success', closed: 'info', interrupted: 'danger' }[val] || 'info')
-const statusText = (val) => ({ active: '活跃', closed: '已关闭', interrupted: '已中断' }[val] || val || '-')
+const statusTagType = (val) => ({ active: 'success', closed: 'info', interrupted: 'danger', idle_timeout: 'warning', max_duration: 'warning' }[val] || 'info')
+const statusText = (val) => ({ active: '活跃', closed: '已关闭', interrupted: '已中断', idle_timeout: '空闲超时', max_duration: '时长超限' }[val] || val || '-')
 
 onMounted(() => {
   fetchData()

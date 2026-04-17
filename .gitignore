@@ -32,6 +32,7 @@ backend/*.swo
 backend/logs/
 backend/*.log
 backend/config/config.yaml
+backend/data/
 
 # Frontend
 frontend/CLAUDE.md

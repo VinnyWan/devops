@@ -153,14 +153,14 @@ func BuildHostKeyCallback() (ssh.HostKeyCallback, error) {
 }
 
 func candidateKnownHostsPaths() []string {
-	paths := make([]string, 0, 4)
+	paths := make([]string, 0, 3)
 	configuredPath := strings.TrimSpace(config.Cfg.GetString("terminal.known_hosts_path"))
 	if configuredPath != "" {
 		if resolvedPath := resolveKnownHostsPath(configuredPath); resolvedPath != "" {
 			paths = append(paths, resolvedPath)
 		}
 	}
-	for _, path := range []string{"./data/known_hosts", "~/.ssh/known_hosts", "/etc/ssh/ssh_known_hosts"} {
+	for _, path := range []string{"~/.ssh/known_hosts", "/etc/ssh/ssh_known_hosts"} {
 		if resolvedPath := resolveKnownHostsPath(path); resolvedPath != "" {
 			paths = append(paths, resolvedPath)
 		}
