@@ -29,6 +29,7 @@
       <el-descriptions-item label="状态">
         <el-tag :type="statusTagType(detail.status)">{{ statusText(detail.status) }}</el-tag>
       </el-descriptions-item>
+      <el-descriptions-item label="关闭原因/触发类型">{{ closeReasonText(detail) }}</el-descriptions-item>
       <el-descriptions-item label="文件大小">{{ formatFileSize(detail.fileSize) }}</el-descriptions-item>
       <el-descriptions-item label="开始时间">{{ formatTime(detail.startedAt) }}</el-descriptions-item>
       <el-descriptions-item label="结束时间">{{ formatTime(detail.finishedAt) }}</el-descriptions-item>
@@ -90,8 +91,28 @@ const formatFileSize = (size) => {
   return `${(value / 1024 / 1024).toFixed(2)} MB`
 }
 
-const statusTagType = (val) => ({ active: 'success', closed: 'info', interrupted: 'danger' }[val] || 'info')
-const statusText = (val) => ({ active: '活跃', closed: '已关闭', interrupted: '已中断' }[val] || val || '-')
+const statusTagType = (val) => ({
+  active: 'success',
+  closed: 'info',
+  interrupted: 'danger',
+  idle_timeout: 'warning',
+  max_duration: 'warning'
+}[val] || 'info')
+const statusText = (val) => ({
+  active: '活跃',
+  closed: '已关闭',
+  interrupted: '已中断',
+  idle_timeout: '空闲超时',
+  max_duration: '时长超限'
+}[val] || val || '-')
+const closeReasonFallback = (status) => ({
+  active: '会话进行中',
+  closed: '用户主动关闭或连接正常结束',
+  interrupted: '连接异常中断',
+  idle_timeout: '空闲超时自动断开',
+  max_duration: '会话时长超限自动断开'
+}[status] || '-')
+const closeReasonText = (session) => session?.closeReason || closeReasonFallback(session?.status)
 
 const renderNextEvent = () => {
   if (!playing.value || currentIndex.value >= recording.events.length) {
