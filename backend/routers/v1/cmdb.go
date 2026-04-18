@@ -27,6 +27,10 @@ func registerCMDB(r *gin.RouterGroup) {
 	terminalListPerm := middleware.RequirePermission("cmdb:terminal", "list")
 	terminalGetPerm := middleware.RequirePermission("cmdb:terminal", "get")
 	terminalReplayPerm := middleware.RequirePermission("cmdb:terminal", "replay")
+	permListPerm := middleware.RequirePermission("cmdb:permission", "list")
+	permCreatePerm := middleware.RequirePermission("cmdb:permission", "create")
+	permUpdatePerm := middleware.RequirePermission("cmdb:permission", "update")
+	permDeletePerm := middleware.RequirePermission("cmdb:permission", "delete")
 
 	{
 		// 主机管理
@@ -58,5 +62,14 @@ func registerCMDB(r *gin.RouterGroup) {
 		g.GET("/terminal/list", terminalListPerm, api.TerminalList)
 		g.GET("/terminal/detail", terminalGetPerm, api.TerminalDetail)
 		g.GET("/terminal/recording", terminalReplayPerm, api.TerminalRecording)
+
+			// 权限配置
+			g.GET("/permission/list", permListPerm, api.PermissionList)
+			g.GET("/permission/group-host-count", permListPerm, api.PermissionGroupHostCount)
+			g.POST("/permission/create", permCreatePerm, middleware.SetAuditOperation("授予权限"), api.PermissionCreate)
+			g.POST("/permission/update", permUpdatePerm, middleware.SetAuditOperation("更新权限"), api.PermissionUpdate)
+			g.POST("/permission/delete", permDeletePerm, middleware.SetAuditOperation("删除权限"), api.PermissionDelete)
+			g.GET("/permission/my-hosts", api.PermissionMyHosts)
+			g.GET("/permission/check", api.PermissionCheck)
 	}
 }

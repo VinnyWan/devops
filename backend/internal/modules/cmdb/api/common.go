@@ -16,6 +16,7 @@ var (
 	groupSvcInstance    *service.GroupService
 	credSvcInstance     *service.CredentialService
 	terminalSvcInstance *service.TerminalService
+	permSvcInstance     *service.PermissionService
 	cmdbOnce            sync.Once
 	cmdbMu              sync.Mutex
 )
@@ -28,6 +29,7 @@ func SetDB(database *gorm.DB) {
 	groupSvcInstance = nil
 	credSvcInstance = nil
 	terminalSvcInstance = nil
+	permSvcInstance = nil
 	cmdbOnce = sync.Once{}
 }
 
@@ -81,6 +83,19 @@ func getTerminalService() *service.TerminalService {
 	}
 	terminalSvcInstance = service.NewTerminalService(cmdbDB)
 	return terminalSvcInstance
+}
+
+func getPermissionService() *service.PermissionService {
+	cmdbMu.Lock()
+	defer cmdbMu.Unlock()
+	if permSvcInstance != nil {
+		return permSvcInstance
+	}
+	if cmdbDB == nil {
+		return nil
+	}
+	permSvcInstance = service.NewPermissionService(cmdbDB)
+	return permSvcInstance
 }
 
 func getCurrentTenantID(c *gin.Context) (uint, error) {
