@@ -62,3 +62,4 @@ frontend/*.sw?
 # Images
 images/
 .worktrees/
+.gstack/

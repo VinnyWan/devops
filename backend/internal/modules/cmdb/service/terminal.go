@@ -25,6 +25,25 @@ type TerminalListRequest struct {
 	Keyword  string `form:"keyword" json:"keyword"`
 	Username string `form:"username" json:"username"`
 	Status   string `form:"status" json:"status"`
+	StartAt  string `form:"startAt" json:"startAt"`
+	EndAt    string `form:"endAt" json:"endAt"`
+}
+
+type TerminalListQuery struct {
+	Keyword  string
+	Username string
+	Status   string
+	StartAt  *time.Time
+	EndAt    *time.Time
+}
+
+var ErrInvalidTerminalListFilter = errors.New("invalid terminal list filter")
+
+func newInvalidTerminalListFilterError(message string, err error) error {
+	if err == nil {
+		return fmt.Errorf("%w: %s", ErrInvalidTerminalListFilter, message)
+	}
+	return fmt.Errorf("%w: %s: %w", ErrInvalidTerminalListFilter, message, err)
 }
 
 func NewTerminalService(db *gorm.DB) *TerminalService {
@@ -112,9 +131,43 @@ func (s *TerminalService) CloseSession(tenantID, sessionID uint, finishedAt time
 	return s.terminalRepo.UpdateInTenant(tenantID, session)
 }
 
+func buildTerminalListQuery(req TerminalListRequest) (TerminalListQuery, error) {
+	query := TerminalListQuery{
+		Keyword:  strings.TrimSpace(req.Keyword),
+		Username: strings.TrimSpace(req.Username),
+		Status:   strings.TrimSpace(req.Status),
+	}
+
+	if req.StartAt != "" {
+		startAt, err := time.Parse(time.RFC3339, req.StartAt)
+		if err != nil {
+			return TerminalListQuery{}, newInvalidTerminalListFilterError("invalid startAt format", err)
+		}
+		query.StartAt = &startAt
+	}
+
+	if req.EndAt != "" {
+		endAt, err := time.Parse(time.RFC3339, req.EndAt)
+		if err != nil {
+			return TerminalListQuery{}, newInvalidTerminalListFilterError("invalid endAt format", err)
+		}
+		query.EndAt = &endAt
+	}
+
+	if query.StartAt != nil && query.EndAt != nil && query.StartAt.After(*query.EndAt) {
+		return TerminalListQuery{}, newInvalidTerminalListFilterError("startAt must be before or equal to endAt", nil)
+	}
+
+	return query, nil
+}
+
 func (s *TerminalService) ListInTenant(tenantID uint, req TerminalListRequest) ([]model.TerminalSession, int64, error) {
 	page, pageSize := s.normalizePage(req.Page, req.PageSize)
-	return s.terminalRepo.ListInTenant(tenantID, page, pageSize, strings.TrimSpace(req.Keyword), strings.TrimSpace(req.Username), strings.TrimSpace(req.Status))
+	query, err := buildTerminalListQuery(req)
+	if err != nil {
+		return nil, 0, err
+	}
+	return s.terminalRepo.ListInTenant(tenantID, page, pageSize, query.Keyword, query.Username, query.Status, query.StartAt, query.EndAt)
 }
 
 func (s *TerminalService) DetailInTenant(tenantID, id uint) (*model.TerminalSession, error) {

@@ -37,6 +37,11 @@ var terminalUpgrader = websocket.Upgrader{
 		if strings.EqualFold(u.Host, r.Host) {
 			return true
 		}
+		for _, allowed := range config.Cfg.GetStringSlice("cors.allow_origins") {
+			if strings.EqualFold(origin, allowed) {
+				return true
+			}
+		}
 		return false
 	},
 }
@@ -60,10 +65,16 @@ func TerminalList(c *gin.Context) {
 		Keyword:  c.Query("keyword"),
 		Username: c.Query("username"),
 		Status:   c.Query("status"),
+		StartAt:  c.Query("startAt"),
+		EndAt:    c.Query("endAt"),
 	}
 
 	sessions, total, err := svc.ListInTenant(tenantID, req)
 	if err != nil {
+		if errors.Is(err, service.ErrInvalidTerminalListFilter) {
+			c.JSON(http.StatusBadRequest, gin.H{"message": "终端会话筛选参数无效", "error": err.Error()})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "获取终端会话列表失败", "error": err.Error()})
 		return
 	}
@@ -150,6 +161,10 @@ func TerminalRecording(c *gin.Context) {
 
 	payload, err := cmdbterminal.ParseCastFile(session.RecordingPath)
 	if err != nil {
+		if errors.Is(err, os.ErrNotExist) || strings.Contains(strings.ToLower(err.Error()), "no such file") {
+			c.JSON(http.StatusNotFound, gin.H{"message": "终端录屏文件不存在", "error": err.Error()})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "解析终端录屏失败", "error": err.Error()})
 		return
 	}

@@ -61,25 +61,10 @@ func ParseCastFile(path string) (*ReplayPayload, error) {
 			continue
 		}
 
-		var row []json.RawMessage
-		if err := json.Unmarshal(line, &row); err != nil {
-			return nil, fmt.Errorf("decode cast event line %d: %w", lineNumber, err)
+		event, err := decodeCastEvent(line, lineNumber)
+		if err != nil {
+			return nil, err
 		}
-		if len(row) < 3 {
-			return nil, fmt.Errorf("decode cast event line %d: expected at least 3 fields", lineNumber)
-		}
-
-		var event ReplayEvent
-		if err := json.Unmarshal(row[0], &event.Time); err != nil {
-			return nil, fmt.Errorf("decode cast event time on line %d: %w", lineNumber, err)
-		}
-		if err := json.Unmarshal(row[1], &event.Type); err != nil {
-			return nil, fmt.Errorf("decode cast event type on line %d: %w", lineNumber, err)
-		}
-		if err := json.Unmarshal(row[2], &event.Data); err != nil {
-			return nil, fmt.Errorf("decode cast event data on line %d: %w", lineNumber, err)
-		}
-
 		payload.Events = append(payload.Events, event)
 	}
 
@@ -88,4 +73,27 @@ func ParseCastFile(path string) (*ReplayPayload, error) {
 	}
 
 	return payload, nil
+}
+
+func decodeCastEvent(line []byte, lineNumber int) (ReplayEvent, error) {
+	var row []json.RawMessage
+	if err := json.Unmarshal(line, &row); err != nil {
+		return ReplayEvent{}, fmt.Errorf("decode cast event line %d: %w", lineNumber, err)
+	}
+	if len(row) < 3 {
+		return ReplayEvent{}, fmt.Errorf("decode cast event line %d: expected at least 3 fields", lineNumber)
+	}
+
+	var event ReplayEvent
+	if err := json.Unmarshal(row[0], &event.Time); err != nil {
+		return ReplayEvent{}, fmt.Errorf("decode cast event line %d: %w", lineNumber, err)
+	}
+	if err := json.Unmarshal(row[1], &event.Type); err != nil {
+		return ReplayEvent{}, fmt.Errorf("decode cast event line %d: %w", lineNumber, err)
+	}
+	if err := json.Unmarshal(row[2], &event.Data); err != nil {
+		return ReplayEvent{}, fmt.Errorf("decode cast event line %d: %w", lineNumber, err)
+	}
+
+	return event, nil
 }

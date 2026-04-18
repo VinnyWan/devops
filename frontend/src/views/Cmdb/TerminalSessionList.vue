@@ -10,11 +10,11 @@
         placeholder="搜索主机名/IP"
         style="width: 240px;"
         clearable
-        @clear="fetchData"
-        @keyup.enter="fetchData"
+        @clear="handleSearch"
+        @keyup.enter="handleSearch"
       >
         <template #append>
-          <el-button @click="fetchData"><el-icon><Search /></el-icon></el-button>
+          <el-button @click="handleSearch"><el-icon><Search /></el-icon></el-button>
         </template>
       </el-input>
       <el-input
@@ -22,14 +22,27 @@
         placeholder="用户名"
         style="width: 180px;"
         clearable
-        @clear="fetchData"
-        @keyup.enter="fetchData"
+        @clear="handleSearch"
+        @keyup.enter="handleSearch"
       />
-      <el-select v-model="status" placeholder="状态" clearable style="width: 140px;" @change="fetchData">
+      <el-select v-model="status" placeholder="状态" clearable style="width: 140px;" @change="handleSearch">
         <el-option label="活跃" value="active" />
         <el-option label="已关闭" value="closed" />
         <el-option label="已中断" value="interrupted" />
+        <el-option label="空闲超时" value="idle_timeout" />
+        <el-option label="时长超限" value="max_duration" />
       </el-select>
+      <el-date-picker
+        v-model="dateRange"
+        type="datetimerange"
+        range-separator="至"
+        start-placeholder="开始时间"
+        end-placeholder="结束时间"
+        value-format="YYYY-MM-DDTHH:mm:ssZ"
+        style="width: 360px;"
+        @change="handleSearch"
+      />
+      <el-button type="primary" @click="handleSearch">搜索</el-button>
     </div>
 
     <el-table :data="tableData" stripe v-loading="loading" style="width: 100%">
@@ -48,8 +61,8 @@
       <el-table-column label="结束时间" width="180">
         <template #default="{ row }">{{ formatTime(row.finishedAt) }}</template>
       </el-table-column>
-      <el-table-column label="时长(秒)" width="100">
-        <template #default="{ row }">{{ row.duration ?? 0 }}</template>
+      <el-table-column label="持续时长" width="120">
+        <template #default="{ row }">{{ formatDuration(row.duration) }}</template>
       </el-table-column>
       <el-table-column label="操作" width="140" fixed="right">
         <template #default="{ row }">
@@ -88,6 +101,16 @@ const pageSize = ref(10)
 const keyword = ref('')
 const username = ref('')
 const status = ref('')
+const dateRange = ref(null)
+
+const formatDuration = (duration) => {
+  const totalSeconds = Number(duration || 0)
+  if (totalSeconds <= 0) return '0 秒'
+  if (totalSeconds < 60) return `${totalSeconds} 秒`
+  const minutes = Math.floor(totalSeconds / 60)
+  const seconds = totalSeconds % 60
+  return seconds ? `${minutes} 分 ${seconds} 秒` : `${minutes} 分`
+}
 
 const fetchData = async () => {
   loading.value = true
@@ -97,13 +120,20 @@ const fetchData = async () => {
       pageSize: pageSize.value,
       keyword: keyword.value || undefined,
       username: username.value || undefined,
-      status: status.value || undefined
+      status: status.value || undefined,
+      startAt: dateRange.value?.[0] || undefined,
+      endAt: dateRange.value?.[1] || undefined
     })
     tableData.value = res.data || []
     total.value = res.total || 0
   } finally {
     loading.value = false
   }
+}
+
+const handleSearch = () => {
+  page.value = 1
+  fetchData()
 }
 
 const handleReplay = (row) => {

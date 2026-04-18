@@ -38,16 +38,19 @@
 
     <div class="replay-status">
       <span>进度: {{ currentIndex }}/{{ recording.events.length }}</span>
+      <span>播放时长: {{ currentPlaybackSeconds }}s / {{ totalPlaybackSeconds }}s</span>
       <span>录屏尺寸: {{ recording.width || '-' }} x {{ recording.height || '-' }}</span>
       <span>速度: {{ speed }}x</span>
     </div>
 
-    <Terminal ref="terminalRef" :visible="true" readonly />
+    <el-empty v-if="!loading && !errorText && !recording.events.length" description="暂无回放数据" />
+
+    <Terminal v-else-if="!errorText" ref="terminalRef" :visible="true" readonly />
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, onBeforeUnmount, nextTick } from 'vue'
+import { ref, reactive, onMounted, onBeforeUnmount, nextTick, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import Terminal from '@/components/K8s/Terminal.vue'
 import { getTerminalSessionDetail, getTerminalRecording } from '@/api/cmdb/terminal'
@@ -65,6 +68,15 @@ const errorText = ref('')
 const terminalRef = ref()
 const detail = ref({})
 const recording = reactive({ width: 0, height: 0, events: [] })
+const totalPlaybackSeconds = computed(() => {
+  if (!recording.events.length) return 0
+  return Number(recording.events[recording.events.length - 1]?.time || 0)
+})
+const currentPlaybackSeconds = computed(() => {
+  if (!recording.events.length || currentIndex.value <= 0) return 0
+  const event = recording.events[Math.min(currentIndex.value - 1, recording.events.length - 1)]
+  return Number(event?.time || 0)
+})
 let replayTimer = null
 
 const clearReplayTimer = () => {
@@ -171,6 +183,19 @@ const restartPlayback = () => {
   startPlayback()
 }
 
+const resetPlaybackState = () => {
+  pausePlayback()
+  currentIndex.value = 0
+  terminalRef.value?.clear()
+}
+
+const resetReplayData = () => {
+  recording.width = 0
+  recording.height = 0
+  recording.events = []
+  detail.value = {}
+}
+
 const handleResize = () => {
   terminalRef.value?.fit()
 }
@@ -178,6 +203,8 @@ const handleResize = () => {
 const loadData = async () => {
   loading.value = true
   errorText.value = ''
+  resetPlaybackState()
+  resetReplayData()
   try {
     const [detailRes, recordingRes] = await Promise.all([
       getTerminalSessionDetail({ id: sessionId }),
@@ -192,6 +219,7 @@ const loadData = async () => {
     terminalRef.value?.clear()
     terminalRef.value?.fit()
   } catch (error) {
+    resetReplayData()
     errorText.value = error.response?.data?.message || error.message || '加载终端回放失败'
   } finally {
     loading.value = false

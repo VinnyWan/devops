@@ -85,14 +85,14 @@
       </template>
     </el-dialog>
 
-    <el-dialog v-model="terminalDialogVisible" :title="terminalTitle" width="80%" top="5vh" destroy-on-close>
-      <Terminal ref="terminalRef" :visible="terminalDialogVisible" :ws-url="terminalWsUrl" style="width: 100%;" @error="handleTerminalError" />
+    <el-dialog v-model="terminalDialogVisible" :title="terminalTitle" width="80%" top="5vh" destroy-on-close @closed="handleTerminalDialogClosed">
+      <Terminal ref="terminalRef" :visible="terminalDialogVisible" :ws-url="terminalWsUrl" style="width: 100%;" />
     </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search } from '@element-plus/icons-vue'
 import Terminal from '@/components/K8s/Terminal.vue'
@@ -238,12 +238,14 @@ const handleTerminal = (row) => {
   terminalTitle.value = `主机终端 - ${row.hostname || row.ip}`
   terminalWsUrl.value = getTerminalConnectWsUrl(row.id)
   terminalDialogVisible.value = true
+  nextTick(() => {
+    terminalRef.value?.fit()
+  })
 }
 
-const handleTerminalError = (message) => {
-  if (message) {
-    ElMessage.error(message)
-  }
+const handleTerminalDialogClosed = () => {
+  terminalWsUrl.value = ''
+  terminalTitle.value = '主机终端'
 }
 
 const statusTagType = (val) => ({ online: 'success', offline: 'danger', unknown: 'info' }[val] || 'info')

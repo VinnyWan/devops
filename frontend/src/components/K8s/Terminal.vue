@@ -15,7 +15,7 @@ const props = defineProps({
   readonly: { type: Boolean, default: false }
 })
 
-const emit = defineEmits(['error'])
+const emit = defineEmits(['error', 'closed'])
 
 const terminalContainer = ref(null)
 let terminal = null
@@ -23,6 +23,7 @@ let fitAddon = null
 let ws = null
 let initialized = false
 let closeMessageShown = false
+let errorMessageShown = false
 
 const resolveWsUrl = (rawUrl) => {
   if (!rawUrl) return ''
@@ -50,6 +51,25 @@ const fit = () => {
   fitAddon?.fit()
 }
 
+const announceClose = (message = 'Connection closed.') => {
+  if (closeMessageShown || errorMessageShown) {
+    return
+  }
+  closeMessageShown = true
+  write(`\r\n\x1b[33m${message}\x1b[0m\r\n`)
+  emit('closed', message)
+}
+
+const announceError = (message = 'WebSocket connection error') => {
+  if (errorMessageShown || closeMessageShown) {
+    return
+  }
+  errorMessageShown = true
+  closeMessageShown = true
+  write(`\r\n\x1b[31m${message}\x1b[0m\r\n`)
+  emit('error', message)
+}
+
 const handleSocketMessage = (payload) => {
   if (!payload || typeof payload !== 'object') {
     write(String(payload || ''))
@@ -63,12 +83,10 @@ const handleSocketMessage = (payload) => {
       write(content)
       break
     case 'error':
-      write(`\r\n\x1b[31m${content}\x1b[0m\r\n`)
-      emit('error', content || 'WebSocket connection error')
+      announceError(content || 'WebSocket connection error')
       break
     case 'closed':
-      closeMessageShown = true
-      write(`\r\n\x1b[33m${content || 'Connection closed.'}\x1b[0m\r\n`)
+      announceClose(content || 'Connection closed.')
       break
     default:
       if (typeof content === 'string') {
@@ -81,6 +99,7 @@ const connectWebSocket = () => {
   if (!props.wsUrl) return
 
   closeMessageShown = false
+  errorMessageShown = false
   const wsFullUrl = resolveWsUrl(props.wsUrl)
   if (!wsFullUrl) return
 
@@ -105,16 +124,11 @@ const connectWebSocket = () => {
   }
 
   ws.onerror = () => {
-    write('\r\n\x1b[31mConnection error.\x1b[0m\r\n')
-    emit('error', 'WebSocket connection error')
+    announceError('Connection error.')
   }
 
   ws.onclose = (event) => {
-    if (closeMessageShown) {
-      return
-    }
-    const reason = event.reason || 'Connection closed.'
-    write(`\r\n\x1b[33m${reason}\x1b[0m\r\n`)
+    announceClose(event.reason || 'Connection closed.')
   }
 }
 
