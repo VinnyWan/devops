@@ -106,6 +106,10 @@ const routes = [
       {
         path: 'cmdb/permissions',
         component: () => import('../views/Cmdb/PermissionList.vue')
+      },
+      {
+        path: 'cmdb/cloud-accounts',
+        component: () => import('../views/Cmdb/CloudAccountList.vue')
       }
     ]
   }
