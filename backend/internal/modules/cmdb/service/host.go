@@ -65,9 +65,9 @@ func (s *HostService) normalizePage(page, pageSize int) (int, int) {
 	return page, pageSize
 }
 
-func (s *HostService) ListInTenant(tenantID uint, page, pageSize int, groupID uint, status, keyword string) ([]model.Host, int64, error) {
+func (s *HostService) ListInTenant(tenantID uint, page, pageSize int, groupID uint, status, keyword string, allowedHostIDs []uint) ([]model.Host, int64, error) {
 	page, pageSize = s.normalizePage(page, pageSize)
-	return s.repo.ListInTenant(tenantID, page, pageSize, groupID, status, keyword)
+	return s.repo.ListInTenant(tenantID, page, pageSize, groupID, status, keyword, allowedHostIDs)
 }
 
 func (s *HostService) GetByIDInTenant(tenantID uint, id uint) (*model.Host, error) {

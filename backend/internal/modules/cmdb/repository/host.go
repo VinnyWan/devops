@@ -52,11 +52,15 @@ func (r *HostRepo) GetByIDInTenant(tenantID uint, id uint) (*model.Host, error) 
 	return &host, nil
 }
 
-func (r *HostRepo) ListInTenant(tenantID uint, page, pageSize int, groupID uint, status, keyword string) ([]model.Host, int64, error) {
+func (r *HostRepo) ListInTenant(tenantID uint, page, pageSize int, groupID uint, status, keyword string, allowedHostIDs []uint) ([]model.Host, int64, error) {
 	var hosts []model.Host
 	var total int64
 
 	query := r.scopeInTenant(r.db.Model(&model.Host{}), tenantID)
+
+	if len(allowedHostIDs) > 0 {
+		query = query.Where("id IN ?", allowedHostIDs)
+	}
 
 	if groupID > 0 {
 		query = query.Where("group_id = ?", groupID)
