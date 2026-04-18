@@ -75,6 +75,8 @@ func InitDB() error {
 		&cmdbModel.Credential{},
 		&cmdbModel.TerminalSession{},
 		&cmdbModel.HostPermission{},
+		&cmdbModel.CloudAccount{},
+		&cmdbModel.CloudResource{},
 	)
 	if err != nil {
 		return err
@@ -320,6 +322,13 @@ func seedPermissions(db *gorm.DB) error {
 		{Name: "授予权限", Resource: "cmdb:permission", Action: "create", Description: "授予主机权限"},
 		{Name: "更新权限", Resource: "cmdb:permission", Action: "update", Description: "更新主机权限"},
 		{Name: "删除权限", Resource: "cmdb:permission", Action: "delete", Description: "删除主机权限"},
+		// 云账号管理
+		{Name: "查看云账号", Resource: "cmdb:cloud", Action: "list", Description: "查看云账号列表"},
+		{Name: "查看云账号详情", Resource: "cmdb:cloud", Action: "get", Description: "查看云账号详情"},
+		{Name: "添加云账号", Resource: "cmdb:cloud", Action: "create", Description: "添加云账号"},
+		{Name: "更新云账号", Resource: "cmdb:cloud", Action: "update", Description: "更新云账号"},
+		{Name: "删除云账号", Resource: "cmdb:cloud", Action: "delete", Description: "删除云账号"},
+		{Name: "同步云资源", Resource: "cmdb:cloud", Action: "sync", Description: "手动触发云资源同步"},
 	}
 
 	createdCount := 0

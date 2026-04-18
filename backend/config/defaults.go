@@ -96,4 +96,9 @@ func SetDefaults(v *viper.Viper) {
 		"protocol": "http",
 		"version":  "v1",
 	})
+
+	// Cloud 云账号同步默认配置
+	v.SetDefault("cloud.sync_concurrency", 5)
+	v.SetDefault("cloud.sync_timeout", 300)
+	v.SetDefault("cloud.default_regions", "ap-guangzhou,ap-shanghai,ap-beijing")
 }
