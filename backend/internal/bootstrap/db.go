@@ -305,6 +305,7 @@ func seedPermissions(db *gorm.DB) error {
 		{Name: "更新主机", Resource: "cmdb:host", Action: "update", Description: "更新主机"},
 		{Name: "删除主机", Resource: "cmdb:host", Action: "delete", Description: "删除主机"},
 		{Name: "测试主机连接", Resource: "cmdb:host", Action: "test", Description: "测试主机 SSH 连接"},
+		{Name: "主机管理（管理员）", Resource: "cmdb:host", Action: "admin", Description: "CMDB主机管理员权限，跳过主机级权限过滤"},
 		{Name: "查看分组", Resource: "cmdb:group", Action: "list", Description: "查看分组列表"},
 		{Name: "创建分组", Resource: "cmdb:group", Action: "create", Description: "创建分组"},
 		{Name: "更新分组", Resource: "cmdb:group", Action: "update", Description: "更新分组"},
