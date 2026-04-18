@@ -96,7 +96,7 @@ import { ref, onMounted, computed, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search } from '@element-plus/icons-vue'
 import Terminal from '@/components/K8s/Terminal.vue'
-import { getHostList, createHost, updateHost, deleteHost, testHost, batchCreateHost } from '@/api/cmdb/host'
+import { getHostList, createHost, updateHost, deleteHost, testHost, batchCreateHost, checkHostPermission } from '@/api/cmdb/host'
 import { getGroupTree } from '@/api/cmdb/group'
 import { getCredentialList } from '@/api/cmdb/credential'
 import { getTerminalConnectWsUrl } from '@/api/cmdb/terminal'
@@ -230,9 +230,19 @@ const handleTest = async (row) => {
   }
 }
 
-const handleTerminal = (row) => {
+const handleTerminal = async (row) => {
   if (!row.credentialId) {
     ElMessage.warning('该主机未绑定凭据，无法建立终端连接')
+    return
+  }
+  try {
+    const res = await checkHostPermission(row.id, 'terminal')
+    if (res.data?.code !== 200 || !res.data?.data?.allowed) {
+      ElMessage.error('无该主机终端访问权限')
+      return
+    }
+  } catch (e) {
+    ElMessage.error('权限校验失败')
     return
   }
   terminalTitle.value = `主机终端 - ${row.hostname || row.ip}`
