@@ -74,6 +74,7 @@ func InitDB() error {
 		&cmdbModel.HostGroup{},
 		&cmdbModel.Credential{},
 		&cmdbModel.TerminalSession{},
+		&cmdbModel.HostPermission{},
 	)
 	if err != nil {
 		return err
@@ -314,6 +315,11 @@ func seedPermissions(db *gorm.DB) error {
 		{Name: "查看终端会话", Resource: "cmdb:terminal", Action: "list", Description: "查看终端会话列表"},
 		{Name: "查看终端详情", Resource: "cmdb:terminal", Action: "get", Description: "查看终端会话详情"},
 		{Name: "回放终端录像", Resource: "cmdb:terminal", Action: "replay", Description: "回放终端录像"},
+		// CMDB 权限配置
+		{Name: "查看权限配置", Resource: "cmdb:permission", Action: "list", Description: "查看主机权限配置"},
+		{Name: "授予权限", Resource: "cmdb:permission", Action: "create", Description: "授予主机权限"},
+		{Name: "更新权限", Resource: "cmdb:permission", Action: "update", Description: "更新主机权限"},
+		{Name: "删除权限", Resource: "cmdb:permission", Action: "delete", Description: "删除主机权限"},
 	}
 
 	createdCount := 0
