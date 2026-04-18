@@ -221,20 +221,24 @@ func (s *CloudAccountService) syncRegion(account *model.CloudAccount, secretID, 
 	cpf := profile.NewClientProfile()
 	cpf.HttpProfile.ReqMethod = "GET"
 
+	var errs []string
 	if err := s.syncCVM(credential, cpf, account, region); err != nil {
-		return fmt.Errorf("同步 CVM 失败: %w", err)
+		errs = append(errs, fmt.Sprintf("CVM: %s", err.Error()))
 	}
 	if err := s.syncVPC(credential, cpf, account, region); err != nil {
-		return fmt.Errorf("同步 VPC 失败: %w", err)
+		errs = append(errs, fmt.Sprintf("VPC: %s", err.Error()))
 	}
 	if err := s.syncSubnets(credential, cpf, account, region); err != nil {
-		return fmt.Errorf("同步子网失败: %w", err)
+		errs = append(errs, fmt.Sprintf("子网: %s", err.Error()))
 	}
 	if err := s.syncSecurityGroups(credential, cpf, account, region); err != nil {
-		return fmt.Errorf("同步安全组失败: %w", err)
+		errs = append(errs, fmt.Sprintf("安全组: %s", err.Error()))
 	}
 	if err := s.syncCBS(credential, cpf, account, region); err != nil {
-		return fmt.Errorf("同步云硬盘失败: %w", err)
+		errs = append(errs, fmt.Sprintf("云硬盘: %s", err.Error()))
+	}
+	if len(errs) > 0 {
+		return fmt.Errorf("部分资源同步失败: %s", strings.Join(errs, "; "))
 	}
 	return nil
 }
@@ -266,76 +270,80 @@ func (s *CloudAccountService) syncCVM(credential *common.Credential, cpf *profil
 		return err
 	}
 
-	request := cvm.NewDescribeInstancesRequest()
-	request.Limit = common.Int64Ptr(100)
+	return s.paginateSync(func(offset int64) (int, error) {
+		request := cvm.NewDescribeInstancesRequest()
+		request.Limit = common.Int64Ptr(cloudSyncPageSize)
+		request.Offset = common.Int64Ptr(offset)
 
-	response, err := client.DescribeInstances(request)
-	if err != nil {
-		return err
-	}
-	if response == nil || response.Response == nil {
-		return nil
-	}
-
-	for _, instance := range response.Response.InstanceSet {
-		instanceID := safeDereferenceString(instance.InstanceId)
-		instanceName := safeDereferenceString(instance.InstanceName)
-		privateIP := ""
-		if len(instance.PrivateIpAddresses) > 0 && instance.PrivateIpAddresses[0] != nil {
-			privateIP = *instance.PrivateIpAddresses[0]
+		response, err := client.DescribeInstances(request)
+		if err != nil {
+			return 0, err
 		}
-		state := safeDereferenceString(instance.InstanceState)
-		zone := ""
-		if instance.Placement != nil {
-			zone = safeDereferenceString(instance.Placement.Zone)
+		if response == nil || response.Response == nil || response.Response.InstanceSet == nil {
+			return 0, nil
 		}
-		osName := safeDereferenceString(instance.OsName)
-		cpu := int(safeDereferenceInt64(instance.CPU))
-		memory := int(safeDereferenceInt64(instance.Memory))
 
-		specJSON, _ := json.Marshal(map[string]interface{}{
-			"cpu": cpu, "memory": memory, "zone": zone,
-		})
-		resource := &model.CloudResource{
-			TenantID:       account.TenantID,
-			CloudAccountID: account.ID,
-			ResourceType:   "cvm",
-			ResourceID:     instanceID,
-			Region:         region,
-			Zone:           zone,
-			Name:           instanceName,
-			State:          state,
-			Spec:           string(specJSON),
-			SyncedAt:       time.Now(),
-		}
-		_ = s.repo.UpsertResource(resource)
-
-		existing, err := s.repo.GetHostByCloudInstanceID(account.TenantID, instanceID)
-		if err == nil && existing != nil {
-			existing.Hostname = instanceName
-			if privateIP != "" {
-				existing.Ip = privateIP
+		for _, instance := range response.Response.InstanceSet {
+			instanceID := safeDereferenceString(instance.InstanceId)
+			instanceName := safeDereferenceString(instance.InstanceName)
+			privateIP := ""
+			if len(instance.PrivateIpAddresses) > 0 && instance.PrivateIpAddresses[0] != nil {
+				privateIP = *instance.PrivateIpAddresses[0]
 			}
-			existing.OsName = osName
-			existing.CloudAccountID = &account.ID
-			_ = s.repo.UpdateHost(existing)
-		} else if errors.Is(err, gorm.ErrRecordNotFound) {
-			tenantID := account.TenantID
-			accountID := account.ID
-			host := &model.Host{
-				TenantID:        &tenantID,
-				Hostname:        instanceName,
-				Ip:              privateIP,
-				Port:            22,
-				OsName:          osName,
-				Status:          state,
-				CloudAccountID:  &accountID,
-				CloudInstanceID: instanceID,
+			state := safeDereferenceString(instance.InstanceState)
+			zone := ""
+			if instance.Placement != nil {
+				zone = safeDereferenceString(instance.Placement.Zone)
 			}
-			_ = s.repo.CreateHost(host)
+			osName := safeDereferenceString(instance.OsName)
+			cpu := int(safeDereferenceInt64(instance.CPU))
+			memory := int(safeDereferenceInt64(instance.Memory))
+
+			specJSON, _ := json.Marshal(map[string]interface{}{
+				"cpu": cpu, "memory": memory, "zone": zone,
+			})
+			resource := &model.CloudResource{
+				TenantID:       account.TenantID,
+				CloudAccountID: account.ID,
+				ResourceType:   "cvm",
+				ResourceID:     instanceID,
+				Region:         region,
+				Zone:           zone,
+				Name:           instanceName,
+				State:          state,
+				Spec:           string(specJSON),
+				SyncedAt:       time.Now(),
+			}
+			_ = s.repo.UpsertResource(resource)
+
+			existing, err := s.repo.GetHostByCloudInstanceID(account.TenantID, instanceID)
+			if err == nil && existing != nil {
+				existing.Hostname = instanceName
+				if privateIP != "" {
+					existing.Ip = privateIP
+				}
+				existing.OsName = osName
+				existing.CloudAccountID = &account.ID
+				_ = s.repo.UpdateHost(existing)
+			} else if errors.Is(err, gorm.ErrRecordNotFound) {
+				tenantID := account.TenantID
+				accountID := account.ID
+				host := &model.Host{
+					TenantID:        &tenantID,
+					Hostname:        instanceName,
+					Ip:              privateIP,
+					Port:            22,
+					OsName:          osName,
+					Status:          state,
+					CloudAccountID:  &accountID,
+					CloudInstanceID: instanceID,
+				}
+				_ = s.repo.CreateHost(host)
+			}
 		}
-	}
-	return nil
+
+		return len(response.Response.InstanceSet), nil
+	})
 }
 
 func (s *CloudAccountService) syncVPC(credential *common.Credential, cpf *profile.ClientProfile, account *model.CloudAccount, region string) error {
@@ -344,38 +352,42 @@ func (s *CloudAccountService) syncVPC(credential *common.Credential, cpf *profil
 		return err
 	}
 
-	request := vpc.NewDescribeVpcsRequest()
-	request.Limit = common.StringPtr("100")
+	return s.paginateSync(func(offset int64) (int, error) {
+		request := vpc.NewDescribeVpcsRequest()
+		request.Limit = common.StringPtr(fmt.Sprintf("%d", cloudSyncPageSize))
+		request.Offset = common.StringPtr(fmt.Sprintf("%d", offset))
 
-	response, err := client.DescribeVpcs(request)
-	if err != nil {
-		return err
-	}
-	if response == nil || response.Response == nil {
-		return nil
-	}
-
-	for _, v := range response.Response.VpcSet {
-		vpcID := safeDereferenceString(v.VpcId)
-		name := safeDereferenceString(v.VpcName)
-		cidr := safeDereferenceString(v.CidrBlock)
-		state := "available"
-
-		specJSON, _ := json.Marshal(map[string]string{"cidr": cidr})
-		resource := &model.CloudResource{
-			TenantID:       account.TenantID,
-			CloudAccountID: account.ID,
-			ResourceType:   "vpc",
-			ResourceID:     vpcID,
-			Region:         region,
-			Name:           name,
-			State:          state,
-			Spec:           string(specJSON),
-			SyncedAt:       time.Now(),
+		response, err := client.DescribeVpcs(request)
+		if err != nil {
+			return 0, err
 		}
-		_ = s.repo.UpsertResource(resource)
-	}
-	return nil
+		if response == nil || response.Response == nil || response.Response.VpcSet == nil {
+			return 0, nil
+		}
+
+		for _, v := range response.Response.VpcSet {
+			vpcID := safeDereferenceString(v.VpcId)
+			name := safeDereferenceString(v.VpcName)
+			cidr := safeDereferenceString(v.CidrBlock)
+			state := "available"
+
+			specJSON, _ := json.Marshal(map[string]string{"cidr": cidr})
+			resource := &model.CloudResource{
+				TenantID:       account.TenantID,
+				CloudAccountID: account.ID,
+				ResourceType:   "vpc",
+				ResourceID:     vpcID,
+				Region:         region,
+				Name:           name,
+				State:          state,
+				Spec:           string(specJSON),
+				SyncedAt:       time.Now(),
+			}
+			_ = s.repo.UpsertResource(resource)
+		}
+
+		return len(response.Response.VpcSet), nil
+	})
 }
 
 func (s *CloudAccountService) syncSubnets(credential *common.Credential, cpf *profile.ClientProfile, account *model.CloudAccount, region string) error {
@@ -384,41 +396,45 @@ func (s *CloudAccountService) syncSubnets(credential *common.Credential, cpf *pr
 		return err
 	}
 
-	request := vpc.NewDescribeSubnetsRequest()
-	request.Limit = common.StringPtr("100")
+	return s.paginateSync(func(offset int64) (int, error) {
+		request := vpc.NewDescribeSubnetsRequest()
+		request.Limit = common.StringPtr(fmt.Sprintf("%d", cloudSyncPageSize))
+		request.Offset = common.StringPtr(fmt.Sprintf("%d", offset))
 
-	response, err := client.DescribeSubnets(request)
-	if err != nil {
-		return err
-	}
-	if response == nil || response.Response == nil {
-		return nil
-	}
-
-	for _, sub := range response.Response.SubnetSet {
-		subnetID := safeDereferenceString(sub.SubnetId)
-		name := safeDereferenceString(sub.SubnetName)
-		cidr := safeDereferenceString(sub.CidrBlock)
-		vpcID := safeDereferenceString(sub.VpcId)
-		zone := safeDereferenceString(sub.Zone)
-		state := "available"
-
-		specJSON, _ := json.Marshal(map[string]string{"cidr": cidr, "vpc_id": vpcID})
-		resource := &model.CloudResource{
-			TenantID:       account.TenantID,
-			CloudAccountID: account.ID,
-			ResourceType:   "subnet",
-			ResourceID:     subnetID,
-			Region:         region,
-			Zone:           zone,
-			Name:           name,
-			State:          state,
-			Spec:           string(specJSON),
-			SyncedAt:       time.Now(),
+		response, err := client.DescribeSubnets(request)
+		if err != nil {
+			return 0, err
 		}
-		_ = s.repo.UpsertResource(resource)
-	}
-	return nil
+		if response == nil || response.Response == nil || response.Response.SubnetSet == nil {
+			return 0, nil
+		}
+
+		for _, sub := range response.Response.SubnetSet {
+			subnetID := safeDereferenceString(sub.SubnetId)
+			name := safeDereferenceString(sub.SubnetName)
+			cidr := safeDereferenceString(sub.CidrBlock)
+			vpcID := safeDereferenceString(sub.VpcId)
+			zone := safeDereferenceString(sub.Zone)
+			state := "available"
+
+			specJSON, _ := json.Marshal(map[string]string{"cidr": cidr, "vpc_id": vpcID})
+			resource := &model.CloudResource{
+				TenantID:       account.TenantID,
+				CloudAccountID: account.ID,
+				ResourceType:   "subnet",
+				ResourceID:     subnetID,
+				Region:         region,
+				Zone:           zone,
+				Name:           name,
+				State:          state,
+				Spec:           string(specJSON),
+				SyncedAt:       time.Now(),
+			}
+			_ = s.repo.UpsertResource(resource)
+		}
+
+		return len(response.Response.SubnetSet), nil
+	})
 }
 
 func (s *CloudAccountService) syncSecurityGroups(credential *common.Credential, cpf *profile.ClientProfile, account *model.CloudAccount, region string) error {
@@ -427,36 +443,40 @@ func (s *CloudAccountService) syncSecurityGroups(credential *common.Credential, 
 		return err
 	}
 
-	request := vpc.NewDescribeSecurityGroupsRequest()
-	request.Limit = common.StringPtr("100")
+	return s.paginateSync(func(offset int64) (int, error) {
+		request := vpc.NewDescribeSecurityGroupsRequest()
+		request.Limit = common.StringPtr(fmt.Sprintf("%d", cloudSyncPageSize))
+		request.Offset = common.StringPtr(fmt.Sprintf("%d", offset))
 
-	response, err := client.DescribeSecurityGroups(request)
-	if err != nil {
-		return err
-	}
-	if response == nil || response.Response == nil {
-		return nil
-	}
-
-	for _, sg := range response.Response.SecurityGroupSet {
-		sgID := safeDereferenceString(sg.SecurityGroupId)
-		name := safeDereferenceString(sg.SecurityGroupName)
-		desc := safeDereferenceString(sg.SecurityGroupDesc)
-
-		specJSON, _ := json.Marshal(map[string]string{"description": desc})
-		resource := &model.CloudResource{
-			TenantID:       account.TenantID,
-			CloudAccountID: account.ID,
-			ResourceType:   "security_group",
-			ResourceID:     sgID,
-			Region:         region,
-			Name:           name,
-			Spec:           string(specJSON),
-			SyncedAt:       time.Now(),
+		response, err := client.DescribeSecurityGroups(request)
+		if err != nil {
+			return 0, err
 		}
-		_ = s.repo.UpsertResource(resource)
-	}
-	return nil
+		if response == nil || response.Response == nil || response.Response.SecurityGroupSet == nil {
+			return 0, nil
+		}
+
+		for _, sg := range response.Response.SecurityGroupSet {
+			sgID := safeDereferenceString(sg.SecurityGroupId)
+			name := safeDereferenceString(sg.SecurityGroupName)
+			desc := safeDereferenceString(sg.SecurityGroupDesc)
+
+			specJSON, _ := json.Marshal(map[string]string{"description": desc})
+			resource := &model.CloudResource{
+				TenantID:       account.TenantID,
+				CloudAccountID: account.ID,
+				ResourceType:   "security_group",
+				ResourceID:     sgID,
+				Region:         region,
+				Name:           name,
+				Spec:           string(specJSON),
+				SyncedAt:       time.Now(),
+			}
+			_ = s.repo.UpsertResource(resource)
+		}
+
+		return len(response.Response.SecurityGroupSet), nil
+	})
 }
 
 func (s *CloudAccountService) syncCBS(credential *common.Credential, cpf *profile.ClientProfile, account *model.CloudAccount, region string) error {
@@ -465,46 +485,50 @@ func (s *CloudAccountService) syncCBS(credential *common.Credential, cpf *profil
 		return err
 	}
 
-	request := cbs.NewDescribeDisksRequest()
-	request.Limit = common.Uint64Ptr(100)
+	return s.paginateSync(func(offset int64) (int, error) {
+		request := cbs.NewDescribeDisksRequest()
+		request.Limit = common.Uint64Ptr(uint64(cloudSyncPageSize))
+		request.Offset = common.Uint64Ptr(uint64(offset))
 
-	response, err := client.DescribeDisks(request)
-	if err != nil {
-		return err
-	}
-	if response == nil || response.Response == nil {
-		return nil
-	}
-
-	for _, disk := range response.Response.DiskSet {
-		diskID := safeDereferenceString(disk.DiskId)
-		name := safeDereferenceString(disk.DiskName)
-		state := safeDereferenceString(disk.DiskState)
-		diskType := safeDereferenceString(disk.DiskType)
-		diskSize := safeDereferenceUint64(disk.DiskSize)
-		zone := ""
-		if disk.Placement != nil {
-			zone = safeDereferenceString(disk.Placement.Zone)
+		response, err := client.DescribeDisks(request)
+		if err != nil {
+			return 0, err
+		}
+		if response == nil || response.Response == nil || response.Response.DiskSet == nil {
+			return 0, nil
 		}
 
-		specJSON, _ := json.Marshal(map[string]interface{}{
-			"size": diskSize, "type": diskType,
-		})
-		resource := &model.CloudResource{
-			TenantID:       account.TenantID,
-			CloudAccountID: account.ID,
-			ResourceType:   "cbs",
-			ResourceID:     diskID,
-			Region:         region,
-			Zone:           zone,
-			Name:           name,
-			State:          state,
-			Spec:           string(specJSON),
-			SyncedAt:       time.Now(),
+		for _, disk := range response.Response.DiskSet {
+			diskID := safeDereferenceString(disk.DiskId)
+			name := safeDereferenceString(disk.DiskName)
+			state := safeDereferenceString(disk.DiskState)
+			diskType := safeDereferenceString(disk.DiskType)
+			diskSize := safeDereferenceUint64(disk.DiskSize)
+			zone := ""
+			if disk.Placement != nil {
+				zone = safeDereferenceString(disk.Placement.Zone)
+			}
+
+			specJSON, _ := json.Marshal(map[string]interface{}{
+				"size": diskSize, "type": diskType,
+			})
+			resource := &model.CloudResource{
+				TenantID:       account.TenantID,
+				CloudAccountID: account.ID,
+				ResourceType:   "cbs",
+				ResourceID:     diskID,
+				Region:         region,
+				Zone:           zone,
+				Name:           name,
+				State:          state,
+				Spec:           string(specJSON),
+				SyncedAt:       time.Now(),
+			}
+			_ = s.repo.UpsertResource(resource)
 		}
-		_ = s.repo.UpsertResource(resource)
-	}
-	return nil
+
+		return len(response.Response.DiskSet), nil
+	})
 }
 
 // Scheduled sync
