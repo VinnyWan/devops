@@ -102,6 +102,10 @@ const routes = [
       {
         path: 'cmdb/terminal/replay/:id',
         component: () => import('../views/Cmdb/TerminalReplay.vue')
+      },
+      {
+        path: 'cmdb/permissions',
+        component: () => import('../views/Cmdb/PermissionList.vue')
       }
     ]
   }

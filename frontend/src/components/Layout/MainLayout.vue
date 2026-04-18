@@ -49,6 +49,7 @@
           <el-menu-item index="/cmdb/groups">分组管理</el-menu-item>
           <el-menu-item index="/cmdb/credentials">凭据管理</el-menu-item>
           <el-menu-item index="/cmdb/terminal/sessions">终端审计</el-menu-item>
+          <el-menu-item index="/cmdb/permissions">权限配置</el-menu-item>
         </el-sub-menu>
       </el-menu>
     </el-aside>
