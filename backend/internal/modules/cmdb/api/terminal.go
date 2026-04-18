@@ -203,6 +203,20 @@ func TerminalConnect(c *gin.Context) {
 		return
 	}
 
+	// 主机级权限校验
+	if !isCmdbAdmin(c, tenantID, userID) {
+		permSvc := getPermissionService()
+		allowed, _, err := permSvc.CheckPermission(tenantID, userID, hostID, "terminal")
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "权限校验失败"})
+			return
+		}
+		if !allowed {
+			c.JSON(http.StatusForbidden, gin.H{"code": 403, "message": "无该主机终端访问权限"})
+			return
+		}
+	}
+
 	host, credential, err := svc.GetConnectTarget(tenantID, hostID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
