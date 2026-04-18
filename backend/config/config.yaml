@@ -1,0 +1,94 @@
+# 项目启动端口
+server:
+  port: 8000
+  # debug / release 模式
+  mode: release
+  enableSwagger: true
+
+# 数据库配置
+db:
+  dialects: mysql
+  host: 129.211.30.73
+  port: 30306
+  db: newdevops
+  username: admin
+  password: "admin@2026"
+  charset: utf8mb4
+  # 最大空闲数
+  maxIdle: 10
+  # 最大连接数
+  maxOpen: 150
+
+# redis配置
+redis:
+  addr: 129.211.30.73:30379
+  password: "fCmtL2UZTdgr"
+  db: 0
+
+# session 配置
+session:
+  expire: 7200  # session 过期时间(秒), 默认 7200 = 2小时
+
+# 加密配置
+crypto:
+  secret: "change-this-crypto-secret"
+
+# Terminal 配置
+terminal:
+  recording_dir: "./data/recordings/cmdb-terminal"
+  max_session_duration: 86400
+  idle_timeout: 300
+  known_hosts_path: "./data/known_hosts"
+  recording:
+    max_age_days: 90    # 录像保留天数，0 表示不清理
+    cleanup_hour: 3     # 每天凌晨 3 点执行清理（0-23）
+
+# 日志配置
+log:
+  # 输出目标：console(终端) 或 file(文件) 或 both(两者)
+  output: console
+  # 日志文件路径（当 output 为 file 或 both 时生效）
+  filePath: ./logs/app.log
+  # 日志级别：debug, info, warn, error
+  level: debug
+  # 是否启用调用者信息
+  enableCaller: true
+  # 是否启用堆栈跟踪（error级别及以上）
+  enableStacktrace: true
+
+# CORS 跨域配置
+cors:
+  allow_origins:
+    - "http://localhost:3000"
+    - "http://localhost:3004"
+    - "http://127.0.0.1:3000"
+    - "http://127.0.0.1:3004"
+    - "http://129.211.30.73:3000"
+    - "http://129.211.30.73:8000"
+  allow_methods: ["GET","POST","PUT","PATCH","DELETE","OPTIONS"]
+  allow_headers: ["Content-Type","Authorization","X-Token"]
+  expose_headers: ["Set-Cookie"]
+
+# Nacos 配置中心 (默认关闭，启用后会从 Nacos 加载配置并覆盖上述配置)
+nacos:
+  enable: false
+  host: "129.211.30.73"
+  port: 8848
+  server_addrs: ""
+  namespace: "public"
+  data_id: "devops"
+  group: "DEFAULT_GROUP"
+  timeout_ms: 5000
+  username: ""
+  password: ""
+  register_enable: false
+  service_name: "devops"
+  service_ip: "129.211.30.73"
+  service_port: 0
+  service_group: "DEFAULT_GROUP"
+  service_cluster: "DEFAULT"
+  service_weight: 1
+  service_ephemeral: true
+  service_metadata:
+    protocol: "http"
+    version: "v1"

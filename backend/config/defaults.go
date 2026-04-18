@@ -47,6 +47,10 @@ func SetDefaults(v *viper.Viper) {
 	v.SetDefault("terminal.idle_timeout", 300)
 	v.SetDefault("terminal.known_hosts_path", "")
 
+	// 录像清理默认配置
+	v.SetDefault("terminal.recording.max_age_days", 90)
+	v.SetDefault("terminal.recording.cleanup_hour", 3)
+
 	// LDAP 默认配置（默认关闭）
 	v.SetDefault("ldap.enable", false)
 	v.SetDefault("ldap.host", "ldap.example.com")
