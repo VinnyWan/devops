@@ -31,6 +31,12 @@ func registerCMDB(r *gin.RouterGroup) {
 	permCreatePerm := middleware.RequirePermission("cmdb:permission", "create")
 	permUpdatePerm := middleware.RequirePermission("cmdb:permission", "update")
 	permDeletePerm := middleware.RequirePermission("cmdb:permission", "delete")
+	cloudListPerm := middleware.RequirePermission("cmdb:cloud", "list")
+	cloudGetPerm := middleware.RequirePermission("cmdb:cloud", "get")
+	cloudCreatePerm := middleware.RequirePermission("cmdb:cloud", "create")
+	cloudUpdatePerm := middleware.RequirePermission("cmdb:cloud", "update")
+	cloudDeletePerm := middleware.RequirePermission("cmdb:cloud", "delete")
+	cloudSyncPerm := middleware.RequirePermission("cmdb:cloud", "sync")
 
 	{
 		// 主机管理
@@ -71,5 +77,14 @@ func registerCMDB(r *gin.RouterGroup) {
 			g.POST("/permission/delete", permDeletePerm, middleware.SetAuditOperation("删除权限"), api.PermissionDelete)
 			g.GET("/permission/my-hosts", api.PermissionMyHosts)
 			g.GET("/permission/check", api.PermissionCheck)
+
+			// 云账号管理
+			g.GET("/cloud-account/list", cloudListPerm, api.CloudAccountList)
+			g.GET("/cloud-account/detail", cloudGetPerm, api.CloudAccountDetail)
+			g.POST("/cloud-account/create", cloudCreatePerm, middleware.SetAuditOperation("创建云账号"), api.CloudAccountCreate)
+			g.POST("/cloud-account/update", cloudUpdatePerm, middleware.SetAuditOperation("更新云账号"), api.CloudAccountUpdate)
+			g.POST("/cloud-account/delete", cloudDeletePerm, middleware.SetAuditOperation("删除云账号"), api.CloudAccountDelete)
+			g.POST("/cloud-account/sync", cloudSyncPerm, middleware.SetAuditOperation("同步云资源"), api.CloudAccountSync)
+			g.GET("/cloud-account/resources", cloudListPerm, api.CloudResourceList)
 	}
 }
