@@ -37,6 +37,10 @@ func registerCMDB(r *gin.RouterGroup) {
 	cloudUpdatePerm := middleware.RequirePermission("cmdb:cloud", "update")
 	cloudDeletePerm := middleware.RequirePermission("cmdb:cloud", "delete")
 	cloudSyncPerm := middleware.RequirePermission("cmdb:cloud", "sync")
+	fileBrowsePerm := middleware.RequirePermission("cmdb:file", "browse")
+	fileUploadPerm := middleware.RequirePermission("cmdb:file", "upload")
+	fileDeletePerm := middleware.RequirePermission("cmdb:file", "delete")
+	fileAuditPerm := middleware.RequirePermission("cmdb:file", "audit")
 
 	{
 		// 主机管理
@@ -86,5 +90,18 @@ func registerCMDB(r *gin.RouterGroup) {
 			g.POST("/cloud-account/delete", cloudDeletePerm, middleware.SetAuditOperation("删除云账号"), api.CloudAccountDelete)
 			g.POST("/cloud-account/sync", cloudSyncPerm, middleware.SetAuditOperation("同步云资源"), api.CloudAccountSync)
 			g.GET("/cloud-account/resources", cloudListPerm, api.CloudResourceList)
+
+			// 文件管理
+			g.GET("/file/browse", fileBrowsePerm, api.FileBrowse)
+			g.GET("/file/download", fileBrowsePerm, api.FileDownload)
+			g.POST("/file/upload/:hostId", fileUploadPerm, middleware.SetAuditOperation("上传文件"), api.FileUpload)
+			g.POST("/file/delete", fileDeletePerm, middleware.SetAuditOperation("删除文件"), api.FileDelete)
+			g.POST("/file/rename", fileDeletePerm, middleware.SetAuditOperation("重命名文件"), api.FileRename)
+			g.POST("/file/mkdir", fileUploadPerm, middleware.SetAuditOperation("创建目录"), api.FileMkdir)
+			g.POST("/file/chmod", fileDeletePerm, middleware.SetAuditOperation("修改文件权限"), api.FileChmod)
+			g.GET("/file/preview", fileBrowsePerm, api.FilePreview)
+			g.POST("/file/edit", fileDeletePerm, middleware.SetAuditOperation("编辑文件"), api.FileEdit)
+			g.POST("/file/distribute", fileUploadPerm, middleware.SetAuditOperation("批量分发文件"), api.FileDistribute)
+			g.GET("/file/audit", fileAuditPerm, api.FileAuditList)
 	}
 }

@@ -77,6 +77,7 @@ func InitDB() error {
 		&cmdbModel.HostPermission{},
 		&cmdbModel.CloudAccount{},
 		&cmdbModel.CloudResource{},
+		&cmdbModel.FileOperationLog{},
 	)
 	if err != nil {
 		return err

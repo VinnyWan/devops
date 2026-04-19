@@ -21,11 +21,6 @@ func getUserInfo(c *gin.Context) (uint, string) {
 	return uID, uName
 }
 
-func getFileService() *service.FileService {
-	// Will be wired up in Task 7; placeholder for compilation.
-	return nil
-}
-
 // FileBrowse lists files and directories at a given path on a host.
 func FileBrowse(c *gin.Context) {
 	tenantID, err := getCurrentTenantID(c)

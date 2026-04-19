@@ -21,6 +21,7 @@ var (
 	terminalSvcInstance *service.TerminalService
 	permSvcInstance     *service.PermissionService
 	cloudSvcInstance    *service.CloudAccountService
+	fileSvcInstance     *service.FileService
 	cmdbOnce            sync.Once
 	cmdbMu              sync.Mutex
 )
@@ -35,6 +36,7 @@ func SetDB(database *gorm.DB) {
 	terminalSvcInstance = nil
 	permSvcInstance = nil
 	cloudSvcInstance = nil
+	fileSvcInstance = nil
 	cmdbOnce = sync.Once{}
 }
 
@@ -114,6 +116,19 @@ func getCloudAccountService() *service.CloudAccountService {
 	}
 	cloudSvcInstance = service.NewCloudAccountService(cmdbDB)
 	return cloudSvcInstance
+}
+
+func getFileService() *service.FileService {
+	cmdbMu.Lock()
+	defer cmdbMu.Unlock()
+	if fileSvcInstance != nil {
+		return fileSvcInstance
+	}
+	if cmdbDB == nil {
+		return nil
+	}
+	fileSvcInstance = service.NewFileService(cmdbDB)
+	return fileSvcInstance
 }
 
 func getCurrentTenantID(c *gin.Context) (uint, error) {
