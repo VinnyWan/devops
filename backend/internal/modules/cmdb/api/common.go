@@ -24,6 +24,7 @@ var (
 	cloudSvcInstance    *service.CloudAccountService
 	fileSvcInstance     *service.FileService
 	dashboardSvcInstance *service.DashboardService
+	batchCmdSvcInstance *service.BatchCommandService
 	cmdbOnce            sync.Once
 	cmdbMu              sync.Mutex
 )
@@ -40,6 +41,7 @@ func SetDB(database *gorm.DB) {
 	cloudSvcInstance = nil
 	fileSvcInstance = nil
 	dashboardSvcInstance = nil
+	batchCmdSvcInstance = nil
 	cmdbOnce = sync.Once{}
 }
 
@@ -146,6 +148,19 @@ func getDashboardService() *service.DashboardService {
 	repo := repository.NewDashboardRepo(cmdbDB)
 	dashboardSvcInstance = service.NewDashboardService(repo)
 	return dashboardSvcInstance
+}
+
+func getBatchCommandService() *service.BatchCommandService {
+	cmdbMu.Lock()
+	defer cmdbMu.Unlock()
+	if batchCmdSvcInstance != nil {
+		return batchCmdSvcInstance
+	}
+	if cmdbDB == nil {
+		return nil
+	}
+	batchCmdSvcInstance = service.NewBatchCommandService(cmdbDB)
+	return batchCmdSvcInstance
 }
 
 func getCurrentTenantID(c *gin.Context) (uint, error) {

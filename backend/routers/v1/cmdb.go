@@ -77,6 +77,9 @@ func registerCMDB(r *gin.RouterGroup) {
 		g.GET("/terminal/detail", terminalGetPerm, api.TerminalDetail)
 		g.GET("/terminal/recording", terminalReplayPerm, api.TerminalRecording)
 
+		// 批量命令
+		g.GET("/terminal/batch", terminalConnectPerm, api.BatchCommandConnect)
+
 		// 权限配置
 		g.GET("/permission/list", permListPerm, api.PermissionList)
 		g.GET("/permission/group-host-count", permListPerm, api.PermissionGroupHostCount)
