@@ -74,6 +74,7 @@ func InitDB() error {
 		&cmdbModel.HostGroup{},
 		&cmdbModel.Credential{},
 		&cmdbModel.TerminalSession{},
+		&cmdbModel.SessionTag{},
 		&cmdbModel.HostPermission{},
 		&cmdbModel.CloudAccount{},
 		&cmdbModel.CloudResource{},
