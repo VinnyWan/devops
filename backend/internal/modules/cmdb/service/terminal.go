@@ -179,3 +179,28 @@ func (s *TerminalService) BuildRecordingPath(baseDir string, startedAt time.Time
 	fileName := fmt.Sprintf("%d.cast", sessionID)
 	return filepath.Join(baseDir, dayDir, fileName)
 }
+
+// AddTag adds a tag to a terminal session
+func (s *TerminalService) AddTag(tenantID, sessionID, userID uint, tag string) error {
+	return s.terminalRepo.AddTagToSession(tenantID, sessionID, userID, tag)
+}
+
+// RemoveTag removes a tag from a terminal session
+func (s *TerminalService) RemoveTag(tenantID, sessionID uint, tag string) error {
+	return s.terminalRepo.RemoveTagFromSession(tenantID, sessionID, tag)
+}
+
+// GetTagsForSession returns tags for a session
+func (s *TerminalService) GetTagsForSession(sessionID uint) ([]model.SessionTag, error) {
+	return s.terminalRepo.GetTagsForSession(sessionID)
+}
+
+// SearchByTag returns sessions matching a tag
+func (s *TerminalService) SearchByTag(tenantID uint, tag string, page, pageSize int) ([]model.TerminalSession, int64, error) {
+	return s.terminalRepo.SearchSessionsByTag(tenantID, tag, page, pageSize)
+}
+
+// GetAvailableTags returns all distinct tags in a tenant
+func (s *TerminalService) GetAvailableTags(tenantID uint) ([]string, error) {
+	return s.terminalRepo.GetAvailableTags(tenantID)
+}

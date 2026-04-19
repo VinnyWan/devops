@@ -77,6 +77,13 @@ func registerCMDB(r *gin.RouterGroup) {
 		g.GET("/terminal/detail", terminalGetPerm, api.TerminalDetail)
 		g.GET("/terminal/recording", terminalReplayPerm, api.TerminalRecording)
 
+		// 会话标签
+		g.GET("/terminal/tags", terminalListPerm, api.SessionAvailableTags)
+		g.GET("/terminal/tag/list", terminalListPerm, api.SessionTagList)
+		g.GET("/terminal/tag/search", terminalListPerm, api.SessionSearchByTag)
+		g.POST("/terminal/tag/add", terminalConnectPerm, middleware.SetAuditOperation("添加会话标签"), api.SessionTagAdd)
+		g.POST("/terminal/tag/remove", terminalConnectPerm, middleware.SetAuditOperation("移除会话标签"), api.SessionTagRemove)
+
 		// 批量命令
 		g.GET("/terminal/batch", terminalConnectPerm, api.BatchCommandConnect)
 
