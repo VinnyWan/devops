@@ -85,23 +85,42 @@
       </template>
     </el-dialog>
 
-    <el-dialog v-model="terminalDialogVisible" :title="terminalTitle" width="80%" top="5vh" destroy-on-close @closed="handleTerminalDialogClosed">
-      <Terminal ref="terminalRef" :visible="terminalDialogVisible" :ws-url="terminalWsUrl" style="width: 100%;" />
+    <el-dialog
+      v-model="terminalDialogVisible"
+      title="SSH 终端"
+      width="80%"
+      top="5vh"
+      :close-on-click-modal="false"
+      destroy-on-close
+      class="terminal-dialog"
+      @closed="handleTerminalDialogClosed"
+    >
+      <div style="height: 65vh;">
+        <MultiTabTerminal
+          ref="multiTabTerminal"
+          :visible="terminalDialogVisible"
+          @request-connect="handleTerminalRequestConnect"
+          @all-closed="handleTerminalAllClosed"
+        />
+      </div>
     </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, computed, nextTick } from 'vue'
+import { ref, onMounted, computed, nextTick, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search } from '@element-plus/icons-vue'
-import Terminal from '@/components/K8s/Terminal.vue'
+import MultiTabTerminal from '@/components/Cmdb/MultiTabTerminal.vue'
 import { getHostList, createHost, updateHost, deleteHost, testHost, batchCreateHost, checkHostPermission } from '@/api/cmdb/host'
 import { getGroupTree } from '@/api/cmdb/group'
 import { getCredentialList } from '@/api/cmdb/credential'
 import { getTerminalConnectWsUrl } from '@/api/cmdb/terminal'
 import { required, ipAddress } from '@/utils/validate'
 import { formatTime } from '@/utils/format'
+
+const route = useRoute()
 
 const loading = ref(false)
 const tableData = ref([])
@@ -115,8 +134,9 @@ const dialogVisible = ref(false)
 const batchDialogVisible = ref(false)
 const terminalDialogVisible = ref(false)
 const terminalWsUrl = ref('')
-const terminalTitle = ref('主机终端')
-const terminalRef = ref()
+const terminalHostName = ref('')
+const terminalHostId = ref(null)
+const multiTabTerminal = ref(null)
 const isEdit = ref(false)
 const batchText = ref('')
 const formRef = ref()
@@ -245,17 +265,43 @@ const handleTerminal = async (row) => {
     ElMessage.error('权限校验失败')
     return
   }
-  terminalTitle.value = `主机终端 - ${row.hostname || row.ip}`
-  terminalWsUrl.value = getTerminalConnectWsUrl(row.id)
-  terminalDialogVisible.value = true
-  nextTick(() => {
-    terminalRef.value?.fit()
-  })
+  const wsUrl = getTerminalConnectWsUrl(row.id)
+  if (!terminalDialogVisible.value) {
+    terminalHostId.value = row.id
+    terminalWsUrl.value = wsUrl
+    terminalHostName.value = row.hostname || row.ip
+    terminalDialogVisible.value = true
+  } else {
+    // Dialog already open — add a new tab
+    multiTabTerminal.value?.addTab(row.id, row.hostname || row.ip, wsUrl)
+  }
 }
+
+const handleTerminalRequestConnect = () => {
+  // Close dialog so user picks a host from the table to add a new tab
+  terminalDialogVisible.value = false
+}
+
+const handleTerminalAllClosed = () => {
+  terminalDialogVisible.value = false
+}
+
+// Auto-add first tab when dialog opens with pending host info
+watch(terminalDialogVisible, async (val) => {
+  if (val && terminalWsUrl.value && multiTabTerminal.value) {
+    await nextTick()
+    multiTabTerminal.value.addTab(
+      terminalHostId.value,
+      terminalHostName.value,
+      terminalWsUrl.value
+    )
+  }
+})
 
 const handleTerminalDialogClosed = () => {
   terminalWsUrl.value = ''
-  terminalTitle.value = '主机终端'
+  terminalHostName.value = ''
+  terminalHostId.value = null
 }
 
 const statusTagType = (val) => ({ online: 'success', offline: 'danger', unknown: 'info' }[val] || 'info')
@@ -263,7 +309,15 @@ const statusText = (val) => ({ online: '在线', offline: '离线', unknown: '�
 
 onMounted(async () => {
   await Promise.all([fetchGroups(), fetchCredentials()])
-  fetchData()
+  await fetchData()
+  // Handle dashboard "My Hosts" click via query param
+  if (route.query.terminalHostId) {
+    const hostId = Number(route.query.terminalHostId)
+    const host = tableData.value.find(h => h.id === hostId)
+    if (host) {
+      handleTerminal(host)
+    }
+  }
 })
 </script>
 
@@ -273,4 +327,5 @@ onMounted(async () => {
 .page-header h3 { margin: 0; font-size: 18px; font-weight: 500; }
 .toolbar { display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
 .pagination-wrap { margin-top: 16px; display: flex; justify-content: flex-end; }
+:deep(.terminal-dialog .el-dialog__body) { padding: 0; overflow: hidden; }
 </style>
