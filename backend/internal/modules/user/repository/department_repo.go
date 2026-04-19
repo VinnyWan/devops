@@ -49,6 +49,22 @@ func (r *DepartmentRepo) GetByIDInTenant(tenantID uint, id uint) (*model.Departm
 	return &dept, err
 }
 
+func (r *DepartmentRepo) GetByIDsInTenant(tenantID uint, ids []uint) ([]model.Department, error) {
+	if err := requireTenantScope(tenantID); err != nil {
+		return nil, err
+	}
+	if len(ids) == 0 {
+		return []model.Department{}, nil
+	}
+	var depts []model.Department
+	err := r.db.
+		Preload("Roles", "(tenant_id = ? OR tenant_id IS NULL)", tenantID).
+		Preload("Roles.Permissions").
+		Where("tenant_id = ? AND id IN ?", tenantID, ids).
+		Find(&depts).Error
+	return depts, err
+}
+
 // List 获取部门列表（扁平结构，需Service层组装树）
 func (r *DepartmentRepo) List(keyword string) ([]model.Department, error) {
 	var depts []model.Department

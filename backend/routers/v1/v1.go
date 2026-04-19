@@ -2,7 +2,6 @@ package v1
 
 import (
 	"devops-platform/internal/middleware"
-	"devops-platform/internal/modules/user/api"
 
 	"github.com/gin-gonic/gin"
 )
@@ -11,17 +10,11 @@ func Register(r *gin.Engine) {
 	apiV1 := r.Group("/api/v1")
 	apiV1.Use(middleware.RequestContext(), middleware.Audit())
 
-	// 认证相关公开接口
-	apiV1.POST("/user/login", api.Login)
-	apiV1.POST("/user/register", api.Register)
-
 	// 鉴权接口
 	auth := apiV1.Group("")
 	auth.Use(authMiddlewares()...)
 
-	auth.POST("/user/logout", api.Logout)
-
-	// 旧路由（兼容期保留）
+	// 旧业务路由（K8s / CMDB 等暂保留）
 	registerCluster(auth)
 	registerAlert(auth)
 	registerLog(auth)
@@ -29,12 +22,8 @@ func Register(r *gin.Engine) {
 	registerHarbor(auth)
 	registerCICD(auth)
 	registerApp(auth)
-	registerDepartment(auth)
-	registerUser(auth)
-	registerRole(auth)
 	registerAudit(auth)
 	registerLoginLog(auth)
-	registerTenant(auth)
 	registerCMDB(auth)
 
 	// 新路由分组（RESTful）

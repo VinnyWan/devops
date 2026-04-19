@@ -15,19 +15,20 @@ import (
 )
 
 var (
-	cmdbDB              *gorm.DB
-	hostSvcInstance     *service.HostService
-	groupSvcInstance    *service.GroupService
-	credSvcInstance     *service.CredentialService
-	terminalSvcInstance *service.TerminalService
-	permSvcInstance     *service.PermissionService
-	cloudSvcInstance    *service.CloudAccountService
-	fileSvcInstance     *service.FileService
+	cmdbDB               *gorm.DB
+	hostSvcInstance      *service.HostService
+	groupSvcInstance     *service.GroupService
+	credSvcInstance      *service.CredentialService
+	terminalSvcInstance  *service.TerminalService
+	permSvcInstance      *service.PermissionService
+	cloudSvcInstance     *service.CloudAccountService
+	fileSvcInstance      *service.FileService
 	dashboardSvcInstance *service.DashboardService
-	batchCmdSvcInstance *service.BatchCommandService
-	snippetSvcInstance  *service.SnippetService
-	cmdbOnce            sync.Once
-	cmdbMu              sync.Mutex
+	batchCmdSvcInstance  *service.BatchCommandService
+	snippetSvcInstance   *service.SnippetService
+	userSvcInstance      *userservice.UserService
+	cmdbOnce             sync.Once
+	cmdbMu               sync.Mutex
 )
 
 func SetDB(database *gorm.DB) {
@@ -44,6 +45,7 @@ func SetDB(database *gorm.DB) {
 	dashboardSvcInstance = nil
 	batchCmdSvcInstance = nil
 	snippetSvcInstance = nil
+	userSvcInstance = nil
 	cmdbOnce = sync.Once{}
 }
 
@@ -178,6 +180,19 @@ func getSnippetService() *service.SnippetService {
 	return snippetSvcInstance
 }
 
+func getUserService() *userservice.UserService {
+	cmdbMu.Lock()
+	defer cmdbMu.Unlock()
+	if userSvcInstance != nil {
+		return userSvcInstance
+	}
+	if cmdbDB == nil {
+		return nil
+	}
+	userSvcInstance = userservice.NewUserService(cmdbDB)
+	return userSvcInstance
+}
+
 func getCurrentTenantID(c *gin.Context) (uint, error) {
 	tenantIDValue, exists := c.Get("tenantID")
 	if !exists {
@@ -192,7 +207,10 @@ func getCurrentTenantID(c *gin.Context) (uint, error) {
 
 // isCmdbAdmin checks if user has cmdb:host:admin permission (admin bypasses host-level filtering)
 func isCmdbAdmin(c *gin.Context, tenantID, userID uint) bool {
-	userSvc := userservice.NewUserService(cmdbDB)
+	userSvc := getUserService()
+	if userSvc == nil {
+		return false
+	}
 	isAdmin, err := userSvc.CheckPermission(c.Request.Context(), tenantID, userID, "cmdb:host", "admin")
 	if err != nil {
 		logger.Log.Error("检查 CMDB 管理员权限失败", zap.Error(err))

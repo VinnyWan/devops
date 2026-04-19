@@ -53,11 +53,12 @@ func GetUserByID(c *gin.Context) {
 func CreateUserREST(c *gin.Context) {
 	// 复用 Register 逻辑，但不需要 tenantCode（从上下文获取）
 	var req struct {
-		Username string `json:"username" binding:"required"`
-		Password string `json:"password" binding:"required,min=6"`
-		Nickname string `json:"nickname"`
-		Email    string `json:"email"`
-		Phone    string `json:"phone"`
+		Username      string `json:"username" binding:"required"`
+		Password      string `json:"password" binding:"required,min=6"`
+		Nickname      string `json:"nickname"`
+		Email         string `json:"email"`
+		Phone         string `json:"phone"`
+		PrimaryDeptID *uint  `json:"primaryDeptId"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误: " + err.Error()})
@@ -67,7 +68,7 @@ func CreateUserREST(c *gin.Context) {
 	tenantID := GetCurrentTenantID(c)
 	operatorID := GetCurrentUserID(c)
 
-	user, err := getService().AdminCreateUser(c.Request.Context(), tenantID, operatorID, &req.Username, &req.Password, &req.Nickname, &req.Email, &req.Phone)
+	user, err := getService().AdminCreateUser(c.Request.Context(), tenantID, operatorID, &req.Username, &req.Password, &req.Nickname, &req.Email, &req.Phone, req.PrimaryDeptID)
 	if err != nil {
 		logger.Log.Error("Failed to create user", zap.Error(err))
 		writeModuleError(c, err, http.StatusInternalServerError)

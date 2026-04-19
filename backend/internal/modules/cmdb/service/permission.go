@@ -47,6 +47,14 @@ func (s *PermissionService) normalizePage(page, pageSize int) (int, int) {
 	return page, pageSize
 }
 
+func collectDescendantGroupIDs(childrenMap map[uint][]uint, groupID uint) []uint {
+	result := []uint{groupID}
+	for _, childID := range childrenMap[groupID] {
+		result = append(result, collectDescendantGroupIDs(childrenMap, childID)...)
+	}
+	return result
+}
+
 var validPermissions = map[string]bool{"view": true, "terminal": true, "admin": true}
 
 func (s *PermissionService) CreateInTenant(tenantID uint, userID uint, req *PermissionCreateRequest) ([]model.HostPermission, error) {
@@ -175,7 +183,7 @@ func (s *PermissionService) MyHosts(tenantID, userID uint) ([]PermissionHostEntr
 	groupPermSet := make(map[uint]map[string]bool)
 	for _, p := range perms {
 		if _, ok := expandedGroups[p.HostGroupID]; !ok {
-			expandedGroups[p.HostGroupID] = collectDescendants(p.HostGroupID)
+			expandedGroups[p.HostGroupID] = collectDescendantGroupIDs(childrenMap, p.HostGroupID)
 		}
 		if groupPermSet[p.HostGroupID] == nil {
 			groupPermSet[p.HostGroupID] = make(map[string]bool)
@@ -213,27 +221,38 @@ func (s *PermissionService) MyHosts(tenantID, userID uint) ([]PermissionHostEntr
 		}
 	}
 
-	result := make([]PermissionHostEntry, 0)
-	for groupID, perm := range effectivePerm {
-		hosts, _, err := s.hostRepo.GetByGroupIDInTenant(tenantID, groupID, 1, 1000)
-		if err != nil {
+	groupIDs := make([]uint, 0, len(effectivePerm))
+	for groupID := range effectivePerm {
+		groupIDs = append(groupIDs, groupID)
+	}
+	hosts, err := s.hostRepo.ListByGroupIDsInTenant(tenantID, groupIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]PermissionHostEntry, 0, len(hosts))
+	for _, h := range hosts {
+		if h.GroupID == nil {
+			continue
+		}
+		groupID := *h.GroupID
+		perm, ok := effectivePerm[groupID]
+		if !ok {
 			continue
 		}
 		gn := ""
 		if g, ok := groupMap[groupID]; ok {
 			gn = g.Name
 		}
-		for _, h := range hosts {
-			result = append(result, PermissionHostEntry{
-				HostID:     h.ID,
-				Hostname:   h.Hostname,
-				Ip:         h.Ip,
-				Port:       h.Port,
-				Permission: perm,
-				GroupID:    groupID,
-				GroupName:  gn,
-			})
-		}
+		result = append(result, PermissionHostEntry{
+			HostID:     h.ID,
+			Hostname:   h.Hostname,
+			Ip:         h.Ip,
+			Port:       h.Port,
+			Permission: perm,
+			GroupID:    groupID,
+			GroupName:  gn,
+		})
 	}
 
 	return result, nil
@@ -316,25 +335,8 @@ func (s *PermissionService) GetGroupHostCount(tenantID, groupID uint) (int64, er
 		}
 	}
 
-	var collectDescendants func(id uint) []uint
-	collectDescendants = func(id uint) []uint {
-		result := []uint{id}
-		for _, childID := range childrenMap[id] {
-			result = append(result, collectDescendants(childID)...)
-		}
-		return result
-	}
-
-	ids := collectDescendants(groupID)
-	var total int64
-	for _, id := range ids {
-		_, count, err := s.hostRepo.GetByGroupIDInTenant(tenantID, id, 1, 1)
-		if err != nil {
-			continue
-		}
-		total += count
-	}
-	return total, nil
+	ids := collectDescendantGroupIDs(childrenMap, groupID)
+	return s.hostRepo.CountByGroupIDsInTenant(tenantID, ids)
 }
 
 func permRank(perm string) int {

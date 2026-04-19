@@ -152,16 +152,35 @@ func (r *HostRepo) CountInTenant(tenantID uint) (int64, error) {
 	return count, nil
 }
 
+func (r *HostRepo) ListByGroupIDsInTenant(tenantID uint, groupIDs []uint) ([]model.Host, error) {
+	if len(groupIDs) == 0 {
+		return []model.Host{}, nil
+	}
+	var hosts []model.Host
+	query := r.scopeInTenant(r.db.Model(&model.Host{}), tenantID).Where("group_id IN ?", groupIDs)
+	if err := query.Order("created_at DESC").Find(&hosts).Error; err != nil {
+		return nil, err
+	}
+	return hosts, nil
+}
+
+func (r *HostRepo) CountByGroupIDsInTenant(tenantID uint, groupIDs []uint) (int64, error) {
+	if len(groupIDs) == 0 {
+		return 0, nil
+	}
+	var count int64
+	query := r.scopeInTenant(r.db.Model(&model.Host{}), tenantID).Where("group_id IN ?", groupIDs)
+	if err := query.Count(&count).Error; err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
 func (r *HostRepo) BatchCreateInTenant(tenantID uint, hosts []model.Host) error {
-	return r.db.Transaction(func(tx *gorm.DB) error {
-		for i := range hosts {
-			if tenantID > 0 {
-				hosts[i].TenantID = &tenantID
-			}
-			if err := tx.Create(&hosts[i]).Error; err != nil {
-				return err
-			}
+	for i := range hosts {
+		if tenantID > 0 {
+			hosts[i].TenantID = &tenantID
 		}
-		return nil
-	})
+	}
+	return r.db.Create(&hosts).Error
 }

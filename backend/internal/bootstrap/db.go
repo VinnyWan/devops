@@ -197,6 +197,36 @@ func ensureKeywordIndexes(db *gorm.DB) error {
 			table: "clusters",
 			ddl:   "CREATE INDEX idx_clusters_env_created_deleted ON clusters (env, created_at, deleted_at)",
 		},
+		{
+			name:  "idx_hosts_tenant_group_status",
+			table: "hosts",
+			ddl:   "CREATE INDEX idx_hosts_tenant_group_status ON hosts (tenant_id, group_id, status)",
+		},
+		{
+			name:  "idx_terminal_sessions_tenant_user_host_status_started",
+			table: "terminal_sessions",
+			ddl:   "CREATE INDEX idx_terminal_sessions_tenant_user_host_status_started ON terminal_sessions (tenant_id, user_id, host_id, status, started_at)",
+		},
+		{
+			name:  "idx_host_permissions_tenant_user_group",
+			table: "host_permissions",
+			ddl:   "CREATE INDEX idx_host_permissions_tenant_user_group ON host_permissions (tenant_id, user_id, host_group_id)",
+		},
+		{
+			name:  "idx_cloud_resources_tenant_account_type",
+			table: "cloud_resources",
+			ddl:   "CREATE INDEX idx_cloud_resources_tenant_account_type ON cloud_resources (tenant_id, cloud_account_id, resource_type)",
+		},
+		{
+			name:  "idx_file_operation_logs_tenant_created",
+			table: "file_operation_logs",
+			ddl:   "CREATE INDEX idx_file_operation_logs_tenant_created ON file_operation_logs (tenant_id, created_at)",
+		},
+		{
+			name:  "idx_user_departments_user_dept",
+			table: "user_departments",
+			ddl:   "CREATE INDEX idx_user_departments_user_dept ON user_departments (user_id, dept_id)",
+		},
 	}
 
 	for _, index := range indexes {
@@ -304,6 +334,9 @@ func seedPermissions(db *gorm.DB) error {
 		{Name: "创建CI/CD", Type: userModel.PermissionTypeAPI, Resource: "cicd", Action: "create"},
 		{Name: "更新CI/CD", Type: userModel.PermissionTypeAPI, Resource: "cicd", Action: "update"},
 		{Name: "删除CI/CD", Type: userModel.PermissionTypeAPI, Resource: "cicd", Action: "delete"},
+			{Name: "触发CI/CD", Type: userModel.PermissionTypeAPI, Resource: "cicd", Action: "trigger"},
+			{Name: "管理CI/CD模板", Type: userModel.PermissionTypeAPI, Resource: "cicd", Action: "template"},
+			{Name: "查看登录日志", Type: userModel.PermissionTypeAPI, Resource: "login-log", Action: "list"},
 		// 租户管理权限
 			{Name: "查看租户", Type: userModel.PermissionTypeAPI, Resource: "tenant", Action: "list"},
 			{Name: "创建租户", Type: userModel.PermissionTypeAPI, Resource: "tenant", Action: "create"},

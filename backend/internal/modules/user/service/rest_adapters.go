@@ -9,7 +9,7 @@ import (
 )
 
 // AdminCreateUser 管理员创建用户（系统管理接口）
-func (s *UserService) AdminCreateUser(ctx context.Context, tenantID uint, operatorID uint, username, password, nickname, email, phone *string) (*model.User, error) {
+func (s *UserService) AdminCreateUser(ctx context.Context, tenantID uint, operatorID uint, username, password, nickname, email, phone *string, primaryDeptID *uint) (*model.User, error) {
 	if username == nil || *username == "" {
 		return nil, errors.New("username is required")
 	}
@@ -40,15 +40,16 @@ func (s *UserService) AdminCreateUser(ctx context.Context, tenantID uint, operat
 	}
 
 	user := &model.User{
-		TenantID:  &tenantID,
-		Username:  *username,
-		Password:  hashedPassword,
-		Name:      name,
-		Email:     emailVal,
-		AuthType:  model.AuthTypeLocal,
-		Status:    "active",
-		IsAdmin:   false,
-		IsLocked:  false,
+		TenantID:      &tenantID,
+		Username:      *username,
+		Password:      hashedPassword,
+		Name:          name,
+		Email:         emailVal,
+		AuthType:      model.AuthTypeLocal,
+		Status:        "active",
+		IsAdmin:       false,
+		IsLocked:      false,
+		PrimaryDeptID: primaryDeptID,
 	}
 
 	if err := s.userRepo.Create(user); err != nil {

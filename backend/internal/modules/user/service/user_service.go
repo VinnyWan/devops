@@ -228,7 +228,9 @@ func (s *UserService) ChangePassword(tenantID uint, userID uint, req *ChangePass
 		return err
 	}
 	// 改密后强制全端登出
-	_ = NewSessionService().RevokeAllUserSessions(context.Background(), tenantID, userID)
+	if err := NewSessionService().RevokeAllUserSessions(context.Background(), tenantID, userID); err != nil {
+		return fmt.Errorf("revoke sessions after password change failed: %w", err)
+	}
 	return nil
 }
 
@@ -259,7 +261,9 @@ func (s *UserService) ResetPassword(ctx context.Context, tenantID uint, operator
 		return err
 	}
 	// 重置密码后强制全端登出
-	_ = NewSessionService().RevokeAllUserSessions(context.Background(), tenantID, userID)
+	if err := NewSessionService().RevokeAllUserSessions(context.Background(), tenantID, userID); err != nil {
+		return fmt.Errorf("revoke sessions after password reset failed: %w", err)
+	}
 	return nil
 }
 
@@ -366,24 +370,26 @@ func (s *UserService) GetUserPermissions(tenantID uint, userID uint) ([]model.Pe
 		deptIDs = append(deptIDs, ud.DeptID)
 	}
 
-	// 6. 获取每个部门绑定的角色权限（department_roles）
-	for _, deptID := range deptIDs {
-		dept, err := s.deptRepo.GetByIDInTenant(tenantID, deptID)
+	// 6. 批量获取每个部门绑定的角色权限（department_roles）
+	if len(deptIDs) > 0 {
+		depts, err := s.deptRepo.GetByIDsInTenant(tenantID, deptIDs)
 		if err != nil {
-			continue // 部门不存在则跳过
+			return nil, fmt.Errorf("failed to get departments: %w", err)
 		}
-		for _, role := range dept.Roles {
-			addPerms(role.Permissions)
+		for _, dept := range depts {
+			for _, role := range dept.Roles {
+				addPerms(role.Permissions)
+			}
 		}
 	}
 
-	// 7. 获取 UserDepartment.RoleID 指定的部门专属角色权限
+	// 7. 批量获取 UserDepartment.RoleID 指定的部门专属角色权限
 	if len(extraRoleIDs) > 0 {
-		for _, roleID := range extraRoleIDs {
-			role, err := s.roleRepo.GetByIDInTenant(tenantID, roleID)
-			if err != nil {
-				continue // 角色不存在则跳过
-			}
+		roles, err := s.roleRepo.GetByIDsInTenant(tenantID, extraRoleIDs)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get extra roles: %w", err)
+		}
+		for _, role := range roles {
 			addPerms(role.Permissions)
 		}
 	}

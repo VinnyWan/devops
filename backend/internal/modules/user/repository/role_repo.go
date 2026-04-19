@@ -50,6 +50,20 @@ func (r *RoleRepo) GetByIDInTenant(tenantID uint, id uint) (*model.Role, error) 
 	return &role, nil
 }
 
+func (r *RoleRepo) GetByIDsInTenant(tenantID uint, ids []uint) ([]model.Role, error) {
+	if err := requireTenantScope(tenantID); err != nil {
+		return nil, err
+	}
+	if len(ids) == 0 {
+		return []model.Role{}, nil
+	}
+	var roles []model.Role
+	err := r.scopeInTenant(r.db.Preload("Permissions"), tenantID).
+		Where("id IN ?", ids).
+		Find(&roles).Error
+	return roles, err
+}
+
 // GetByName 根据名称获取角色
 func (r *RoleRepo) GetByName(name string) (*model.Role, error) {
 	var role model.Role

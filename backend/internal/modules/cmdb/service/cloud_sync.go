@@ -12,6 +12,7 @@ import (
 	"devops-platform/config"
 	"devops-platform/internal/modules/cmdb/model"
 	"devops-platform/internal/modules/cmdb/repository"
+	"devops-platform/internal/pkg/logger"
 	"devops-platform/internal/pkg/utils"
 
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
@@ -19,6 +20,7 @@ import (
 	cbs "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cbs/v20170312"
 	cvm "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cvm/v20170312"
 	vpc "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vpc/v20170312"
+	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
@@ -159,7 +161,9 @@ func (s *CloudAccountService) DeleteInTenant(tenantID, id uint) error {
 		}
 		return err
 	}
-	_ = s.repo.DeleteResourcesByAccount(account.ID)
+	if err := s.repo.DeleteResourcesByAccount(account.ID); err != nil {
+		logger.Log.Warn("删除云账号关联资源失败", zap.Uint("accountID", account.ID), zap.Error(err))
+	}
 	return s.repo.DeleteAccountInTenant(tenantID, id)
 }
 
@@ -314,7 +318,9 @@ func (s *CloudAccountService) syncCVM(credential *common.Credential, cpf *profil
 				Spec:           string(specJSON),
 				SyncedAt:       time.Now(),
 			}
-			_ = s.repo.UpsertResource(resource)
+			if err := s.repo.UpsertResource(resource); err != nil {
+				logger.Log.Warn("同步云资源失败", zap.String("region", region), zap.String("resourceType", resource.ResourceType), zap.String("resourceID", resource.ResourceID), zap.Error(err))
+			}
 
 			existing, err := s.repo.GetHostByCloudInstanceID(account.TenantID, instanceID)
 			if err == nil && existing != nil {
@@ -324,7 +330,9 @@ func (s *CloudAccountService) syncCVM(credential *common.Credential, cpf *profil
 				}
 				existing.OsName = osName
 				existing.CloudAccountID = &account.ID
-				_ = s.repo.UpdateHost(existing)
+				if err := s.repo.UpdateHost(existing); err != nil {
+					logger.Log.Warn("更新云主机关联 Host 失败", zap.String("instanceID", instanceID), zap.Error(err))
+				}
 			} else if errors.Is(err, gorm.ErrRecordNotFound) {
 				tenantID := account.TenantID
 				accountID := account.ID
@@ -338,7 +346,9 @@ func (s *CloudAccountService) syncCVM(credential *common.Credential, cpf *profil
 					CloudAccountID:  &accountID,
 					CloudInstanceID: instanceID,
 				}
-				_ = s.repo.CreateHost(host)
+				if err := s.repo.CreateHost(host); err != nil {
+					logger.Log.Warn("创建云主机关联 Host 失败", zap.String("instanceID", instanceID), zap.Error(err))
+				}
 			}
 		}
 
@@ -383,7 +393,9 @@ func (s *CloudAccountService) syncVPC(credential *common.Credential, cpf *profil
 				Spec:           string(specJSON),
 				SyncedAt:       time.Now(),
 			}
-			_ = s.repo.UpsertResource(resource)
+			if err := s.repo.UpsertResource(resource); err != nil {
+				logger.Log.Warn("同步云资源失败", zap.String("region", region), zap.String("resourceType", resource.ResourceType), zap.String("resourceID", resource.ResourceID), zap.Error(err))
+			}
 		}
 
 		return len(response.Response.VpcSet), nil
@@ -430,7 +442,9 @@ func (s *CloudAccountService) syncSubnets(credential *common.Credential, cpf *pr
 				Spec:           string(specJSON),
 				SyncedAt:       time.Now(),
 			}
-			_ = s.repo.UpsertResource(resource)
+			if err := s.repo.UpsertResource(resource); err != nil {
+				logger.Log.Warn("同步云资源失败", zap.String("region", region), zap.String("resourceType", resource.ResourceType), zap.String("resourceID", resource.ResourceID), zap.Error(err))
+			}
 		}
 
 		return len(response.Response.SubnetSet), nil
@@ -472,7 +486,9 @@ func (s *CloudAccountService) syncSecurityGroups(credential *common.Credential, 
 				Spec:           string(specJSON),
 				SyncedAt:       time.Now(),
 			}
-			_ = s.repo.UpsertResource(resource)
+			if err := s.repo.UpsertResource(resource); err != nil {
+				logger.Log.Warn("同步云资源失败", zap.String("region", region), zap.String("resourceType", resource.ResourceType), zap.String("resourceID", resource.ResourceID), zap.Error(err))
+			}
 		}
 
 		return len(response.Response.SecurityGroupSet), nil
@@ -524,7 +540,9 @@ func (s *CloudAccountService) syncCBS(credential *common.Credential, cpf *profil
 				Spec:           string(specJSON),
 				SyncedAt:       time.Now(),
 			}
-			_ = s.repo.UpsertResource(resource)
+			if err := s.repo.UpsertResource(resource); err != nil {
+				logger.Log.Warn("同步云资源失败", zap.String("region", region), zap.String("resourceType", resource.ResourceType), zap.String("resourceID", resource.ResourceID), zap.Error(err))
+			}
 		}
 
 		return len(response.Response.DiskSet), nil
@@ -579,7 +597,9 @@ func (s *CloudAccountService) runScheduledSync() {
 	now := time.Now()
 	for _, account := range accounts {
 		if account.LastSyncAt == nil || now.Sub(*account.LastSyncAt) >= time.Duration(account.SyncInterval)*time.Minute {
-			_ = s.SyncAccount(account.TenantID, account.ID)
+			if err := s.SyncAccount(account.TenantID, account.ID); err != nil {
+				logger.Log.Warn("定时云同步失败", zap.Uint("tenantID", account.TenantID), zap.Uint("accountID", account.ID), zap.Error(err))
+			}
 		}
 	}
 }
