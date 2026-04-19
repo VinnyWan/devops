@@ -116,6 +116,12 @@ const routes = [
         name: 'CmdbFiles',
         component: () => import('../views/Cmdb/FileBrowser.vue'),
         meta: { title: '文件管理' }
+      },
+      {
+        path: 'cmdb/batch-command',
+        name: 'CmdbBatchCommand',
+        component: () => import('../views/Cmdb/BatchCommand.vue'),
+        meta: { title: '批量命令' }
       }
     ]
   }

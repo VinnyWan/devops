@@ -6,7 +6,7 @@ const joinBasePath = (basePath, path) => {
   return `${normalizedBase}${normalizedPath}`
 }
 
-const getTerminalWsBaseUrl = () => {
+export const getTerminalWsBaseUrl = () => {
   const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || ''
 
   if (apiBaseUrl.startsWith('https://')) {
@@ -24,3 +24,8 @@ export const getTerminalSessionList = (params) => request.get('/cmdb/terminal/li
 export const getTerminalSessionDetail = (params) => request.get('/cmdb/terminal/detail', { params })
 export const getTerminalRecording = (params) => request.get('/cmdb/terminal/recording', { params })
 export const getTerminalConnectWsUrl = (hostId) => joinBasePath(getTerminalWsBaseUrl(), `/cmdb/terminal/connect?hostId=${encodeURIComponent(hostId)}`)
+export const addSessionTag = (data) => request.post('/cmdb/terminal/tag/add', data)
+export const removeSessionTag = (data) => request.post('/cmdb/terminal/tag/remove', data)
+export const getSessionTags = (params) => request.get('/cmdb/terminal/tag/list', { params })
+export const getAvailableTags = () => request.get('/cmdb/terminal/tags')
+export const searchSessionsByTag = (params) => request.get('/cmdb/terminal/tag/search', { params })
