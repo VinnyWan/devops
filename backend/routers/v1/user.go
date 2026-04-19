@@ -12,6 +12,7 @@ func registerUser(r *gin.RouterGroup) {
 	r.GET("/user/info", api.GetUserInfo)
 	r.POST("/user/change-password", middleware.SetAuditOperation("用户修改密码"), api.ChangePassword)
 	r.POST("/user/permissions", api.GetUserPermissions)
+	r.GET("/user/all-permissions", api.GetAllPermissions)
 
 	// 用户管理接口 (需要权限)
 	g := r.Group("/user")

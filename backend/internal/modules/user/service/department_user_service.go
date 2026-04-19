@@ -21,7 +21,7 @@ func NewDepartmentUserService(userRepo *repository.UserRepo, deptRepo *repositor
 	return &DepartmentUserService{
 		userRepo: userRepo,
 		deptRepo: deptRepo,
-		scopeSvc: NewAccessScopeService(userRepo, deptRepo),
+		scopeSvc: NewAccessScopeService(userRepo, deptRepo, nil),
 	}
 }
 
@@ -102,10 +102,10 @@ func (s *DepartmentUserService) Create(tenantID uint, operatorID uint, req *Crea
 		if err != nil {
 			return nil, err
 		}
-		if operator.DepartmentID == nil {
+		if operator.PrimaryDeptID == nil {
 			return nil, errors.New("departmentId is required")
 		}
-		targetDeptID = *operator.DepartmentID
+		targetDeptID = *operator.PrimaryDeptID
 	}
 
 	if err := s.scopeSvc.EnsureDepartmentAccess(context.Background(), tenantID, operatorID, targetDeptID); err != nil {
@@ -148,7 +148,7 @@ func (s *DepartmentUserService) Create(tenantID uint, operatorID uint, req *Crea
 		Status:       status,
 		IsAdmin:      false,
 		IsLocked:     false,
-		DepartmentID: &deptID,
+		PrimaryDeptID: &deptID,
 	}
 
 	if err := s.userRepo.Create(user); err != nil {
@@ -163,7 +163,7 @@ func (s *DepartmentUserService) Update(tenantID uint, operatorID uint, req *Upda
 		return err
 	}
 
-	if existing.DepartmentID == nil {
+	if existing.PrimaryDeptID == nil {
 		return errors.New("user has no department")
 	}
 
@@ -193,7 +193,7 @@ func (s *DepartmentUserService) Delete(tenantID uint, operatorID uint, userID ui
 	if err != nil {
 		return err
 	}
-	if existing.DepartmentID == nil {
+	if existing.PrimaryDeptID == nil {
 		return errors.New("user has no department")
 	}
 	if err := s.scopeSvc.EnsureUserAccess(context.Background(), tenantID, operatorID, existing.ID); err != nil {
@@ -214,10 +214,10 @@ func (s *DepartmentUserService) Transfer(tenantID uint, operatorID uint, req *Tr
 	if err != nil {
 		return err
 	}
-	if user.DepartmentID == nil {
+	if user.PrimaryDeptID == nil {
 		return errors.New("user has no department")
 	}
-	if *user.DepartmentID == req.ToDepartmentID {
+	if *user.PrimaryDeptID == req.ToDepartmentID {
 		return errors.New("target department must be different")
 	}
 
@@ -236,7 +236,7 @@ func (s *DepartmentUserService) Transfer(tenantID uint, operatorID uint, req *Tr
 	}
 
 	toDeptID := req.ToDepartmentID
-	user.DepartmentID = &toDeptID
+	user.PrimaryDeptID = &toDeptID
 	user.Department = nil
 	user.Roles = nil
 

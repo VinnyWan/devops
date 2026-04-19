@@ -20,8 +20,11 @@ type Tenant struct {
 	MaxDepartments int `gorm:"default:20" json:"maxDepartments"` // 最大部门数
 	MaxRoles       int `gorm:"default:50" json:"maxRoles"`       // 最大角色数
 
-	// 訡块配置 (JSON格式)
+	// 模块配置 (JSON格式)
 	Modules string `gorm:"type:text" json:"modules"` // 启用的模块列表
+
+	// SSO配置 (JSON格式)
+	SSOConfig string `gorm:"type:text" json:"ssoConfig"` // 第三方SSO配置(飞书/钉钉/企微等)
 
 	// 联系人
 	ContactName  string `gorm:"size:100" json:"contactName"`

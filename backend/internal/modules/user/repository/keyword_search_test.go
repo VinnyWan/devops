@@ -31,8 +31,8 @@ func TestUserRepoListKeywordBoundaryAndSpecialChars(t *testing.T) {
 		t.Fatalf("create dept: %v", err)
 	}
 	users := []model.User{
-		{Username: "alice_ops", Password: "x", Email: "alice@example.com", Name: "Alice", AuthType: model.AuthTypeLocal, Status: "active", DepartmentID: &dept.ID},
-		{Username: "bob", Password: "x", Email: "bob@example.com", Name: "Bob", AuthType: model.AuthTypeLocal, Status: "active", DepartmentID: &dept.ID},
+		{Username: "alice_ops", Password: "x", Email: "alice@example.com", Name: "Alice", AuthType: model.AuthTypeLocal, Status: "active", PrimaryDeptID: &dept.ID},
+		{Username: "bob", Password: "x", Email: "bob@example.com", Name: "Bob", AuthType: model.AuthTypeLocal, Status: "active", PrimaryDeptID: &dept.ID},
 	}
 	if err := db.Create(&users).Error; err != nil {
 		t.Fatalf("create users: %v", err)
@@ -67,8 +67,8 @@ func TestUserRepoListKeywordBoundaryAndSpecialChars(t *testing.T) {
 func TestRoleRepoListKeywordBoundaryAndSpecialChars(t *testing.T) {
 	db := setupKeywordSearchDB(t)
 	roles := []model.Role{
-		{Name: "ops_%admin", DisplayName: "运维管理员", Description: "负责核心集群权限", Type: "custom"},
-		{Name: "viewer", DisplayName: "只读用户", Description: "基础浏览权限", Type: "custom"},
+		{Name: "ops_%admin", DisplayName: "运维管理员", Type: "custom"},
+		{Name: "viewer", DisplayName: "只读用户", Type: "custom"},
 	}
 	if err := db.Create(&roles).Error; err != nil {
 		t.Fatalf("create roles: %v", err)
@@ -103,8 +103,8 @@ func TestRoleRepoListKeywordBoundaryAndSpecialChars(t *testing.T) {
 func TestPermissionRepoListKeywordBoundaryAndSpecialChars(t *testing.T) {
 	db := setupKeywordSearchDB(t)
 	perms := []model.Permission{
-		{Name: "查看集群", Resource: "cluster", Action: "list", Description: "读取核心%_集群"},
-		{Name: "查看用户", Resource: "user", Action: "list", Description: "读取用户信息"},
+		{Name: "查看集群", Resource: "cluster", Action: "list"},
+		{Name: "查看用户", Resource: "user", Action: "list"},
 	}
 	if err := db.Create(&perms).Error; err != nil {
 		t.Fatalf("create permissions: %v", err)

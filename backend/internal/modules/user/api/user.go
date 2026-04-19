@@ -507,3 +507,41 @@ func GetUserPermissions(c *gin.Context) {
 		"data":    permissions,
 	})
 }
+
+// GetAllPermissions godoc
+// @Summary 获取当前用户全部权限（聚合）
+// @Description 获取当前登录用户的菜单/按钮/字段/API 四合一权限
+// @Tags 用户管理
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} map[string]interface{} "全部权限"
+// @Failure 401 {object} map[string]interface{} "未认证"
+// @Failure 500 {object} map[string]interface{} "服务器错误"
+// @Router /user/all-permissions [get]
+func GetAllPermissions(c *gin.Context) {
+	userID := GetCurrentUserID(c)
+	tenantID := GetCurrentTenantID(c)
+	if userID == 0 {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"code":    401,
+			"message": "未认证",
+		})
+		return
+	}
+
+	permissions, err := getService().GetUserAllPermissions(c.Request.Context(), tenantID, userID)
+	if err != nil {
+		logger.Log.Error("Failed to get all permissions", zap.Uint("userID", userID), zap.Error(err))
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"code":    500,
+			"message": "获取权限失败",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"code":    200,
+		"message": "获取成功",
+		"data":    permissions,
+	})
+}

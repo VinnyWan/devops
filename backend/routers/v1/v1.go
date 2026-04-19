@@ -25,7 +25,7 @@ func Register(r *gin.Engine) {
 
 	auth.POST("/user/logout", api.Logout)
 
-	// 按模块注册
+	// 旧路由（兼容期保留）
 	registerCluster(auth)
 	registerAlert(auth)
 	registerLog(auth)
@@ -40,4 +40,9 @@ func Register(r *gin.Engine) {
 	registerLoginLog(auth)
 	registerTenant(auth)
 	registerCMDB(auth)
+
+	// 新路由分组（RESTful）
+	registerAuthRoutes(apiV1)
+	registerSystemRoutes(apiV1)
+	registerPlatformRoutes(apiV1)
 }

@@ -126,7 +126,8 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { getUserList, createUser, updateUser, deleteUser, getDepartmentList } from '../../api/system'
+import { getUserList, getDepartmentList } from '../../api/system'
+import { getUserListV2, createUserV2, updateUserV2, deleteUserV2 } from '../../api/systemV2'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { required, email } from '../../utils/validate'
 import dayjs from 'dayjs'
@@ -204,6 +205,17 @@ const rules = {
   password: [required('请输入密码')]
 }
 
+const fetchData = async () => {
+  loading.value = true
+  try {
+    const res = await getUserListV2()
+    tableData.value = res.data?.list || []
+  } finally {
+    loading.value = false
+  }
+}
+
+
 const showDialog = (row) => {
   form.value = row ? { ...row } : {}
   dialogVisible.value = true
@@ -217,9 +229,9 @@ const handleSave = async () => {
   saving.value = true
   try {
     if (form.value.id) {
-      await updateUser(form.value)
+      await updateUserV2(form.value.id, form.value)
     } else {
-      await createUser(form.value)
+      await createUserV2(form.value)
     }
     ElMessage.success('保存成功')
     dialogVisible.value = false
@@ -238,7 +250,7 @@ const handleDelete = async (id) => {
       cancelButtonText: '取消',
       type: 'warning'
     })
-    await deleteUser(id)
+    await deleteUserV2(id)
     ElMessage.success('删除成功')
     fetchUsers()
   } catch (error) {

@@ -29,7 +29,7 @@ func NewRoleService(db *gorm.DB) *RoleService {
 		roleRepo:       repository.NewRoleRepo(db),
 		permissionRepo: repository.NewPermissionRepo(db),
 		userRepo:       userRepo,
-		scopeSvc:       NewAccessScopeService(userRepo, deptRepo),
+		scopeSvc:       NewAccessScopeService(userRepo, deptRepo, nil),
 	}
 }
 
@@ -205,7 +205,7 @@ func (s *RoleService) GetRoleUsers(ctx context.Context, tenantID uint, operatorI
 			filtered = append(filtered, user)
 			continue
 		}
-		if user.DepartmentID != nil && scope.AllowsDepartmentID(*user.DepartmentID) {
+		if user.PrimaryDeptID != nil && scope.AllowsDepartmentID(*user.PrimaryDeptID) {
 			filtered = append(filtered, user)
 		}
 	}
@@ -285,19 +285,17 @@ func (s *RoleService) AssignDepartments(ctx context.Context, tenantID uint, oper
 // -------------------------------------------------------------------
 
 type CreatePermissionRequest struct {
-	Name        string `json:"name" binding:"required"`
-	Resource    string `json:"resource" binding:"required"`
-	Action      string `json:"action" binding:"required"`
-	Description string `json:"description"`
+	Name     string `json:"name" binding:"required"`
+	Resource string `json:"resource" binding:"required"`
+	Action   string `json:"action" binding:"required"`
 }
 
 // CreatePermission 创建权限
 func (s *RoleService) CreatePermission(req *CreatePermissionRequest) (*model.Permission, error) {
 	perm := &model.Permission{
-		Name:        req.Name,
-		Resource:    req.Resource,
-		Action:      req.Action,
-		Description: req.Description,
+		Name:     req.Name,
+		Resource: req.Resource,
+		Action:   req.Action,
 	}
 
 	if err := s.permissionRepo.Create(perm); err != nil {

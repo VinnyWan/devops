@@ -58,15 +58,25 @@ func (s *DataAccessScope) AllowsDepartmentID(departmentID uint) bool {
 }
 
 type AccessScopeService struct {
-	userRepo *repository.UserRepo
-	deptRepo *repository.DepartmentRepo
+	userRepo     *repository.UserRepo
+	deptRepo     *repository.DepartmentRepo
+	userDeptRepo *repository.UserDepartmentRepo
+	roleRepo     *repository.RoleRepo
 }
 
-func NewAccessScopeService(userRepo *repository.UserRepo, deptRepo *repository.DepartmentRepo) *AccessScopeService {
+func NewAccessScopeService(userRepo *repository.UserRepo, deptRepo *repository.DepartmentRepo, userDeptRepo *repository.UserDepartmentRepo) *AccessScopeService {
 	return &AccessScopeService{
-		userRepo: userRepo,
-		deptRepo: deptRepo,
+		userRepo:     userRepo,
+		deptRepo:     deptRepo,
+		userDeptRepo: userDeptRepo,
+		roleRepo:     nil, // 按需注入
 	}
+}
+
+// WithRoleRepo 注入 RoleRepo（可选依赖）
+func (s *AccessScopeService) WithRoleRepo(roleRepo *repository.RoleRepo) *AccessScopeService {
+	s.roleRepo = roleRepo
+	return s
 }
 
 func (s *AccessScopeService) Resolve(ctx context.Context, tenantID uint, userID uint) (*DataAccessScope, error) {
@@ -81,32 +91,69 @@ func (s *AccessScopeService) Resolve(ctx context.Context, tenantID uint, userID 
 		return newDataAccessScope(tenantID, model.DataScopeTenant, nil), nil
 	}
 
+	// 收集用户所有角色中最大的 DataScope
 	scopeLevel := model.DataScopeSelfDepartment
 	for _, role := range user.Roles {
 		scopeLevel = model.MaxDataScope(scopeLevel, model.NormalizeDataScope(string(role.DataScope)))
 	}
-	if user.Department != nil {
-		for _, role := range user.Department.Roles {
-			scopeLevel = model.MaxDataScope(scopeLevel, model.NormalizeDataScope(string(role.DataScope)))
+
+	// 通过 user_departments 中间表获取所有部门的角色 DataScope
+	if s.userDeptRepo != nil {
+		userDepts, err := s.userDeptRepo.GetUserDepartments(userID)
+		if err != nil {
+			return nil, err
+		}
+
+		// 收集所有部门 ID
+		deptIDs := make([]uint, 0, len(userDepts))
+		for _, ud := range userDepts {
+			deptIDs = append(deptIDs, ud.DeptID)
+		}
+
+		// 获取每个部门绑定的角色，取最大 DataScope
+		for _, deptID := range deptIDs {
+			dept, err := s.deptRepo.GetByIDInTenant(tenantID, deptID)
+			if err != nil {
+				continue
+			}
+			for _, role := range dept.Roles {
+				scopeLevel = model.MaxDataScope(scopeLevel, model.NormalizeDataScope(string(role.DataScope)))
+			}
+		}
+
+		// 获取 UserDepartment.RoleID 指定的部门专属角色的 DataScope
+		if s.roleRepo != nil {
+			for _, ud := range userDepts {
+				if ud.RoleID != nil && *ud.RoleID != 0 {
+					role, err := s.roleRepo.GetByIDInTenant(tenantID, *ud.RoleID)
+					if err != nil {
+						continue
+					}
+					scopeLevel = model.MaxDataScope(scopeLevel, model.NormalizeDataScope(string(role.DataScope)))
+				}
+			}
 		}
 	}
 
 	if scopeLevel == model.DataScopeTenant {
 		return newDataAccessScope(tenantID, scopeLevel, nil), nil
 	}
-	if user.DepartmentID == nil || *user.DepartmentID == 0 {
+
+	// 使用 PrimaryDeptID 作为基准部门
+	if user.PrimaryDeptID == nil || *user.PrimaryDeptID == 0 {
 		return newDataAccessScope(tenantID, scopeLevel, nil), nil
 	}
 	if scopeLevel == model.DataScopeSelfDepartment {
-		return newDataAccessScope(tenantID, scopeLevel, []uint{*user.DepartmentID}), nil
+		return newDataAccessScope(tenantID, scopeLevel, []uint{*user.PrimaryDeptID}), nil
 	}
 
+	// department_tree: BFS 展开 PrimaryDeptID 子树
 	departments, err := s.deptRepo.ListHierarchyInTenant(tenantID)
 	if err != nil {
 		return nil, err
 	}
 
-	return newDataAccessScope(tenantID, scopeLevel, collectDepartmentTreeIDs(*user.DepartmentID, departments)), nil
+	return newDataAccessScope(tenantID, scopeLevel, collectDepartmentTreeIDs(*user.PrimaryDeptID, departments)), nil
 }
 
 func (s *AccessScopeService) EnsureDepartmentAccess(ctx context.Context, tenantID uint, userID uint, departmentID uint) error {
@@ -149,7 +196,7 @@ func (s *AccessScopeService) EnsureUserAccess(ctx context.Context, tenantID uint
 	if err != nil {
 		return err
 	}
-	if targetUser.DepartmentID != nil && scope.AllowsDepartmentID(*targetUser.DepartmentID) {
+	if targetUser.PrimaryDeptID != nil && scope.AllowsDepartmentID(*targetUser.PrimaryDeptID) {
 		return nil
 	}
 	return ErrScopeForbidden

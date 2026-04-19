@@ -31,9 +31,10 @@ type User struct {
 	IsAdmin  bool   `gorm:"default:false" json:"isAdmin"`
 	IsLocked bool   `gorm:"default:false" json:"isLocked"`
 
-	DepartmentID *uint       `gorm:"index" json:"departmentId"`
-	Department   *Department `json:"department,omitempty"`
-	Tenant       *Tenant     `json:"tenant,omitempty"`
+	PrimaryDeptID *uint        `gorm:"index" json:"primaryDeptId"`
+	Department    *Department  `gorm:"foreignKey:PrimaryDeptID" json:"department,omitempty"`
+	Departments   []Department `gorm:"many2many:user_departments;" json:"departments,omitempty"`
+	Tenant        *Tenant      `json:"tenant,omitempty"`
 
 	Roles []Role `gorm:"many2many:user_roles;" json:"roles"`
 

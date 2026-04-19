@@ -14,7 +14,6 @@ type Department struct {
 	ParentID  *uint          `json:"parentId"` // 上级部门ID，根部门为NULL
 	Tenant    *Tenant        `json:"tenant,omitempty"`
 	Roles     []Role         `gorm:"many2many:department_roles;" json:"roles,omitempty"`
-	Users     []User         `gorm:"foreignKey:DepartmentID" json:"users,omitempty"`
 	Children  []*Department  `gorm:"-" json:"children,omitempty"` // 用于树状结构展示
 	CreatedAt time.Time      `json:"createdAt"`
 	UpdatedAt time.Time      `json:"updatedAt"`
