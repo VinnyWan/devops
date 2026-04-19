@@ -25,6 +25,7 @@ var (
 	fileSvcInstance     *service.FileService
 	dashboardSvcInstance *service.DashboardService
 	batchCmdSvcInstance *service.BatchCommandService
+	snippetSvcInstance  *service.SnippetService
 	cmdbOnce            sync.Once
 	cmdbMu              sync.Mutex
 )
@@ -42,6 +43,7 @@ func SetDB(database *gorm.DB) {
 	fileSvcInstance = nil
 	dashboardSvcInstance = nil
 	batchCmdSvcInstance = nil
+	snippetSvcInstance = nil
 	cmdbOnce = sync.Once{}
 }
 
@@ -161,6 +163,19 @@ func getBatchCommandService() *service.BatchCommandService {
 	}
 	batchCmdSvcInstance = service.NewBatchCommandService(cmdbDB)
 	return batchCmdSvcInstance
+}
+
+func getSnippetService() *service.SnippetService {
+	cmdbMu.Lock()
+	defer cmdbMu.Unlock()
+	if snippetSvcInstance != nil {
+		return snippetSvcInstance
+	}
+	if cmdbDB == nil {
+		return nil
+	}
+	snippetSvcInstance = service.NewSnippetService(repository.NewSnippetRepo(cmdbDB))
+	return snippetSvcInstance
 }
 
 func getCurrentTenantID(c *gin.Context) (uint, error) {

@@ -42,6 +42,10 @@ func registerCMDB(r *gin.RouterGroup) {
 	fileDeletePerm := middleware.RequirePermission("cmdb:file", "delete")
 	fileAuditPerm := middleware.RequirePermission("cmdb:file", "audit")
 	dashboardPerm := middleware.RequirePermission("cmdb:host", "list")
+	snippetListPerm := middleware.RequirePermission("cmdb:terminal", "connect")
+	snippetCreatePerm := middleware.RequirePermission("cmdb:terminal", "connect")
+	snippetUpdatePerm := middleware.RequirePermission("cmdb:terminal", "connect")
+	snippetDeletePerm := middleware.RequirePermission("cmdb:terminal", "connect")
 
 	{
 		// 仪表盘
@@ -117,5 +121,11 @@ func registerCMDB(r *gin.RouterGroup) {
 		g.POST("/file/edit", fileDeletePerm, middleware.SetAuditOperation("编辑文件"), api.FileEdit)
 		g.POST("/file/distribute", fileUploadPerm, middleware.SetAuditOperation("批量分发文件"), api.FileDistribute)
 		g.GET("/file/audit", fileAuditPerm, api.FileAuditList)
+
+		// 命令片段
+		g.GET("/snippet/list", snippetListPerm, api.SnippetList)
+		g.POST("/snippet/create", snippetCreatePerm, middleware.SetAuditOperation("创建命令片段"), api.SnippetCreate)
+		g.POST("/snippet/update", snippetUpdatePerm, middleware.SetAuditOperation("更新命令片段"), api.SnippetUpdate)
+		g.POST("/snippet/delete", snippetDeletePerm, middleware.SetAuditOperation("删除命令片段"), api.SnippetDelete)
 	}
 }
