@@ -4,6 +4,7 @@ import (
 	"errors"
 	"sync"
 
+	"devops-platform/internal/modules/cmdb/repository"
 	"devops-platform/internal/modules/cmdb/service"
 	userservice "devops-platform/internal/modules/user/service"
 	"devops-platform/internal/pkg/logger"
@@ -22,6 +23,7 @@ var (
 	permSvcInstance     *service.PermissionService
 	cloudSvcInstance    *service.CloudAccountService
 	fileSvcInstance     *service.FileService
+	dashboardSvcInstance *service.DashboardService
 	cmdbOnce            sync.Once
 	cmdbMu              sync.Mutex
 )
@@ -37,6 +39,7 @@ func SetDB(database *gorm.DB) {
 	permSvcInstance = nil
 	cloudSvcInstance = nil
 	fileSvcInstance = nil
+	dashboardSvcInstance = nil
 	cmdbOnce = sync.Once{}
 }
 
@@ -129,6 +132,20 @@ func getFileService() *service.FileService {
 	}
 	fileSvcInstance = service.NewFileService(cmdbDB)
 	return fileSvcInstance
+}
+
+func getDashboardService() *service.DashboardService {
+	cmdbMu.Lock()
+	defer cmdbMu.Unlock()
+	if dashboardSvcInstance != nil {
+		return dashboardSvcInstance
+	}
+	if cmdbDB == nil {
+		return nil
+	}
+	repo := repository.NewDashboardRepo(cmdbDB)
+	dashboardSvcInstance = service.NewDashboardService(repo)
+	return dashboardSvcInstance
 }
 
 func getCurrentTenantID(c *gin.Context) (uint, error) {

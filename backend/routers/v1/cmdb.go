@@ -41,8 +41,12 @@ func registerCMDB(r *gin.RouterGroup) {
 	fileUploadPerm := middleware.RequirePermission("cmdb:file", "upload")
 	fileDeletePerm := middleware.RequirePermission("cmdb:file", "delete")
 	fileAuditPerm := middleware.RequirePermission("cmdb:file", "audit")
+	dashboardPerm := middleware.RequirePermission("cmdb:host", "list")
 
 	{
+		// 仪表盘
+		g.GET("/dashboard", dashboardPerm, api.DashboardData)
+
 		// 主机管理
 		g.GET("/host/list", hostListPerm, api.HostList)
 		g.GET("/host/stats", hostListPerm, api.HostStats)
@@ -73,35 +77,35 @@ func registerCMDB(r *gin.RouterGroup) {
 		g.GET("/terminal/detail", terminalGetPerm, api.TerminalDetail)
 		g.GET("/terminal/recording", terminalReplayPerm, api.TerminalRecording)
 
-			// 权限配置
-			g.GET("/permission/list", permListPerm, api.PermissionList)
-			g.GET("/permission/group-host-count", permListPerm, api.PermissionGroupHostCount)
-			g.POST("/permission/create", permCreatePerm, middleware.SetAuditOperation("授予权限"), api.PermissionCreate)
-			g.POST("/permission/update", permUpdatePerm, middleware.SetAuditOperation("更新权限"), api.PermissionUpdate)
-			g.POST("/permission/delete", permDeletePerm, middleware.SetAuditOperation("删除权限"), api.PermissionDelete)
-			g.GET("/permission/my-hosts", api.PermissionMyHosts)
-			g.GET("/permission/check", api.PermissionCheck)
+		// 权限配置
+		g.GET("/permission/list", permListPerm, api.PermissionList)
+		g.GET("/permission/group-host-count", permListPerm, api.PermissionGroupHostCount)
+		g.POST("/permission/create", permCreatePerm, middleware.SetAuditOperation("授予权限"), api.PermissionCreate)
+		g.POST("/permission/update", permUpdatePerm, middleware.SetAuditOperation("更新权限"), api.PermissionUpdate)
+		g.POST("/permission/delete", permDeletePerm, middleware.SetAuditOperation("删除权限"), api.PermissionDelete)
+		g.GET("/permission/my-hosts", api.PermissionMyHosts)
+		g.GET("/permission/check", api.PermissionCheck)
 
-			// 云账号管理
-			g.GET("/cloud-account/list", cloudListPerm, api.CloudAccountList)
-			g.GET("/cloud-account/detail", cloudGetPerm, api.CloudAccountDetail)
-			g.POST("/cloud-account/create", cloudCreatePerm, middleware.SetAuditOperation("创建云账号"), api.CloudAccountCreate)
-			g.POST("/cloud-account/update", cloudUpdatePerm, middleware.SetAuditOperation("更新云账号"), api.CloudAccountUpdate)
-			g.POST("/cloud-account/delete", cloudDeletePerm, middleware.SetAuditOperation("删除云账号"), api.CloudAccountDelete)
-			g.POST("/cloud-account/sync", cloudSyncPerm, middleware.SetAuditOperation("同步云资源"), api.CloudAccountSync)
-			g.GET("/cloud-account/resources", cloudListPerm, api.CloudResourceList)
+		// 云账号管理
+		g.GET("/cloud-account/list", cloudListPerm, api.CloudAccountList)
+		g.GET("/cloud-account/detail", cloudGetPerm, api.CloudAccountDetail)
+		g.POST("/cloud-account/create", cloudCreatePerm, middleware.SetAuditOperation("创建云账号"), api.CloudAccountCreate)
+		g.POST("/cloud-account/update", cloudUpdatePerm, middleware.SetAuditOperation("更新云账号"), api.CloudAccountUpdate)
+		g.POST("/cloud-account/delete", cloudDeletePerm, middleware.SetAuditOperation("删除云账号"), api.CloudAccountDelete)
+		g.POST("/cloud-account/sync", cloudSyncPerm, middleware.SetAuditOperation("同步云资源"), api.CloudAccountSync)
+		g.GET("/cloud-account/resources", cloudListPerm, api.CloudResourceList)
 
-			// 文件管理
-			g.GET("/file/browse", fileBrowsePerm, api.FileBrowse)
-			g.GET("/file/download", fileBrowsePerm, api.FileDownload)
-			g.POST("/file/upload/:hostId", fileUploadPerm, middleware.SetAuditOperation("上传文件"), api.FileUpload)
-			g.POST("/file/delete", fileDeletePerm, middleware.SetAuditOperation("删除文件"), api.FileDelete)
-			g.POST("/file/rename", fileDeletePerm, middleware.SetAuditOperation("重命名文件"), api.FileRename)
-			g.POST("/file/mkdir", fileUploadPerm, middleware.SetAuditOperation("创建目录"), api.FileMkdir)
-			g.POST("/file/chmod", fileDeletePerm, middleware.SetAuditOperation("修改文件权限"), api.FileChmod)
-			g.GET("/file/preview", fileBrowsePerm, api.FilePreview)
-			g.POST("/file/edit", fileDeletePerm, middleware.SetAuditOperation("编辑文件"), api.FileEdit)
-			g.POST("/file/distribute", fileUploadPerm, middleware.SetAuditOperation("批量分发文件"), api.FileDistribute)
-			g.GET("/file/audit", fileAuditPerm, api.FileAuditList)
+		// 文件管理
+		g.GET("/file/browse", fileBrowsePerm, api.FileBrowse)
+		g.GET("/file/download", fileBrowsePerm, api.FileDownload)
+		g.POST("/file/upload/:hostId", fileUploadPerm, middleware.SetAuditOperation("上传文件"), api.FileUpload)
+		g.POST("/file/delete", fileDeletePerm, middleware.SetAuditOperation("删除文件"), api.FileDelete)
+		g.POST("/file/rename", fileDeletePerm, middleware.SetAuditOperation("重命名文件"), api.FileRename)
+		g.POST("/file/mkdir", fileUploadPerm, middleware.SetAuditOperation("创建目录"), api.FileMkdir)
+		g.POST("/file/chmod", fileDeletePerm, middleware.SetAuditOperation("修改文件权限"), api.FileChmod)
+		g.GET("/file/preview", fileBrowsePerm, api.FilePreview)
+		g.POST("/file/edit", fileDeletePerm, middleware.SetAuditOperation("编辑文件"), api.FileEdit)
+		g.POST("/file/distribute", fileUploadPerm, middleware.SetAuditOperation("批量分发文件"), api.FileDistribute)
+		g.GET("/file/audit", fileAuditPerm, api.FileAuditList)
 	}
 }
