@@ -1,6 +1,7 @@
 package terminal
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net"
@@ -241,5 +242,62 @@ func buildAuthMethods(credential *model.Credential) ([]ssh.AuthMethod, error) {
 		return []ssh.AuthMethod{ssh.PublicKeys(signer)}, nil
 	default:
 		return nil, nil
+	}
+}
+
+// NewSSHClient creates an SSH client connection without PTY (for command execution)
+func NewSSHClient(host string, port int, username, password, privateKey string) (*ssh.Client, error) {
+	var authMethods []ssh.AuthMethod
+
+	if privateKey != "" {
+		signer, err := ssh.ParsePrivateKey([]byte(privateKey))
+		if err != nil {
+			return nil, fmt.Errorf("parse private key: %w", err)
+		}
+		authMethods = append(authMethods, ssh.PublicKeys(signer))
+	}
+	if password != "" {
+		authMethods = append(authMethods, ssh.Password(password))
+	}
+	if len(authMethods) == 0 {
+		return nil, fmt.Errorf("no authentication method available")
+	}
+
+	config := &ssh.ClientConfig{
+		User:            username,
+		Auth:            authMethods,
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		Timeout:         10 * time.Second,
+	}
+
+	addr := fmt.Sprintf("%s:%d", host, port)
+	return ssh.Dial("tcp", addr, config)
+}
+
+// ExecuteCommand runs a command on an SSH client and returns the output
+func ExecuteCommand(ctx context.Context, client *ssh.Client, command string) (string, error) {
+	session, err := client.NewSession()
+	if err != nil {
+		return "", fmt.Errorf("create session: %w", err)
+	}
+	defer session.Close()
+
+	type result struct {
+		output []byte
+		err    error
+	}
+	done := make(chan result, 1)
+
+	go func() {
+		out, e := session.CombinedOutput(command)
+		done <- result{output: out, err: e}
+	}()
+
+	select {
+	case <-ctx.Done():
+		session.Close()
+		return "", ctx.Err()
+	case r := <-done:
+		return string(r.output), r.err
 	}
 }
