@@ -51,6 +51,7 @@
           <el-menu-item index="/cmdb/terminal/sessions">终端审计</el-menu-item>
           <el-menu-item index="/cmdb/permissions">权限配置</el-menu-item>
           <el-menu-item index="/cmdb/cloud-accounts">云账号</el-menu-item>
+          <el-menu-item index="/cmdb/files">文件管理</el-menu-item>
         </el-sub-menu>
       </el-menu>
     </el-aside>

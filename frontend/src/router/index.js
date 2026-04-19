@@ -110,6 +110,12 @@ const routes = [
       {
         path: 'cmdb/cloud-accounts',
         component: () => import('../views/Cmdb/CloudAccountList.vue')
+      },
+      {
+        path: 'cmdb/files',
+        name: 'CmdbFiles',
+        component: () => import('../views/Cmdb/FileBrowser.vue'),
+        meta: { title: '文件管理' }
       }
     ]
   }

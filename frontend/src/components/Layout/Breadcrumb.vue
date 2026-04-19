@@ -22,7 +22,8 @@ const breadcrumbMap = {
   '/cmdb/hosts': [{ title: '资产管理' }, { title: '主机管理' }],
   '/cmdb/groups': [{ title: '资产管理' }, { title: '分组管理' }],
   '/cmdb/credentials': [{ title: '资产管理' }, { title: '凭据管理' }],
-  '/cmdb/terminal/sessions': [{ title: '资产管理' }, { title: '终端审计', to: '/cmdb/terminal/sessions' }]
+  '/cmdb/terminal/sessions': [{ title: '资产管理' }, { title: '终端审计', to: '/cmdb/terminal/sessions' }],
+  '/cmdb/files': [{ title: '资产管理' }, { title: '文件管理' }]
 }
 
 const breadcrumbs = computed(() => {
