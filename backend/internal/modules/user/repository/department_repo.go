@@ -125,3 +125,40 @@ func (r *DepartmentRepo) DeleteInTenant(tenantID uint, id uint) error {
 	}
 	return r.db.Where("tenant_id = ? AND id = ?", tenantID, id).Delete(&model.Department{}).Error
 }
+
+// GetDescendantIDsInTenant returns the IDs of a department and all its descendants within the tenant
+func (r *DepartmentRepo) GetDescendantIDsInTenant(tenantID uint, deptID uint) ([]uint, error) {
+	if err := requireTenantScope(tenantID); err != nil {
+		return nil, err
+	}
+	// Load all departments in tenant (lightweight, only IDs and parent_id)
+	var depts []struct {
+		ID       uint
+		ParentID *uint
+	}
+	if err := r.db.Model(&model.Department{}).
+		Select("id, parent_id").
+		Where("tenant_id = ?", tenantID).
+		Find(&depts).Error; err != nil {
+		return nil, err
+	}
+
+	// Build parent -> children map
+	childrenMap := make(map[uint][]uint)
+	for _, d := range depts {
+		if d.ParentID != nil {
+			childrenMap[*d.ParentID] = append(childrenMap[*d.ParentID], d.ID)
+		}
+	}
+
+	// BFS to collect all descendant IDs
+	var result []uint
+	queue := []uint{deptID}
+	for len(queue) > 0 {
+		curr := queue[0]
+		queue = queue[1:]
+		result = append(result, curr)
+		queue = append(queue, childrenMap[curr]...)
+	}
+	return result, nil
+}

@@ -31,7 +31,7 @@
       <el-table-column prop="osName" label="操作系统" min-width="140" />
       <el-table-column label="状态" width="100">
         <template #default="{ row }">
-          <el-tag :type="statusTagType(row.status)">{{ statusText(row.status) }}</el-tag>
+          <el-tag :type="statusTagType(row.status)" round>{{ statusText(row.status) }}</el-tag>
         </template>
       </el-table-column>
       <el-table-column label="最近活跃" width="180">
@@ -272,13 +272,11 @@ const handleTerminal = async (row) => {
     terminalHostName.value = row.hostname || row.ip
     terminalDialogVisible.value = true
   } else {
-    // Dialog already open — add a new tab
     multiTabTerminal.value?.addTab(row.id, row.hostname || row.ip, wsUrl)
   }
 }
 
 const handleTerminalRequestConnect = () => {
-  // Close dialog so user picks a host from the table to add a new tab
   terminalDialogVisible.value = false
 }
 
@@ -286,7 +284,6 @@ const handleTerminalAllClosed = () => {
   terminalDialogVisible.value = false
 }
 
-// Auto-add first tab when dialog opens with pending host info
 watch(terminalDialogVisible, async (val) => {
   if (val && terminalWsUrl.value && multiTabTerminal.value) {
     await nextTick()
@@ -310,7 +307,6 @@ const statusText = (val) => ({ online: '在线', offline: '离线', unknown: '�
 onMounted(async () => {
   await Promise.all([fetchGroups(), fetchCredentials()])
   await fetchData()
-  // Handle dashboard "My Hosts" click via query param
   if (route.query.terminalHostId) {
     const hostId = Number(route.query.terminalHostId)
     const host = tableData.value.find(h => h.id === hostId)
@@ -322,10 +318,6 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.page-container { background: #fff; border-radius: 4px; padding: 24px; }
-.page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
-.page-header h3 { margin: 0; font-size: 18px; font-weight: 500; }
-.toolbar { display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
-.pagination-wrap { margin-top: 16px; display: flex; justify-content: flex-end; }
+.pagination-wrap { margin-top: var(--spacing-lg); display: flex; justify-content: flex-end; }
 :deep(.terminal-dialog .el-dialog__body) { padding: 0; overflow: hidden; }
 </style>

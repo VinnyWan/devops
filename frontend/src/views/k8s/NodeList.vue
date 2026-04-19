@@ -20,14 +20,14 @@
       <el-table-column prop="role" label="角色" />
       <el-table-column prop="k8sVersion" label="版本" width="120"/>
       <el-table-column prop="ip" label="IP" />
-      <el-table-column label="CPU">
+      <el-table-column label="CPU" min-width="140">
         <template #default="{ row }">
-          {{ row.cpuUsage }} / {{ row.cpuCapacity }}
+          <span class="nowrap">{{ formatCPU(row.cpuUsage) }} / {{ formatCPU(row.cpuCapacity) }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="内存">
+      <el-table-column label="内存" min-width="140">
         <template #default="{ row }">
-          {{ row.memoryUsage }} / {{ row.memoryCapacity }}
+          <span class="nowrap">{{ formatMemory(row.memoryUsage) }} / {{ formatMemory(row.memoryCapacity) }}</span>
         </template>
       </el-table-column>
       <el-table-column prop="podCount" label="Pod数" />
@@ -35,9 +35,9 @@
       <el-table-column label="操作" width="240">
         <template #default="{ row }">
           <el-button link type="primary" size="small" @click="handleViewDetail(row)">详情</el-button>
-          <el-button link type="primary" size="small" @click="handleCordon(row)">隔离</el-button>
-          <el-button link type="primary" size="small" @click="handleDrain(row)">驱逐</el-button>
-          <el-button link type="primary" size="small" @click="handleLabel(row)">标签</el-button>
+          <el-button link type="warning" size="small" @click="handleCordon(row)">隔离</el-button>
+          <el-button link type="danger" size="small" @click="handleDrain(row)">驱逐</el-button>
+          <el-button link type="success" size="small" @click="handleLabel(row)">标签</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -109,6 +109,20 @@ const handleLabel = (row) => {
   ElMessage.info('标签编辑功能待实现')
 }
 
+const formatCPU = (val) => {
+  if (!val) return '-'
+  return String(val).replace(/\s*cores?/gi, 'C').trim()
+}
+
+const formatMemory = (val) => {
+  if (!val) return '-'
+  return String(val).replace(/Gi/g, 'G').trim()
+}
+
 onMounted(fetchData)
 </script>
+
+<style scoped>
+.nowrap { white-space: nowrap; }
+</style>
 

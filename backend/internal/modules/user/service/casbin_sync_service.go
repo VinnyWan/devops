@@ -6,7 +6,7 @@ import (
 	"devops-platform/internal/modules/user/model"
 	"devops-platform/internal/modules/user/repository"
 
-	"github.com/casbin/casbin/v2"
+	"github.com/casbin/casbin/v3"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 )

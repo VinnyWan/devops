@@ -1,0 +1,170 @@
+/* Element Plus Component Overrides — Rounded, Clean, Bright */
+
+/* Buttons */
+.el-button {
+  border-radius: var(--radius-sm);
+  font-weight: 500;
+  transition: all var(--transition-fast);
+}
+.el-button--large {
+  border-radius: var(--radius-md);
+}
+.el-button--small {
+  border-radius: var(--radius-xs);
+}
+.el-button--primary {
+  --el-button-bg-color: var(--color-primary);
+  --el-button-border-color: var(--color-primary);
+  --el-button-hover-bg-color: var(--color-primary-light);
+  --el-button-hover-border-color: var(--color-primary-light);
+  --el-button-active-bg-color: var(--color-primary-dark);
+  --el-button-active-border-color: var(--color-primary-dark);
+}
+
+/* Inputs */
+.el-input__wrapper {
+  border-radius: var(--radius-sm);
+  transition: box-shadow var(--transition-fast);
+}
+.el-textarea__inner {
+  border-radius: var(--radius-sm);
+}
+
+/* Select */
+.el-select__wrapper {
+  border-radius: var(--radius-sm);
+}
+
+/* Cards */
+.el-card {
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border-light);
+  box-shadow: var(--shadow-xs);
+  transition: box-shadow var(--transition-base);
+}
+.el-card.is-hover-shadow:hover,
+.el-card.is-never-shadow {
+  box-shadow: var(--shadow-sm);
+}
+.el-card__header {
+  border-bottom: 1px solid var(--color-border-light);
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+/* Dialog */
+.el-dialog {
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+.el-dialog__header {
+  border-bottom: 1px solid var(--color-border-light);
+  padding: var(--spacing-md) var(--spacing-lg);
+}
+.el-dialog__body {
+  padding: var(--spacing-lg);
+}
+.el-dialog__footer {
+  border-top: 1px solid var(--color-border-light);
+  padding: var(--spacing-md) var(--spacing-lg);
+}
+
+/* Table */
+.el-table {
+  --el-table-border-color: var(--color-border-light);
+  --el-table-header-bg-color: var(--color-bg-muted);
+  --el-table-row-hover-bg-color: var(--color-bg-hover);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+.el-table th.el-table__cell {
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+/* Tags */
+.el-tag {
+  border-radius: var(--radius-sm);
+  --el-tag-border-radius: 8px;
+}
+.el-tag--small {
+  border-radius: var(--radius-xs);
+}
+
+/* Tabs */
+.el-tabs__item {
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+}
+.el-tabs--border-card {
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+/* Pagination */
+.el-pagination {
+  --el-pagination-button-bg-color: var(--color-bg-white);
+}
+.el-pagination .btn-prev,
+.el-pagination .btn-next,
+.el-pagination .el-pager li {
+  border-radius: var(--radius-sm);
+}
+
+/* Form */
+.el-form-item__label {
+  font-weight: 500;
+  color: var(--color-text);
+}
+.el-input-number {
+  border-radius: var(--radius-sm);
+}
+
+/* Dropdown */
+.el-dropdown__popper {
+  border-radius: var(--radius-md);
+}
+
+/* Message Box */
+.el-message-box {
+  border-radius: var(--radius-lg);
+}
+
+/* Tree */
+.el-tree {
+  --el-tree-node-hover-bg-color: var(--color-bg-hover);
+  border-radius: var(--radius-sm);
+}
+
+/* Progress */
+.el-progress-bar__outer {
+  border-radius: var(--radius-full);
+}
+.el-progress-bar__inner {
+  border-radius: var(--radius-full);
+}
+
+/* Alert */
+.el-alert {
+  border-radius: var(--radius-md);
+}
+
+/* Badge */
+.el-badge__content {
+  border-radius: var(--radius-full);
+}
+
+/* Tooltip */
+.el-tooltip__popper {
+  border-radius: var(--radius-sm);
+}
+
+/* Loading */
+.el-loading-mask {
+  border-radius: var(--radius-md);
+}
+
+/* Empty */
+.el-empty {
+  padding: var(--spacing-xl) 0;
+}

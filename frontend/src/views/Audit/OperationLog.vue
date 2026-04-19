@@ -4,7 +4,7 @@
       <h3>操作日志</h3>
     </div>
 
-    <div style="margin-bottom: 16px; display: flex; gap: 12px; flex-wrap: wrap;">
+    <div class="toolbar">
       <el-input v-model="filters.username" placeholder="用户账号" clearable style="width: 160px;" @keyup.enter="handleSearch" @clear="handleSearch" />
       <el-select v-model="filters.method" placeholder="请求方式" clearable style="width: 120px;" @change="handleSearch">
         <el-option label="GET" value="GET" />
@@ -46,7 +46,7 @@
       </el-table-column>
     </el-table>
 
-    <div style="margin-top: 16px; display: flex; justify-content: flex-end;">
+    <div class="pagination-wrap">
       <el-pagination
         v-model:current-page="page"
         v-model:page-size="pageSize"
@@ -70,15 +70,15 @@
         <el-descriptions-item label="请求路径" :span="2">{{ detail.path }}</el-descriptions-item>
       </el-descriptions>
       <div v-if="detail.params" style="margin-top: 16px;">
-        <div style="font-weight: 500; margin-bottom: 8px;">请求参数</div>
+        <div class="detail-label">请求参数</div>
         <el-input type="textarea" :model-value="formatJSON(detail.params)" :rows="4" readonly />
       </div>
       <div v-if="detail.result" style="margin-top: 16px;">
-        <div style="font-weight: 500; margin-bottom: 8px;">返回结果</div>
+        <div class="detail-label">返回结果</div>
         <el-input type="textarea" :model-value="formatJSON(detail.result)" :rows="4" readonly />
       </div>
       <div v-if="detail.errorMessage" style="margin-top: 16px;">
-        <div style="font-weight: 500; margin-bottom: 8px; color: #f56c6c;">错误信息</div>
+        <div class="detail-label error-label">错误信息</div>
         <el-input type="textarea" :model-value="detail.errorMessage" :rows="2" readonly />
       </div>
     </el-dialog>
@@ -161,20 +161,12 @@ onMounted(fetchData)
 </script>
 
 <style scoped>
-.page-container {
-  background: #fff;
-  border-radius: 4px;
-  padding: 24px;
-}
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 24px;
-}
-.page-header h3 {
-  margin: 0;
-  font-size: 18px;
+.detail-label {
   font-weight: 500;
+  margin-bottom: var(--spacing-sm);
+  color: var(--color-text);
+}
+.error-label {
+  color: var(--color-danger);
 }
 </style>

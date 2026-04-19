@@ -15,10 +15,6 @@ func Register(r *gin.Engine) {
 	apiV1.POST("/user/login", api.Login)
 	apiV1.POST("/user/register", api.Register)
 
-	// OIDC
-	apiV1.GET("/auth/oidc/login", api.OIDCLogin)
-	apiV1.GET("/auth/oidc/callback", api.OIDCCallback)
-
 	// 鉴权接口
 	auth := apiV1.Group("")
 	auth.Use(authMiddlewares()...)

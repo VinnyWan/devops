@@ -121,7 +121,7 @@
       v-model:page-size="pageSize"
       :total="total"
       @current-change="fetchData"
-      style="margin-top: 16px; justify-content: flex-end"
+      class="pagination-wrap"
     />
 
     <!-- 扩缩容弹窗 -->
@@ -408,12 +408,4 @@ const handleCreate = () => {
 </script>
 
 <style scoped>
-.page-container {
-  padding: 20px;
-}
-.search-bar {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-}
 </style>

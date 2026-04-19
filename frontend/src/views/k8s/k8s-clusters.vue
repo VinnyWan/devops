@@ -42,7 +42,7 @@
       v-model:page-size="pageSize"
       :total="total"
       @current-change="fetchData"
-      style="margin-top: 16px; justify-content: flex-end"
+      class="pagination-wrap"
     />
 
     <el-dialog v-model="dialogVisible" :title="isEdit ? '编辑集群' : '创建集群'" width="900px">
@@ -160,21 +160,6 @@ onMounted(fetchData)
 </script>
 
 <style scoped>
-.page-container {
-  background: #fff;
-  border-radius: 4px;
-  padding: 24px;
-}
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 24px;
-}
-.page-header h3 {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 500;
-}
+.pagination-wrap { margin-top: var(--spacing-lg); display: flex; justify-content: flex-end; }
 </style>
 

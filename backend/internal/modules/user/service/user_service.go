@@ -116,9 +116,13 @@ func (s *UserService) GetAccessibleUserByID(ctx context.Context, tenantID uint, 
 
 // ListUsers 获取用户列表
 func (s *UserService) ListUsers(ctx context.Context, tenantID uint, operatorID uint, page, pageSize int, keyword string, departmentID *uint) ([]model.User, int64, error) {
-	// 按部门筛选：前端部门树已按用户数据权限过滤，此处直接按部门ID查询
+	// 按部门筛选：收集该部门及所有子部门ID，查询这些部门下的所有用户
 	if departmentID != nil {
-		return s.userRepo.ListByDepartmentInTenant(tenantID, *departmentID, page, pageSize, keyword)
+		deptIDs, err := s.deptRepo.GetDescendantIDsInTenant(tenantID, *departmentID)
+		if err != nil {
+			return nil, 0, err
+		}
+		return s.userRepo.ListByDepartmentIDsInTenant(tenantID, deptIDs, page, pageSize, keyword)
 	}
 
 	scope, err := s.scopeSvc.Resolve(ctx, tenantID, operatorID)

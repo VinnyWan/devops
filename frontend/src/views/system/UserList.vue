@@ -5,7 +5,7 @@
     </div>
 
     <div class="page-body">
-      <!-- 左侧部门树 -->
+      <!-- Left: Department Tree -->
       <div class="dept-panel">
         <div class="dept-tree-header">部门列表</div>
         <el-tree
@@ -25,12 +25,9 @@
             </span>
           </template>
         </el-tree>
-        <div class="dept-all" :class="{ active: !selectedDeptId }" @click="handleShowAll">
-          全部用户
-        </div>
       </div>
 
-      <!-- 右侧用户表格 -->
+      <!-- Right: User Table -->
       <div class="user-panel">
         <div class="user-toolbar">
           <el-input
@@ -92,7 +89,7 @@
       </div>
     </div>
 
-    <!-- 创建/编辑弹窗 -->
+    <!-- Create/Edit Dialog -->
     <el-dialog v-model="dialogVisible" :title="form.id ? '编辑用户' : '创建用户'" width="500px">
       <el-form ref="formRef" :model="form" :rules="rules" label-width="80px">
         <el-form-item label="用户名" prop="username">
@@ -125,14 +122,14 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, nextTick } from 'vue'
 import { getUserList, getDepartmentList } from '../../api/system'
 import { getUserListV2, createUserV2, updateUserV2, deleteUserV2 } from '../../api/systemV2'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { required, email } from '../../utils/validate'
 import dayjs from 'dayjs'
 
-// --- 部门树 ---
+// --- Department Tree ---
 const treeRef = ref()
 const deptTree = ref([])
 
@@ -145,7 +142,7 @@ const fetchDepartments = async () => {
   }
 }
 
-// --- 用户列表 ---
+// --- User List ---
 const tableData = ref([])
 const loading = ref(false)
 const total = ref(0)
@@ -186,14 +183,7 @@ const handleDeptClick = (data) => {
   fetchUsers()
 }
 
-const handleShowAll = () => {
-  selectedDeptId.value = null
-  if (treeRef.value) treeRef.value.setCurrentKey(null)
-  page.value = 1
-  fetchUsers()
-}
-
-// --- 创建/编辑 ---
+// --- Create/Edit ---
 const dialogVisible = ref(false)
 const form = ref({})
 const formRef = ref()
@@ -260,79 +250,81 @@ const handleDelete = async (id) => {
   }
 }
 
-// --- 工具 ---
+// --- Utils ---
 const formatTime = (val) => {
   if (!val) return '-'
   return dayjs(val).format('YYYY-MM-DD HH:mm')
 }
 
-onMounted(() => {
-  fetchDepartments()
+onMounted(async () => {
+  await fetchDepartments()
+  if (deptTree.value.length) {
+    selectedDeptId.value = deptTree.value[0].id
+    nextTick(() => {
+      treeRef.value?.setCurrentKey(deptTree.value[0].id)
+    })
+  }
   fetchUsers()
 })
 </script>
 
 <style scoped>
 .user-page {
-  background: #fff;
-  border-radius: 4px;
-  padding: 24px;
+  background: var(--color-bg-white);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
+  box-shadow: var(--shadow-xs);
+  border: 1px solid var(--color-border-light);
 }
 .page-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
+  margin-bottom: var(--spacing-lg);
 }
 .page-header h3 {
   margin: 0;
-  font-size: 18px;
-  font-weight: 500;
+  font-size: var(--font-size-xl);
+  font-weight: 600;
+  color: var(--color-text);
 }
 .page-body {
   display: flex;
-  gap: 16px;
+  gap: var(--spacing-md);
 }
 .dept-panel {
   width: 240px;
   flex-shrink: 0;
-  border: 1px solid #e4e7ed;
-  border-radius: 4px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 .dept-tree-header {
-  padding: 12px 16px;
-  font-weight: 500;
-  border-bottom: 1px solid #e4e7ed;
-  background: #f5f7fa;
-  border-radius: 4px 4px 0 0;
+  padding: var(--spacing-sm) var(--spacing-md);
+  font-weight: 600;
+  border-bottom: 1px solid var(--color-border-light);
+  background: var(--color-bg-muted);
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
 }
 .dept-panel :deep(.el-tree) {
-  padding: 8px;
+  padding: var(--spacing-sm);
 }
 .dept-node {
   display: flex;
   justify-content: space-between;
   align-items: center;
   flex: 1;
-  font-size: 13px;
+  font-size: var(--font-size-sm);
 }
 .dept-count {
-  color: #909399;
-  font-size: 12px;
-}
-.dept-all {
-  padding: 8px 16px;
-  cursor: pointer;
-  font-size: 13px;
-  border-top: 1px solid #e4e7ed;
-  color: #606266;
-}
-.dept-all:hover,
-.dept-all.active {
-  color: #409eff;
-  background: #ecf5ff;
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-xs);
+  background: var(--color-bg-muted);
+  padding: 1px 6px;
+  border-radius: var(--radius-full);
 }
 .user-panel {
   flex: 1;
@@ -342,11 +334,11 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
+  margin-bottom: var(--spacing-md);
 }
 .pagination-wrap {
   display: flex;
   justify-content: flex-end;
-  margin-top: 16px;
+  margin-top: var(--spacing-lg);
 }
 </style>
