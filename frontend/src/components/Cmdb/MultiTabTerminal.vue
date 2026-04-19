@@ -16,19 +16,22 @@
     </div>
 
     <!-- Terminal Panels -->
-    <div class="terminal-panels">
-      <div
-        v-for="(tab, index) in tabs"
-        :key="tab.id"
-        v-show="index === activeIndex"
-        class="terminal-panel"
-      >
-        <Terminal
-          :ref="el => setTerminalRef(el, index)"
-          :ws-url="tab.wsUrl"
-          :visible="index === activeIndex && visible"
-        />
+    <div style="display: flex; flex: 1; overflow: hidden;">
+      <div class="terminal-panels">
+        <div
+          v-for="(tab, index) in tabs"
+          :key="tab.id"
+          v-show="index === activeIndex"
+          class="terminal-panel"
+        >
+          <Terminal
+            :ref="el => setTerminalRef(el, index)"
+            :ws-url="tab.wsUrl"
+            :visible="index === activeIndex && visible"
+          />
+        </div>
       </div>
+      <SnippetPanel @insert="handleSnippetInsert" />
     </div>
 
     <!-- Status Bar -->
@@ -42,6 +45,7 @@
 <script setup>
 import { ref, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import Terminal from '@/components/K8s/Terminal.vue'
+import SnippetPanel from '@/components/Cmdb/SnippetPanel.vue'
 
 const props = defineProps({
   visible: { type: Boolean, default: false }
@@ -136,6 +140,13 @@ watch(activeIndex, async () => {
     setTimeout(() => ref.fit(), 50)
   }
 })
+
+const handleSnippetInsert = (content) => {
+  const ref = terminalRefs.value[activeIndex.value]
+  if (ref && typeof ref.write === 'function') {
+    ref.write(content)
+  }
+}
 
 defineExpose({ addTab, closeCurrentTab })
 </script>
