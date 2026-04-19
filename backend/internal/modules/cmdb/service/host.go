@@ -3,6 +3,7 @@ package service
 import (
 	"devops-platform/internal/modules/cmdb/model"
 	"devops-platform/internal/modules/cmdb/repository"
+	cmdbterminal "devops-platform/internal/modules/cmdb/terminal"
 	"devops-platform/internal/pkg/utils"
 
 	"golang.org/x/crypto/ssh"
@@ -21,34 +22,34 @@ func NewHostService(db *gorm.DB) *HostService {
 }
 
 type HostCreateRequest struct {
-	Hostname      string `json:"hostname" binding:"required"`
-	Ip            string `json:"ip" binding:"required"`
-	Port          int    `json:"port"`
-	OsType        string `json:"osType"`
-	OsName        string `json:"osName"`
-	CpuCores      int    `json:"cpuCores"`
-	MemoryTotal   int    `json:"memoryTotal"`
-	DiskTotal     int    `json:"diskTotal"`
-	CredentialID  uint   `json:"credentialId"`
-	GroupID       uint   `json:"groupId"`
-	Labels        string `json:"labels"`
-	Description   string `json:"description"`
+	Hostname     string `json:"hostname" binding:"required"`
+	Ip           string `json:"ip" binding:"required"`
+	Port         int    `json:"port"`
+	OsType       string `json:"osType"`
+	OsName       string `json:"osName"`
+	CpuCores     int    `json:"cpuCores"`
+	MemoryTotal  int    `json:"memoryTotal"`
+	DiskTotal    int    `json:"diskTotal"`
+	CredentialID uint   `json:"credentialId"`
+	GroupID      uint   `json:"groupId"`
+	Labels       string `json:"labels"`
+	Description  string `json:"description"`
 }
 
 type HostUpdateRequest struct {
-	ID            uint   `json:"id" binding:"required"`
-	Hostname      string `json:"hostname"`
-	Ip            string `json:"ip"`
-	Port          int    `json:"port"`
-	OsType        string `json:"osType"`
-	OsName        string `json:"osName"`
-	CpuCores      int    `json:"cpuCores"`
-	MemoryTotal   int    `json:"memoryTotal"`
-	DiskTotal     int    `json:"diskTotal"`
-	CredentialID  uint   `json:"credentialId"`
-	GroupID       uint   `json:"groupId"`
-	Labels        string `json:"labels"`
-	Description   string `json:"description"`
+	ID           uint   `json:"id" binding:"required"`
+	Hostname     string `json:"hostname"`
+	Ip           string `json:"ip"`
+	Port         int    `json:"port"`
+	OsType       string `json:"osType"`
+	OsName       string `json:"osName"`
+	CpuCores     int    `json:"cpuCores"`
+	MemoryTotal  int    `json:"memoryTotal"`
+	DiskTotal    int    `json:"diskTotal"`
+	CredentialID uint   `json:"credentialId"`
+	GroupID      uint   `json:"groupId"`
+	Labels       string `json:"labels"`
+	Description  string `json:"description"`
 }
 
 func (s *HostService) normalizePage(page, pageSize int) (int, int) {
@@ -64,9 +65,9 @@ func (s *HostService) normalizePage(page, pageSize int) (int, int) {
 	return page, pageSize
 }
 
-func (s *HostService) ListInTenant(tenantID uint, page, pageSize int, groupID uint, status, keyword string) ([]model.Host, int64, error) {
+func (s *HostService) ListInTenant(tenantID uint, page, pageSize int, groupID uint, status, keyword string, allowedHostIDs []uint) ([]model.Host, int64, error) {
 	page, pageSize = s.normalizePage(page, pageSize)
-	return s.repo.ListInTenant(tenantID, page, pageSize, groupID, status, keyword)
+	return s.repo.ListInTenant(tenantID, page, pageSize, groupID, status, keyword, allowedHostIDs)
 }
 
 func (s *HostService) GetByIDInTenant(tenantID uint, id uint) (*model.Host, error) {
@@ -80,17 +81,17 @@ func (s *HostService) CreateInTenant(tenantID uint, req *HostCreateRequest) (*mo
 	}
 
 	host := &model.Host{
-		Hostname:     req.Hostname,
-		Ip:           req.Ip,
-		Port:         port,
-		OsType:       req.OsType,
-		OsName:       req.OsName,
-		CpuCores:     req.CpuCores,
-		MemoryTotal:  req.MemoryTotal,
-		DiskTotal:    req.DiskTotal,
-		Labels:       req.Labels,
-		Description:  req.Description,
-		Status:       "unknown",
+		Hostname:    req.Hostname,
+		Ip:          req.Ip,
+		Port:        port,
+		OsType:      req.OsType,
+		OsName:      req.OsName,
+		CpuCores:    req.CpuCores,
+		MemoryTotal: req.MemoryTotal,
+		DiskTotal:   req.DiskTotal,
+		Labels:      req.Labels,
+		Description: req.Description,
+		Status:      "unknown",
 	}
 	if req.CredentialID > 0 {
 		host.CredentialID = &req.CredentialID
@@ -229,10 +230,14 @@ func (s *HostService) TestConnection(ip string, port int, cred *model.Credential
 		authMethods = append(authMethods, ssh.PublicKeys(signer))
 	}
 
+	hostKeyCallback, err := cmdbterminal.BuildHostKeyCallback()
+	if err != nil {
+		return false, "加载 known_hosts 失败: " + err.Error()
+	}
 	config := &ssh.ClientConfig{
 		User:            cred.Username,
 		Auth:            authMethods,
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		HostKeyCallback: hostKeyCallback,
 		Timeout:         10 * time.Second,
 	}
 
@@ -252,9 +257,9 @@ func (s *HostService) TestConnection(ip string, port int, cred *model.Credential
 }
 
 type HostStats struct {
-	Total      int64          `json:"total"`
-	ByStatus   map[string]int64 `json:"byStatus"`
-	ByGroup    map[uint]int64 `json:"byGroup"`
+	Total    int64            `json:"total"`
+	ByStatus map[string]int64 `json:"byStatus"`
+	ByGroup  map[uint]int64   `json:"byGroup"`
 }
 
 func (s *HostService) StatsInTenant(tenantID uint) (*HostStats, error) {

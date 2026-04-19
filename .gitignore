@@ -32,6 +32,7 @@ backend/*.swo
 backend/logs/
 backend/*.log
 backend/config/config.yaml
+backend/data/
 
 # Frontend
 frontend/CLAUDE.md
@@ -61,3 +62,4 @@ frontend/*.sw?
 # Images
 images/
 .worktrees/
+.gstack/

@@ -41,6 +41,16 @@ func SetDefaults(v *viper.Viper) {
 	// 加密默认配置
 	v.SetDefault("crypto.secret", "")
 
+	// Terminal 默认配置
+	v.SetDefault("terminal.recording_dir", "./data/recordings/cmdb-terminal")
+	v.SetDefault("terminal.max_session_duration", 86400)
+	v.SetDefault("terminal.idle_timeout", 300)
+	v.SetDefault("terminal.known_hosts_path", "")
+
+	// 录像清理默认配置
+	v.SetDefault("terminal.recording.max_age_days", 90)
+	v.SetDefault("terminal.recording.cleanup_hour", 3)
+
 	// LDAP 默认配置（默认关闭）
 	v.SetDefault("ldap.enable", false)
 	v.SetDefault("ldap.host", "ldap.example.com")
@@ -90,4 +100,9 @@ func SetDefaults(v *viper.Viper) {
 		"protocol": "http",
 		"version":  "v1",
 	})
+
+	// Cloud 云账号同步默认配置
+	v.SetDefault("cloud.sync_concurrency", 5)
+	v.SetDefault("cloud.sync_timeout", 300)
+	v.SetDefault("cloud.default_regions", "ap-guangzhou,ap-shanghai,ap-beijing")
 }

@@ -22,9 +22,29 @@ func HostList(c *gin.Context) {
 
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("pageSize", "10"))
-	groupID, _ := strconv.ParseUint(c.DefaultQuery("groupId", "0"), 10, 32)
+	groupID, _ := strconv.ParseUint(c.DefaultQuery("groupId", "0"), 10, 64)
 	status := c.Query("status")
 	keyword := c.Query("keyword")
+
+	// 主机级权限过滤
+	var allowedHostIDs []uint
+	userID := c.GetUint("userID")
+	if !isCmdbAdmin(c, tenantID, userID) {
+		permSvc := getPermissionService()
+		hosts, err := permSvc.MyHosts(tenantID, userID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "获取主机权限失败"})
+			return
+		}
+		allowedHostIDs = make([]uint, 0, len(hosts))
+		for _, h := range hosts {
+			allowedHostIDs = append(allowedHostIDs, h.HostID)
+		}
+		if len(allowedHostIDs) == 0 {
+			c.JSON(http.StatusOK, gin.H{"code": 200, "data": gin.H{"list": []interface{}{}, "total": 0}})
+			return
+		}
+	}
 
 	svc := getHostService()
 	if svc == nil {
@@ -32,7 +52,7 @@ func HostList(c *gin.Context) {
 		return
 	}
 
-	hosts, total, err := svc.ListInTenant(tenantID, page, pageSize, uint(groupID), status, keyword)
+	hosts, total, err := svc.ListInTenant(tenantID, page, pageSize, uint(groupID), status, keyword, allowedHostIDs)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "获取主机列表失败", "error": err.Error()})
 		return
@@ -87,10 +107,21 @@ func HostDetail(c *gin.Context) {
 	if idStr == "" {
 		idStr = c.Query("id")
 	}
-	id, err := strconv.ParseUint(idStr, 10, 32)
+	id, err := strconv.ParseUint(idStr, 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "无效的 ID"})
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的主机 ID"})
 		return
+	}
+
+	// 主机级权限校验
+	userID := c.GetUint("userID")
+	if !isCmdbAdmin(c, tenantID, userID) {
+		permSvc := getPermissionService()
+		allowed, _, err := permSvc.CheckPermission(tenantID, userID, uint(id), "view")
+		if err != nil || !allowed {
+			c.JSON(http.StatusNotFound, gin.H{"code": 404, "message": "主机不存在或无访问权限"})
+			return
+		}
 	}
 
 	svc := getHostService()

@@ -16,12 +16,17 @@ require (
 	github.com/mattn/go-sqlite3 v1.14.22
 	github.com/mssola/useragent v1.0.0
 	github.com/nacos-group/nacos-sdk-go/v2 v2.3.5
+	github.com/pkg/sftp v1.13.10
 	github.com/redis/go-redis/v9 v9.17.3
 	github.com/spf13/viper v1.18.2
 	github.com/stretchr/testify v1.11.1
 	github.com/swaggo/files v1.0.1
 	github.com/swaggo/gin-swagger v1.6.1
 	github.com/swaggo/swag v1.16.6
+	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cbs v1.3.40
+	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common v1.3.81
+	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cvm v1.3.78
+	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vpc v1.3.80
 	go.uber.org/zap v1.27.1
 	golang.org/x/crypto v0.47.0
 	golang.org/x/oauth2 v0.28.0
@@ -104,6 +109,7 @@ require (
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.7 // indirect
+	github.com/kr/fs v0.1.0 // indirect
 	github.com/leodido/go-urn v1.4.0 // indirect
 	github.com/magiconair/properties v1.8.7 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect

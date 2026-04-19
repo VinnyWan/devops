@@ -98,6 +98,11 @@ func main() {
 	// 设置 CMDB 服务的 DB 实例
 	cmdbAPI.SetDB(bootstrap.DB)
 
+	// 启动定时云同步
+	cmdbAPI.StartCloudSync()
+	// 启动录像清理定时任务
+	cmdbAPI.StartRecordingCleanup()
+
 	r := routers.InitRouter()
 	port := config.Cfg.GetString("server.port")
 	if port == "" {

@@ -10,24 +10,135 @@ import { WebLinksAddon } from '@xterm/addon-web-links'
 import '@xterm/xterm/css/xterm.css'
 
 const props = defineProps({
-  wsUrl: { type: String, required: true },
-  visible: { type: Boolean, default: false }
+  wsUrl: { type: String, default: '' },
+  visible: { type: Boolean, default: false },
+  readonly: { type: Boolean, default: false }
 })
 
-const emit = defineEmits(['error'])
+const emit = defineEmits(['error', 'closed'])
 
 const terminalContainer = ref(null)
 let terminal = null
 let fitAddon = null
 let ws = null
 let initialized = false
+let closeMessageShown = false
+let errorMessageShown = false
+
+const resolveWsUrl = (rawUrl) => {
+  if (!rawUrl) return ''
+  if (rawUrl.startsWith('ws://') || rawUrl.startsWith('wss://')) {
+    return rawUrl
+  }
+  if (rawUrl.startsWith('http://') || rawUrl.startsWith('https://')) {
+    return rawUrl.replace(/^http/, 'ws')
+  }
+
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+  const host = window.location.host
+  return `${protocol}//${host}${rawUrl}`
+}
+
+const write = (content = '') => {
+  terminal?.write(content)
+}
+
+const clear = () => {
+  terminal?.clear()
+}
+
+const fit = () => {
+  fitAddon?.fit()
+}
+
+const announceClose = (message = 'Connection closed.') => {
+  if (closeMessageShown || errorMessageShown) {
+    return
+  }
+  closeMessageShown = true
+  write(`\r\n\x1b[33m${message}\x1b[0m\r\n`)
+  emit('closed', message)
+}
+
+const announceError = (message = 'WebSocket connection error') => {
+  if (errorMessageShown || closeMessageShown) {
+    return
+  }
+  errorMessageShown = true
+  closeMessageShown = true
+  write(`\r\n\x1b[31m${message}\x1b[0m\r\n`)
+  emit('error', message)
+}
+
+const handleSocketMessage = (payload) => {
+  if (!payload || typeof payload !== 'object') {
+    write(String(payload || ''))
+    return
+  }
+
+  const content = payload.data || ''
+  switch (payload.operation) {
+    case 'stdout':
+    case 'stderr':
+      write(content)
+      break
+    case 'error':
+      announceError(content || 'WebSocket connection error')
+      break
+    case 'closed':
+      announceClose(content || 'Connection closed.')
+      break
+    default:
+      if (typeof content === 'string') {
+        write(content)
+      }
+  }
+}
+
+const connectWebSocket = () => {
+  if (!props.wsUrl) return
+
+  closeMessageShown = false
+  errorMessageShown = false
+  const wsFullUrl = resolveWsUrl(props.wsUrl)
+  if (!wsFullUrl) return
+
+  ws = new WebSocket(wsFullUrl)
+
+  ws.onopen = () => {
+    if (!props.readonly) {
+      write('\x1b[32mConnected.\x1b[0m\r\n')
+    }
+  }
+
+  ws.onmessage = (event) => {
+    if (typeof event.data !== 'string') {
+      return
+    }
+
+    try {
+      handleSocketMessage(JSON.parse(event.data))
+    } catch {
+      write(event.data)
+    }
+  }
+
+  ws.onerror = () => {
+    announceError('Connection error.')
+  }
+
+  ws.onclose = (event) => {
+    announceClose(event.reason || 'Connection closed.')
+  }
+}
 
 const initTerminal = () => {
   if (initialized || !terminalContainer.value) return
   initialized = true
 
   terminal = new Terminal({
-    cursorBlink: true,
+    cursorBlink: !props.readonly,
+    disableStdin: props.readonly,
     fontSize: 14,
     fontFamily: 'Consolas, "Courier New", monospace',
     theme: {
@@ -43,13 +154,13 @@ const initTerminal = () => {
 
   terminal.open(terminalContainer.value)
   nextTick(() => {
-    fitAddon.fit()
+    fit()
   })
 
   terminal.onData((data) => {
+    if (props.readonly) return
     if (ws && ws.readyState === WebSocket.OPEN) {
-      const msg = JSON.stringify({ operation: 'stdin', data: data })
-      ws.send(msg)
+      ws.send(JSON.stringify({ operation: 'stdin', data }))
     }
   })
 
@@ -59,36 +170,8 @@ const initTerminal = () => {
     }
   })
 
-  connectWebSocket()
-}
-
-const connectWebSocket = () => {
-  if (!props.wsUrl) return
-
-  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-  const host = window.location.host
-  const wsFullUrl = `${protocol}//${host}${props.wsUrl}`
-
-  ws = new WebSocket(wsFullUrl)
-
-  ws.onopen = () => {
-    terminal.write('\x1b[32mConnected.\x1b[0m\r\n')
-  }
-
-  ws.onmessage = (event) => {
-    const data = JSON.parse(event.data)
-    if (data.operation === 'stdout' || data.operation === 'stderr') {
-      terminal.write(data.data)
-    }
-  }
-
-  ws.onerror = () => {
-    terminal.write('\r\n\x1b[31mConnection error.\x1b[0m\r\n')
-    emit('error', 'WebSocket connection error')
-  }
-
-  ws.onclose = () => {
-    terminal.write('\r\n\x1b[33mConnection closed.\x1b[0m\r\n')
+  if (props.wsUrl) {
+    connectWebSocket()
   }
 }
 
@@ -101,6 +184,7 @@ const cleanup = () => {
     terminal.dispose()
     terminal = null
   }
+  fitAddon = null
   initialized = false
 }
 
@@ -126,7 +210,11 @@ onBeforeUnmount(() => {
   cleanup()
 })
 
-defineExpose({ fit: () => fitAddon?.fit() })
+defineExpose({
+  fit,
+  write,
+  clear
+})
 </script>
 
 <style scoped>

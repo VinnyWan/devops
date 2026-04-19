@@ -74,6 +74,13 @@ nacos:
 crypto:
   secret: "your-crypto-secret-key-32-bytes" # AES key usually needs specific length
 
+# Terminal 配置
+terminal:
+  recording_dir: "./data/recordings/cmdb-terminal"
+  max_session_duration: 86400 # 最大会话时长(秒), 24小时
+  idle_timeout: 300 # 空闲超时时间(秒), 5分钟
+  known_hosts_path: "" # 必填时由部署环境提供，不存储密码或私钥
+
 # 日志配置
 log:
   # 输出目标：console(终端) 或 file(文件) 或 both(两者)
