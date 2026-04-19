@@ -21,7 +21,9 @@ const routes = [
       },
       {
         path: 'k8s/cluster/:name',
-        component: () => import('../views/k8s/ClusterDetail.vue')
+        component: () => import('../views/k8s/ClusterDetail.vue'),
+        // Keep the cluster list entry active on detail pages.
+        meta: { activeMenu: '/k8s/cluster' }
       },
       {
         path: 'k8s/node',
@@ -29,7 +31,8 @@ const routes = [
       },
       {
         path: 'k8s/node/:clusterName/:nodeName',
-        component: () => import('../views/k8s/NodeDetail.vue')
+        component: () => import('../views/k8s/NodeDetail.vue'),
+        meta: { activeMenu: '/k8s/node' }
       },
       {
         path: 'k8s/namespace',
@@ -41,11 +44,13 @@ const routes = [
       },
       {
         path: 'k8s/workload/:kind/:clusterName/:namespace/:name',
-        component: () => import('../views/k8s/WorkloadDetail.vue')
+        component: () => import('../views/k8s/WorkloadDetail.vue'),
+        meta: { activeMenu: '/k8s/workload' }
       },
       {
         path: 'k8s/pod/:name',
-        component: () => import('../views/k8s/PodDetail.vue')
+        component: () => import('../views/k8s/PodDetail.vue'),
+        meta: { activeMenu: '/k8s/workload' }
       },
       {
         path: 'k8s/network',
@@ -101,7 +106,8 @@ const routes = [
       },
       {
         path: 'cmdb/terminal/replay/:id',
-        component: () => import('../views/Cmdb/TerminalReplay.vue')
+        component: () => import('../views/Cmdb/TerminalReplay.vue'),
+        meta: { activeMenu: '/cmdb/terminal/sessions' }
       },
       {
         path: 'cmdb/permissions',

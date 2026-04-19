@@ -26,10 +26,6 @@ export function mkdir(data) {
   return request.post('/cmdb/file/mkdir', data)
 }
 
-export function chmod(data) {
-  return request.post('/cmdb/file/chmod', data)
-}
-
 export function previewFile(params) {
   return request.get('/cmdb/file/preview', { params })
 }
@@ -47,10 +43,6 @@ export function distributeFile(file, path, hostIds, onProgress) {
     headers: { 'Content-Type': 'multipart/form-data' },
     onUploadProgress: onProgress
   })
-}
-
-export function getFileAuditLog(params) {
-  return request.get('/cmdb/file/audit', { params })
 }
 
 export function getDownloadUrl(hostId, filePath) {

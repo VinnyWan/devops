@@ -26,6 +26,5 @@ export const getTerminalRecording = (params) => request.get('/cmdb/terminal/reco
 export const getTerminalConnectWsUrl = (hostId) => joinBasePath(getTerminalWsBaseUrl(), `/cmdb/terminal/connect?hostId=${encodeURIComponent(hostId)}`)
 export const addSessionTag = (data) => request.post('/cmdb/terminal/tag/add', data)
 export const removeSessionTag = (data) => request.post('/cmdb/terminal/tag/remove', data)
-export const getSessionTags = (params) => request.get('/cmdb/terminal/tag/list', { params })
 export const getAvailableTags = () => request.get('/cmdb/terminal/tags')
 export const searchSessionsByTag = (params) => request.get('/cmdb/terminal/tag/search', { params })

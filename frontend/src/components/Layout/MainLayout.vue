@@ -5,7 +5,7 @@
         <div class="logo-icon" v-if="isCollapse">S</div>
         <span v-if="!isCollapse" class="logo-text">SRE Platform</span>
       </div>
-      <el-menu :default-active="$route.path" :collapse="isCollapse" :unique-opened="true" router>
+      <el-menu :default-active="activeMenu" :collapse="isCollapse" :unique-opened="true" router>
         <el-menu-item index="/dashboard">
           <el-icon><HomeFilled /></el-icon>
           <span>仪表盘</span>
@@ -78,15 +78,18 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { HomeFilled, Grid, Setting, Expand, Fold, Notebook, Monitor } from '@element-plus/icons-vue'
 import { useUserStore } from '../../stores/user'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import Breadcrumb from './Breadcrumb.vue'
 
 const userStore = useUserStore()
+const route = useRoute()
 const router = useRouter()
 const isCollapse = ref(false)
+// Normalize active menu paths so dynamic detail pages keep their parent nav highlighted.
+const activeMenu = computed(() => route.meta.activeMenu || route.path)
 
 const toggleCollapse = () => {
   isCollapse.value = !isCollapse.value
