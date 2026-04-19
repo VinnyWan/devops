@@ -82,7 +82,7 @@
           v-model:page-size="eventPageSize"
           :total="eventTotal"
           @current-change="fetchEvents"
-          style="margin-top: 16px; justify-content: flex-end"
+          class="pagination-wrap"
         />
       </el-tab-pane>
 
@@ -110,7 +110,7 @@
           v-model:page-size="nodePageSize"
           :total="nodeTotal"
           @current-change="fetchNodes"
-          style="margin-top: 16px; justify-content: flex-end"
+          class="pagination-wrap"
         />
       </el-tab-pane>
 
@@ -137,7 +137,7 @@
           v-model:page-size="workloadPageSize"
           :total="workloadTotal"
           @current-change="fetchWorkloads"
-          style="margin-top: 16px; justify-content: flex-end"
+          class="pagination-wrap"
         />
       </el-tab-pane>
 
@@ -162,7 +162,7 @@
           v-model:page-size="networkPageSize"
           :total="networkTotal"
           @current-change="fetchNetworkResources"
-          style="margin-top: 16px; justify-content: flex-end"
+          class="pagination-wrap"
         />
       </el-tab-pane>
 
@@ -395,22 +395,6 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.page-container {
-  background: #fff;
-  border-radius: 4px;
-  padding: 24px;
-}
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 24px;
-}
-.page-header h3 {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 500;
-}
 .stat-card {
   text-align: center;
   cursor: default;

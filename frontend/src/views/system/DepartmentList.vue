@@ -32,7 +32,7 @@
           <el-input v-model="form.name" placeholder="请输入部门名称" />
         </el-form-item>
         <el-form-item label="上级部门" prop="parentId">
-          <el-tree-select v-model="form.parentId" :data="parentOptions" :props="{ label: 'name', value: 'id', children: 'children' }" placeholder="无（顶级部门）" clearable check-strictly style="width: 100%" />
+          <el-tree-select v-model="form.parentId" :data="parentOptions" :props="{ label: 'name', value: 'id', children: 'children', disabled: 'disabled' }" placeholder="无（顶级部门）" clearable check-strictly style="width: 100%" />
         </el-form-item>
         <el-form-item label="描述" prop="description">
           <el-input v-model="form.description" type="textarea" :rows="3" placeholder="请输入部门描述" />
@@ -83,7 +83,39 @@ const userPage = ref(1)
 const userPageSize = ref(10)
 const userTotal = ref(0)
 
-const parentOptions = computed(() => departmentTree.value)
+const cloneTreeWithDisabled = (nodes, disabledIds = new Set()) => {
+  return nodes.map(node => ({
+    ...node,
+    disabled: disabledIds.has(node.id),
+    children: node.children ? cloneTreeWithDisabled(node.children, disabledIds) : []
+  }))
+}
+
+const collectDescendantIds = (nodes, targetId) => {
+  const descendants = new Set()
+
+  const traverse = (items, parentMatched = false) => {
+    items.forEach(item => {
+      const matched = parentMatched || item.id === targetId
+      if (matched) descendants.add(item.id)
+      if (item.children?.length) {
+        traverse(item.children, matched)
+      }
+    })
+  }
+
+  traverse(nodes)
+  return descendants
+}
+
+const parentOptions = computed(() => {
+  if (!isEdit.value || !form.value.id) {
+    return cloneTreeWithDisabled(departmentTree.value)
+  }
+
+  const disabledIds = collectDescendantIds(departmentTree.value, form.value.id)
+  return cloneTreeWithDisabled(departmentTree.value, disabledIds)
+})
 
 const fetchDepartments = async () => {
   loading.value = true

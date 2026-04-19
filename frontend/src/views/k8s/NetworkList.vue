@@ -14,7 +14,7 @@
     </el-tabs>
 
     <!-- Service 表格 -->
-    <el-table v-if="activeTab === 'service'" :data="tableData" stripe>
+    <el-table v-if="activeTab === 'service' && (tableData.length || loading)" :data="tableData" stripe v-loading="loading">
       <el-table-column label="名称" min-width="160">
         <template #default="{ row }">
           <el-link type="primary">{{ row.name }}</el-link>
@@ -51,7 +51,7 @@
     </el-table>
 
     <!-- Ingress 表格 -->
-    <el-table v-if="activeTab === 'ingress'" :data="tableData" stripe>
+    <el-table v-if="activeTab === 'ingress' && (tableData.length || loading)" :data="tableData" stripe v-loading="loading">
       <el-table-column label="名称" min-width="160">
         <template #default="{ row }">
           <el-link type="primary">{{ row.name }}</el-link>
@@ -85,6 +85,12 @@
         </template>
       </el-table-column>
     </el-table>
+
+    <el-empty
+      v-if="!loading && !tableData.length"
+      :description="activeTab === 'service' ? '暂无 Service 数据' : '暂无 Ingress 数据'"
+      style="margin-top: 16px"
+    />
 
     <el-pagination
       v-model:current-page="page"
@@ -128,6 +134,7 @@ const tableData = ref([])
 const page = ref(1)
 const pageSize = ref(10)
 const total = ref(0)
+const loading = ref(false)
 
 // YAML 弹窗
 const yamlVisible = ref(false)
@@ -161,18 +168,32 @@ onMounted(() => {
 })
 
 const fetchData = async () => {
-  const params = {
-    clusterName: clusterName.value,
-    namespace: namespace.value,
-    keyword: keyword.value,
-    page: page.value,
-    pageSize: pageSize.value
+  if (!clusterName.value) {
+    tableData.value = []
+    total.value = 0
+    return
   }
-  const res = activeTab.value === 'service'
-    ? await getServiceList(params)
-    : await getIngressList(params)
-  tableData.value = res.data?.items || res.data || []
-  total.value = res.data?.total || res.total || 0
+
+  loading.value = true
+  try {
+    const params = {
+      clusterName: clusterName.value,
+      namespace: namespace.value,
+      keyword: keyword.value,
+      page: page.value,
+      pageSize: pageSize.value
+    }
+    const res = activeTab.value === 'service'
+      ? await getServiceList(params)
+      : await getIngressList(params)
+    tableData.value = res.data?.items || res.data || []
+    total.value = res.data?.total || res.total || 0
+  } catch {
+    tableData.value = []
+    total.value = 0
+  } finally {
+    loading.value = false
+  }
 }
 
 const handleTabChange = () => {

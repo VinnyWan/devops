@@ -70,6 +70,27 @@ import { getCredentialList, createCredential, updateCredential, deleteCredential
 import { required } from '@/utils/validate'
 import { formatTime } from '@/utils/format'
 
+const createEmptyForm = () => ({
+  name: '',
+  type: 'password',
+  username: '',
+  password: '',
+  privateKey: '',
+  passphrase: '',
+  description: ''
+})
+
+const getEditForm = (row) => ({
+  id: row.id,
+  name: row.name || '',
+  type: row.type || 'password',
+  username: row.username || '',
+  password: '',
+  privateKey: '',
+  passphrase: '',
+  description: row.description || ''
+})
+
 const loading = ref(false)
 const tableData = ref([])
 const total = ref(0)
@@ -79,11 +100,57 @@ const keyword = ref('')
 const dialogVisible = ref(false)
 const isEdit = ref(false)
 const formRef = ref()
-const form = ref({ name: '', type: 'password', username: '', password: '', privateKey: '', passphrase: '', description: '' })
+const form = ref(createEmptyForm())
+const initialEditForm = ref(null)
 const rules = {
   name: [required('请输入凭据名称')],
   type: [required('请选择凭据类型')],
   username: [required('请输入用户名')]
+}
+
+const buildCredentialCreatePayload = (source) => {
+  const payload = {
+    name: source.name,
+    type: source.type,
+    username: source.username,
+    description: source.description || ''
+  }
+
+  if (source.type === 'password') {
+    payload.password = source.password
+  } else {
+    payload.privateKey = source.privateKey
+    if (source.passphrase) {
+      payload.passphrase = source.passphrase
+    }
+  }
+
+  return payload
+}
+
+const buildCredentialUpdatePayload = (source, initial) => {
+  const payload = { id: source.id }
+
+  ;['name', 'type', 'username', 'description'].forEach((field) => {
+    if (source[field] !== initial[field]) {
+      payload[field] = source[field]
+    }
+  })
+
+  if (source.type === 'password') {
+    if (source.password) {
+      payload.password = source.password
+    }
+  } else {
+    if (source.privateKey) {
+      payload.privateKey = source.privateKey
+    }
+    if (source.passphrase) {
+      payload.passphrase = source.passphrase
+    }
+  }
+
+  return payload
 }
 
 const fetchData = async () => {
@@ -99,13 +166,16 @@ const fetchData = async () => {
 
 const showCreateDialog = () => {
   isEdit.value = false
-  form.value = { name: '', type: 'password', username: '', password: '', privateKey: '', passphrase: '', description: '' }
+  form.value = createEmptyForm()
+  initialEditForm.value = null
   dialogVisible.value = true
 }
 
 const handleEdit = (row) => {
   isEdit.value = true
-  form.value = { id: row.id, name: row.name, type: row.type, username: row.username, password: '', privateKey: '', passphrase: '', description: row.description || '' }
+  const editForm = getEditForm(row)
+  form.value = editForm
+  initialEditForm.value = { ...editForm }
   dialogVisible.value = true
 }
 
@@ -113,20 +183,38 @@ const handleSubmit = async () => {
   const valid = await formRef.value.validate().catch(() => false)
   if (!valid) return
   try {
-    if (form.value.type === 'password' && !isEdit.value && !form.value.password) {
-      ElMessage.error('请输入密码')
-      return
+    const initialType = initialEditForm.value?.type
+    const typeChanged = isEdit.value && initialType && form.value.type !== initialType
+
+    if (form.value.type === 'password') {
+      if (!isEdit.value && !form.value.password) {
+        ElMessage.error('请输入密码')
+        return
+      }
+      if (typeChanged && !form.value.password) {
+        ElMessage.error('凭据类型已切换为密码，请填写新的密码后再提交')
+        return
+      }
     }
-    if (form.value.type === 'key' && !isEdit.value && !form.value.privateKey) {
-      ElMessage.error('请输入私钥')
-      return
+
+    if (form.value.type === 'key') {
+      if (!isEdit.value && !form.value.privateKey) {
+        ElMessage.error('请输入私钥')
+        return
+      }
+      if (typeChanged && !form.value.privateKey) {
+        ElMessage.error('凭据类型已切换为密钥，请填写新的私钥后再提交')
+        return
+      }
     }
 
     if (isEdit.value) {
-      await updateCredential(form.value)
+      const payload = buildCredentialUpdatePayload(form.value, initialEditForm.value || getEditForm(form.value))
+      await updateCredential(payload)
       ElMessage.success('更新成功')
     } else {
-      await createCredential(form.value)
+      const payload = buildCredentialCreatePayload(form.value)
+      await createCredential(payload)
       ElMessage.success('创建成功')
     }
     dialogVisible.value = false

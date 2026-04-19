@@ -29,7 +29,7 @@
       v-model:page-size="pageSize"
       :total="total"
       @current-change="fetchData"
-      style="margin-top: 16px; justify-content: flex-end"
+      class="pagination-wrap"
     />
 
     <el-dialog v-model="dialogVisible" title="创建命名空间" width="500px">

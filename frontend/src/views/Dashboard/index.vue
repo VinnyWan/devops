@@ -21,13 +21,27 @@
       <el-col :xs="24" :md="8">
         <el-card shadow="never">
           <template #header><span>主机状态分布</span></template>
-          <div ref="hostChartRef" style="height: 240px;"></div>
+          <div class="chart-panel">
+            <div v-if="hostChartStatus === 'loading'" class="chart-placeholder">
+              <el-skeleton :rows="4" animated />
+            </div>
+            <el-empty v-else-if="hostChartStatus === 'error'" class="chart-placeholder" description="图表加载失败" :image-size="60" />
+            <el-empty v-else-if="hostChartStatus === 'empty'" class="chart-placeholder" description="暂无图表数据" :image-size="60" />
+            <div ref="hostChartRef" class="chart-canvas" :class="{ 'is-hidden': hostChartStatus !== 'ready' }"></div>
+          </div>
         </el-card>
       </el-col>
       <el-col :xs="24" :md="8">
         <el-card shadow="never">
           <template #header><span>分组主机分布</span></template>
-          <div ref="groupChartRef" style="height: 240px;"></div>
+          <div class="chart-panel">
+            <div v-if="groupChartStatus === 'loading'" class="chart-placeholder">
+              <el-skeleton :rows="4" animated />
+            </div>
+            <el-empty v-else-if="groupChartStatus === 'error'" class="chart-placeholder" description="图表加载失败" :image-size="60" />
+            <el-empty v-else-if="groupChartStatus === 'empty'" class="chart-placeholder" description="暂无图表数据" :image-size="60" />
+            <div ref="groupChartRef" class="chart-canvas" :class="{ 'is-hidden': groupChartStatus !== 'ready' }"></div>
+          </div>
         </el-card>
       </el-col>
       <el-col :xs="24" :md="8">
@@ -131,9 +145,12 @@ import { getTerminalConnectWsUrl } from '@/api/cmdb/terminal'
 
 const router = useRouter()
 const loading = ref(false)
+const cmdbLoading = ref(false)
 const k8sLoading = ref(false)
 const clusters = ref([])
 const cmdbData = ref(null)
+const hostChartStatus = ref('loading')
+const groupChartStatus = ref('loading')
 
 const hostChartRef = ref(null)
 const groupChartRef = ref(null)
@@ -198,10 +215,24 @@ const openTerminal = (host) => {
 
 const renderHostChart = () => {
   if (!hostChartRef.value || !cmdbData.value) return
+
+  const h = cmdbData.value.stats.hosts
+  const chartData = [
+    { value: h.online, name: '在线', itemStyle: { color: COLORS.success } },
+    { value: h.warning, name: '告警', itemStyle: { color: COLORS.warning } },
+    { value: h.offline, name: '离线', itemStyle: { color: COLORS.danger } },
+    { value: h.unknown, name: '未知', itemStyle: { color: COLORS.muted } }
+  ].filter(d => d.value > 0)
+
+  if (!chartData.length) {
+    hostChart?.clear()
+    hostChartStatus.value = 'empty'
+    return
+  }
+
   if (!hostChart) {
     hostChart = echarts.init(hostChartRef.value)
   }
-  const h = cmdbData.value.stats.hosts
   hostChart.setOption({
     tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
     legend: { bottom: 0, textStyle: { fontSize: 11, color: '#64748B' } },
@@ -211,43 +242,52 @@ const renderHostChart = () => {
       center: ['50%', '45%'],
       label: { show: false },
       itemStyle: { borderRadius: 6, borderColor: '#fff', borderWidth: 2 },
-      data: [
-        { value: h.online, name: '在线', itemStyle: { color: COLORS.success } },
-        { value: h.warning, name: '告警', itemStyle: { color: COLORS.warning } },
-        { value: h.offline, name: '离线', itemStyle: { color: COLORS.danger } },
-        { value: h.unknown, name: '未知', itemStyle: { color: COLORS.muted } }
-      ].filter(d => d.value > 0)
+      data: chartData
     }]
   })
+  hostChartStatus.value = 'ready'
 }
 
 const renderGroupChart = () => {
   if (!groupChartRef.value || !cmdbData.value) return
+
+  const groups = cmdbData.value.stats.hosts.byGroup || []
+  const chartData = groups.map(g => g.count).reverse().filter(value => value > 0)
+
+  if (!chartData.length) {
+    groupChart?.clear()
+    groupChartStatus.value = 'empty'
+    return
+  }
+
   if (!groupChart) {
     groupChart = echarts.init(groupChartRef.value)
   }
-  const groups = cmdbData.value.stats.hosts.byGroup || []
   groupChart.setOption({
     tooltip: { trigger: 'axis' },
     grid: { left: 80, right: 20, top: 10, bottom: 30 },
     xAxis: { type: 'value', axisLine: { lineStyle: { color: '#E2E8F0' } }, splitLine: { lineStyle: { color: '#F1F5F9' } } },
     yAxis: {
       type: 'category',
-      data: groups.map(g => g.groupName).reverse(),
+      data: groups.filter(g => g.count > 0).map(g => g.groupName).reverse(),
       axisLabel: { fontSize: 11, width: 70, overflow: 'truncate', color: '#64748B' },
       axisLine: { lineStyle: { color: '#E2E8F0' } }
     },
     series: [{
       type: 'bar',
-      data: groups.map(g => g.count).reverse(),
+      data: chartData,
       itemStyle: { color: COLORS.primary, borderRadius: [0, 6, 6, 0] },
       barWidth: 16,
       label: { show: true, position: 'right', fontSize: 11, color: '#64748B' }
     }]
   })
+  groupChartStatus.value = 'ready'
 }
 
 const fetchCmdbData = async () => {
+  cmdbLoading.value = true
+  hostChartStatus.value = 'loading'
+  groupChartStatus.value = 'loading'
   try {
     const res = await getCmdbDashboard()
     cmdbData.value = res.data
@@ -255,7 +295,14 @@ const fetchCmdbData = async () => {
     renderHostChart()
     renderGroupChart()
   } catch (e) {
+    cmdbData.value = null
+    hostChart?.clear()
+    groupChart?.clear()
+    hostChartStatus.value = 'error'
+    groupChartStatus.value = 'error'
     ElMessage.error('获取仪表盘数据失败')
+  } finally {
+    cmdbLoading.value = false
   }
 }
 
@@ -333,6 +380,29 @@ onBeforeUnmount(() => {
 
 .chart-row {
   margin-bottom: var(--spacing-lg);
+}
+
+.chart-panel {
+  position: relative;
+  min-height: 240px;
+}
+
+.chart-canvas {
+  height: 240px;
+}
+
+.chart-canvas.is-hidden {
+  visibility: hidden;
+}
+
+.chart-placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: var(--color-bg-white);
 }
 
 .activity-feed {

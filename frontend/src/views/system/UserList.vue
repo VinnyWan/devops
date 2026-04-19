@@ -100,7 +100,7 @@
         </el-form-item>
         <el-form-item label="部门">
           <el-tree-select
-            v-model="form.departmentId"
+            v-model="form.primaryDeptId"
             :data="deptTree"
             :props="{ label: 'name', value: 'id', children: 'children' }"
             placeholder="请选择部门"
@@ -123,11 +123,40 @@
 
 <script setup>
 import { ref, onMounted, nextTick } from 'vue'
-import { getUserList, getDepartmentList } from '../../api/system'
-import { getUserListV2, createUserV2, updateUserV2, deleteUserV2 } from '../../api/systemV2'
+import { getUserList, getDepartmentList, createUser, updateUser, deleteUser } from '../../api/system'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { required, email } from '../../utils/validate'
 import dayjs from 'dayjs'
+
+const createEmptyForm = () => ({
+  id: undefined,
+  username: '',
+  email: '',
+  primaryDeptId: undefined,
+  password: ''
+})
+
+const mapRowToForm = (row) => ({
+  id: row.id,
+  username: row.username || '',
+  email: row.email || '',
+  primaryDeptId: row.primaryDeptId ?? row.departmentId ?? row.department?.id ?? undefined,
+  password: ''
+})
+
+const buildUserPayload = (source, isEdit) => {
+  const payload = {
+    username: source.username,
+    email: source.email,
+    primaryDeptId: source.primaryDeptId ?? null
+  }
+
+  if (!isEdit) {
+    payload.password = source.password
+  }
+
+  return payload
+}
 
 // --- Department Tree ---
 const treeRef = ref()
@@ -185,7 +214,7 @@ const handleDeptClick = (data) => {
 
 // --- Create/Edit ---
 const dialogVisible = ref(false)
-const form = ref({})
+const form = ref(createEmptyForm())
 const formRef = ref()
 const saving = ref(false)
 
@@ -195,19 +224,8 @@ const rules = {
   password: [required('请输入密码')]
 }
 
-const fetchData = async () => {
-  loading.value = true
-  try {
-    const res = await getUserListV2()
-    tableData.value = res.data?.list || []
-  } finally {
-    loading.value = false
-  }
-}
-
-
 const showDialog = (row) => {
-  form.value = row ? { ...row } : {}
+  form.value = row ? mapRowToForm(row) : createEmptyForm()
   dialogVisible.value = true
   formRef.value?.clearValidate()
 }
@@ -218,10 +236,11 @@ const handleSave = async () => {
 
   saving.value = true
   try {
+    const payload = buildUserPayload(form.value, !!form.value.id)
     if (form.value.id) {
-      await updateUserV2(form.value.id, form.value)
+      await updateUser({ id: form.value.id, ...payload })
     } else {
-      await createUserV2(form.value)
+      await createUser(payload)
     }
     ElMessage.success('保存成功')
     dialogVisible.value = false
@@ -240,7 +259,7 @@ const handleDelete = async (id) => {
       cancelButtonText: '取消',
       type: 'warning'
     })
-    await deleteUserV2(id)
+    await deleteUser(id)
     ElMessage.success('删除成功')
     fetchUsers()
   } catch (error) {

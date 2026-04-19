@@ -390,25 +390,6 @@ watch(podPageSize, () => {
 </script>
 
 <style scoped>
-.page-container {
-  background: #fff;
-  border-radius: 4px;
-  padding: 24px;
-}
-
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 24px;
-}
-
-.page-header h3 {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 500;
-}
-
 .page-subtitle {
   margin-top: 6px;
   color: #909399;

@@ -17,7 +17,7 @@
     </el-tabs>
 
     <!-- Deployment / StatefulSet / DaemonSet 表格 -->
-    <el-table v-if="!isJobTab && !isCronJobTab" :data="tableData" stripe>
+    <el-table v-if="(!isJobTab && !isCronJobTab) && (tableData.length || loading)" :data="tableData" stripe v-loading="loading">
       <el-table-column label="名称" min-width="160">
         <template #default="{ row }">
           <el-link type="primary" @click="goDetail(row)">{{ row.name }}</el-link>
@@ -53,7 +53,7 @@
     </el-table>
 
     <!-- Job 表格 -->
-    <el-table v-if="isJobTab" :data="tableData" stripe>
+    <el-table v-if="isJobTab && (tableData.length || loading)" :data="tableData" stripe v-loading="loading">
       <el-table-column label="名称" min-width="160">
         <template #default="{ row }">
           <el-link type="primary" @click="goDetail(row)">{{ row.name }}</el-link>
@@ -84,7 +84,7 @@
     </el-table>
 
     <!-- CronJob 表格 -->
-    <el-table v-if="isCronJobTab" :data="tableData" stripe>
+    <el-table v-if="isCronJobTab && (tableData.length || loading)" :data="tableData" stripe v-loading="loading">
       <el-table-column label="名称" min-width="160">
         <template #default="{ row }">
           <el-link type="primary" @click="goDetail(row)">{{ row.name }}</el-link>
@@ -116,6 +116,12 @@
       </el-table-column>
     </el-table>
 
+    <el-empty
+      v-if="!loading && !tableData.length"
+      :description="namespace ? '暂无工作负载' : '暂无工作负载数据'"
+      style="margin-top: 16px"
+    />
+
     <el-pagination
       v-model:current-page="page"
       v-model:page-size="pageSize"
@@ -138,14 +144,14 @@
     </el-dialog>
 
     <!-- YAML 编辑弹窗 -->
-    <el-dialog v-model="yamlVisible" :title="yamlTitle" width="900px" destroy-on-close top="3vh">
-      <YamlEditor ref="yamlEditorRef" v-model="yamlContent" :readonly="yamlReadonly" :show-copy="false" min-height="600px" />
+    <el-dialog v-model="yamlVisible" :title="yamlTitle" width="900px" destroy-on-close top="3vh" :close-on-click-modal="!yamlSaving" :close-on-press-escape="!yamlSaving" :show-close="!yamlSaving">
+      <YamlEditor ref="yamlEditorRef" v-model="yamlContent" :readonly="yamlReadonly || yamlSaving" :show-copy="false" min-height="600px" />
       <template #footer>
         <div style="display: flex; justify-content: space-between; width: 100%">
           <el-button @click="handleYamlCopy">{{ yamlCopyText }}</el-button>
           <div>
-            <el-button @click="yamlVisible = false">取消</el-button>
-            <el-button type="primary" @click="handleYamlSave" v-if="!yamlReadonly">保存</el-button>
+            <el-button @click="yamlVisible = false" :disabled="yamlSaving">取消</el-button>
+            <el-button type="primary" @click="handleYamlSave" :loading="yamlSaving" :disabled="yamlSaving" v-if="!yamlReadonly">保存</el-button>
           </div>
         </div>
       </template>
@@ -179,6 +185,7 @@ const tableData = ref([])
 const page = ref(1)
 const pageSize = ref(10)
 const total = ref(0)
+const loading = ref(false)
 
 // 扩缩容
 const scaleVisible = ref(false)
@@ -193,6 +200,7 @@ const yamlReadonly = ref(false)
 const yamlMode = ref('') // 'view' | 'edit' | 'create'
 const yamlEditorRef = ref(null)
 const yamlCopyText = ref('复制')
+const yamlSaving = ref(false)
 
 const isJobTab = computed(() => activeTab.value === 'job')
 const isCronJobTab = computed(() => activeTab.value === 'cronjob')
@@ -220,33 +228,47 @@ const goDetail = (row) => {
 
 // 拉取数据
 const fetchData = async () => {
-  const params = {
-    clusterName: clusterName.value,
-    namespace: namespace.value,
-    keyword: keyword.value,
-    page: page.value,
-    pageSize: pageSize.value
+  if (!clusterName.value) {
+    tableData.value = []
+    total.value = 0
+    return
   }
-  let res
-  switch (activeTab.value) {
-    case 'deployment':
-      res = await getDeploymentList(params)
-      break
-    case 'statefulset':
-      res = await getStatefulSetList(params)
-      break
-    case 'daemonset':
-      res = await getDaemonSetList(params)
-      break
-    case 'job':
-      res = await getJobList(params)
-      break
-    case 'cronjob':
-      res = await getCronJobList(params)
-      break
+
+  loading.value = true
+  try {
+    const params = {
+      clusterName: clusterName.value,
+      namespace: namespace.value,
+      keyword: keyword.value,
+      page: page.value,
+      pageSize: pageSize.value
+    }
+    let res
+    switch (activeTab.value) {
+      case 'deployment':
+        res = await getDeploymentList(params)
+        break
+      case 'statefulset':
+        res = await getStatefulSetList(params)
+        break
+      case 'daemonset':
+        res = await getDaemonSetList(params)
+        break
+      case 'job':
+        res = await getJobList(params)
+        break
+      case 'cronjob':
+        res = await getCronJobList(params)
+        break
+    }
+    tableData.value = res.data?.items || []
+    total.value = res.data?.total || 0
+  } catch {
+    tableData.value = []
+    total.value = 0
+  } finally {
+    loading.value = false
   }
-  tableData.value = res.data?.items || []
-  total.value = res.data?.total || 0
 }
 
 const handleTabChange = () => {
@@ -351,49 +373,56 @@ const handleYaml = async (row) => {
 
 // YAML 保存（编辑或新建）
 const handleYamlSave = async () => {
+  if (yamlSaving.value) return
+
   if (!yamlContent.value.trim()) {
     ElMessage.warning('YAML 内容不能为空')
     return
   }
 
-  if (yamlMode.value === 'create') {
-    // 新建模式
-    const ns = currentRow.value.namespace || namespace.value
-    switch (activeTab.value) {
-      case 'deployment':
-        await createDeployment({ yaml: yamlContent.value, clusterName: clusterName.value, namespace: ns })
-        break
-      case 'statefulset':
-        await createStatefulSet({ yaml: yamlContent.value, clusterName: clusterName.value, namespace: ns })
-        break
-      case 'daemonset':
-        await createDaemonSet({ yaml: yamlContent.value, clusterName: clusterName.value, namespace: ns })
-        break
-      case 'job':
-        await createJob({ yaml: yamlContent.value }, { namespace: ns, clusterName: clusterName.value })
-        break
-      case 'cronjob':
-        await createCronJob({ yaml: yamlContent.value }, { namespace: ns, clusterName: clusterName.value })
-        break
-    }
-    ElMessage.success('创建成功')
-  } else {
-    // 编辑模式
-    const data = {
-      clusterName: clusterName.value,
-      namespace: currentRow.value.namespace,
-      name: currentRow.value.name,
-      yaml: yamlContent.value
-    }
-    if (activeTab.value === 'cronjob') {
-      await updateCronJobYAML(data)
+  yamlSaving.value = true
+  try {
+    if (yamlMode.value === 'create') {
+      // 新建模式
+      const ns = currentRow.value.namespace || namespace.value
+      switch (activeTab.value) {
+        case 'deployment':
+          await createDeployment({ yaml: yamlContent.value, clusterName: clusterName.value, namespace: ns })
+          break
+        case 'statefulset':
+          await createStatefulSet({ yaml: yamlContent.value, clusterName: clusterName.value, namespace: ns })
+          break
+        case 'daemonset':
+          await createDaemonSet({ yaml: yamlContent.value, clusterName: clusterName.value, namespace: ns })
+          break
+        case 'job':
+          await createJob({ yaml: yamlContent.value }, { namespace: ns, clusterName: clusterName.value })
+          break
+        case 'cronjob':
+          await createCronJob({ yaml: yamlContent.value }, { namespace: ns, clusterName: clusterName.value })
+          break
+      }
+      ElMessage.success('创建成功')
     } else {
-      await request.post(`/k8s/${activeTab.value}/yaml/update`, data)
+      // 编辑模式
+      const data = {
+        clusterName: clusterName.value,
+        namespace: currentRow.value.namespace,
+        name: currentRow.value.name,
+        yaml: yamlContent.value
+      }
+      if (activeTab.value === 'cronjob') {
+        await updateCronJobYAML(data)
+      } else {
+        await request.post(`/k8s/${activeTab.value}/yaml/update`, data)
+      }
+      ElMessage.success('保存成功')
     }
-    ElMessage.success('保存成功')
+    yamlVisible.value = false
+    fetchData()
+  } finally {
+    yamlSaving.value = false
   }
-  yamlVisible.value = false
-  fetchData()
 }
 
 // 新建

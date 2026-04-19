@@ -111,7 +111,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, nextTick, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { getHostList } from '@/api/cmdb/host'
 import { getBatchCommandWsUrl } from '@/api/cmdb/batch_command'
@@ -149,6 +149,22 @@ const handleSelectionChange = (selection) => {
 const confirmHostSelection = () => {
   selectedHosts.value = [...tempSelection.value]
   showHostSelector.value = false
+}
+
+const syncTableSelection = async () => {
+  if (!showHostSelector.value) return
+  await nextTick()
+  const table = hostTableRef.value
+  if (!table) return
+
+  table.clearSelection()
+  const selectedIdSet = new Set(selectedHosts.value.map(host => host.id))
+  hosts.value.forEach((host) => {
+    if (selectedIdSet.has(host.id)) {
+      table.toggleRowSelection(host, true)
+    }
+  })
+  tempSelection.value = hosts.value.filter(host => selectedIdSet.has(host.id))
 }
 
 const removeHost = (host) => {
@@ -206,6 +222,12 @@ const executeBatch = () => {
     executing.value = false
   }
 }
+
+watch(showHostSelector, (visible) => {
+  if (visible) {
+    syncTableSelection()
+  }
+})
 
 onMounted(fetchHosts)
 </script>

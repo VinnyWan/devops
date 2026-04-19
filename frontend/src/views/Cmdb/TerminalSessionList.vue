@@ -10,11 +10,12 @@
         placeholder="搜索主机名/IP"
         style="width: 240px;"
         clearable
+        :disabled="isTagMode"
         @clear="handleSearch"
         @keyup.enter="handleSearch"
       >
         <template #append>
-          <el-button @click="handleSearch"><el-icon><Search /></el-icon></el-button>
+          <el-button @click="handleSearch" :disabled="isTagMode"><el-icon><Search /></el-icon></el-button>
         </template>
       </el-input>
       <el-input
@@ -22,17 +23,18 @@
         placeholder="用户名"
         style="width: 180px;"
         clearable
+        :disabled="isTagMode"
         @clear="handleSearch"
         @keyup.enter="handleSearch"
       />
-      <el-select v-model="status" placeholder="状态" clearable style="width: 140px;" @change="handleSearch">
+      <el-select v-model="status" placeholder="状态" clearable style="width: 140px;" :disabled="isTagMode" @change="handleSearch">
         <el-option label="活跃" value="active" />
         <el-option label="已关闭" value="closed" />
         <el-option label="已中断" value="interrupted" />
         <el-option label="空闲超时" value="idle_timeout" />
         <el-option label="时长超限" value="max_duration" />
       </el-select>
-      <el-select v-model="tagFilter" placeholder="标签筛选" clearable size="default" @change="handleSearch" style="width: 150px;">
+      <el-select v-model="tagFilter" placeholder="标签筛选" clearable size="default" @change="handleTagFilterChange" style="width: 150px;">
         <el-option v-for="tag in availableTags" :key="tag" :label="tag" :value="tag" />
       </el-select>
       <el-date-picker
@@ -43,9 +45,13 @@
         end-placeholder="结束时间"
         value-format="YYYY-MM-DDTHH:mm:ssZ"
         style="width: 360px;"
+        :disabled="isTagMode"
         @change="handleSearch"
       />
-      <el-button type="primary" @click="handleSearch">搜索</el-button>
+      <el-button type="primary" @click="handleSearch" :disabled="isTagMode">搜索</el-button>
+      <span v-if="tagFilter" style="font-size: 12px; color: #909399; align-self: center;">
+        标签筛选当前为独立模式，其他筛选条件暂不生效
+      </span>
     </div>
 
     <el-table :data="tableData" stripe v-loading="loading" style="width: 100%">
@@ -120,7 +126,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { Search } from '@element-plus/icons-vue'
 import { getTerminalSessionList, addSessionTag, removeSessionTag, getAvailableTags, searchSessionsByTag } from '@/api/cmdb/terminal'
@@ -142,6 +148,7 @@ const availableTags = ref([])
 const tagDialog = ref(false)
 const tagSession = ref(null)
 const newTag = ref('')
+const isTagMode = computed(() => !!tagFilter.value)
 
 const formatDuration = (duration) => {
   const totalSeconds = Number(duration || 0)
@@ -190,6 +197,16 @@ const fetchData = async () => {
 const handleSearch = () => {
   page.value = 1
   fetchData()
+}
+
+const handleTagFilterChange = () => {
+  if (tagFilter.value) {
+    keyword.value = ''
+    username.value = ''
+    status.value = ''
+    dateRange.value = null
+  }
+  handleSearch()
 }
 
 const handleReplay = (row) => {

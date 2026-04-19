@@ -61,7 +61,7 @@
           <el-col :span="12"><el-form-item label="IP" prop="ip"><el-input v-model="form.ip" /></el-form-item></el-col>
           <el-col :span="12"><el-form-item label="端口"><el-input-number v-model="form.port" :min="1" :max="65535" style="width:100%" /></el-form-item></el-col>
           <el-col :span="12"><el-form-item label="分组"><el-select v-model="form.groupId" clearable style="width:100%"><el-option v-for="item in flatGroups" :key="item.id" :label="item.label" :value="item.id" /></el-select></el-form-item></el-col>
-          <el-col :span="12"><el-form-item label="凭据"><el-select v-model="form.credentialId" clearable style="width:100%"><el-option v-for="item in credentials" :key="item.id" :label="item.name" :value="item.id" /></el-select></el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="凭据"><el-select v-model="form.credentialId" clearable filterable style="width:100%"><el-option v-for="item in credentials" :key="item.id" :label="item.name" :value="item.id" /></el-select></el-form-item></el-col>
           <el-col :span="12"><el-form-item label="操作系统"><el-input v-model="form.osName" /></el-form-item></el-col>
           <el-col :span="8"><el-form-item label="CPU"><el-input-number v-model="form.cpuCores" :min="0" style="width:100%" /></el-form-item></el-col>
           <el-col :span="8"><el-form-item label="内存(MB)"><el-input-number v-model="form.memoryTotal" :min="0" style="width:100%" /></el-form-item></el-col>
@@ -113,7 +113,7 @@ import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search } from '@element-plus/icons-vue'
 import MultiTabTerminal from '@/components/Cmdb/MultiTabTerminal.vue'
-import { getHostList, createHost, updateHost, deleteHost, testHost, batchCreateHost, checkHostPermission } from '@/api/cmdb/host'
+import { getHostList, getHostDetail, createHost, updateHost, deleteHost, testHost, batchCreateHost, checkHostPermission } from '@/api/cmdb/host'
 import { getGroupTree } from '@/api/cmdb/group'
 import { getCredentialList } from '@/api/cmdb/credential'
 import { getTerminalConnectWsUrl } from '@/api/cmdb/terminal'
@@ -167,8 +167,8 @@ const fetchGroups = async () => {
 }
 
 const fetchCredentials = async () => {
-  const res = await getCredentialList({ page: 1, pageSize: 100 })
-  credentials.value = res.data || []
+  const res = await getCredentialList({ page: 1, pageSize: 1000 })
+  credentials.value = res.data?.list || res.data || []
 }
 
 const fetchData = async () => {
@@ -276,6 +276,26 @@ const handleTerminal = async (row) => {
   }
 }
 
+const openTerminalByHostId = async (hostId) => {
+  const currentHost = tableData.value.find(h => h.id === hostId)
+  if (currentHost) {
+    await handleTerminal(currentHost)
+    return
+  }
+
+  try {
+    const res = await getHostDetail({ id: hostId })
+    const host = res.data || null
+    if (!host) {
+      ElMessage.warning('未找到目标主机')
+      return
+    }
+    await handleTerminal(host)
+  } catch (e) {
+    ElMessage.error(e.message || '获取主机信息失败')
+  }
+}
+
 const handleTerminalRequestConnect = () => {
   terminalDialogVisible.value = false
 }
@@ -309,9 +329,8 @@ onMounted(async () => {
   await fetchData()
   if (route.query.terminalHostId) {
     const hostId = Number(route.query.terminalHostId)
-    const host = tableData.value.find(h => h.id === hostId)
-    if (host) {
-      handleTerminal(host)
+    if (hostId) {
+      await openTerminalByHostId(hostId)
     }
   }
 })

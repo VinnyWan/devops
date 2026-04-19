@@ -23,7 +23,7 @@
         </template>
       </el-table-column>
       <el-table-column label="最后同步" width="180">
-        <template #default="{ row }">{{ row.lastSyncAt || '-' }}</template>
+        <template #default="{ row }">{{ formatTime(row.lastSyncAt) }}</template>
       </el-table-column>
       <el-table-column label="同步间隔" width="100">
         <template #default="{ row }">{{ row.syncInterval }}分钟</template>
@@ -78,7 +78,15 @@
 
     <!-- Resources dialog -->
     <el-dialog v-model="resourceDialogVisible" :title="`云资源 - ${resourceAccountName}`" width="80%" top="5vh" destroy-on-close>
-      <el-tabs v-model="resourceType" @tab-change="fetchResources">
+      <div class="resource-toolbar">
+        <span class="resource-summary">
+          当前显示 {{ resourceData.length }} / 共 {{ resourceTotal }} 条
+          <template v-if="resourceTotal > resourcePageSize">
+            （第 {{ resourcePage }} 页）
+          </template>
+        </span>
+      </div>
+      <el-tabs v-model="resourceType" @tab-change="handleResourceTypeChange">
         <el-tab-pane label="CVM" name="cvm" />
         <el-tab-pane label="VPC" name="vpc" />
         <el-tab-pane label="子网" name="subnet" />
@@ -95,6 +103,17 @@
           <template #default="{ row }">{{ formatSpec(row.spec) }}</template>
         </el-table-column>
       </el-table>
+      <div class="pagination-wrap resource-pagination">
+        <el-pagination
+          v-model:current-page="resourcePage"
+          v-model:page-size="resourcePageSize"
+          :total="resourceTotal"
+          :page-sizes="[50, 100, 200]"
+          layout="total, sizes, prev, pager, next"
+          @size-change="fetchResources"
+          @current-change="fetchResources"
+        />
+      </div>
     </el-dialog>
   </div>
 </template>
@@ -103,6 +122,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getCloudAccountList, createCloudAccount, updateCloudAccount, deleteCloudAccount, syncCloudAccount, getCloudResources } from '@/api/cmdb/cloud'
+import { formatTime } from '@/utils/format'
 
 const loading = ref(false)
 const tableData = ref([])
@@ -136,6 +156,9 @@ const resourceAccountId = ref(0)
 const resourceType = ref('cvm')
 const resourceData = ref([])
 const resourceLoading = ref(false)
+const resourcePage = ref(1)
+const resourcePageSize = ref(100)
+const resourceTotal = ref(0)
 
 const providerLabel = (p) => {
   const map = { tencent: '腾讯云', aliyun: '阿里云', aws: 'AWS' }
@@ -236,7 +259,14 @@ const showResources = (row) => {
   resourceAccountId.value = row.id
   resourceAccountName.value = row.name
   resourceType.value = 'cvm'
+  resourcePage.value = 1
+  resourcePageSize.value = 100
   resourceDialogVisible.value = true
+  fetchResources()
+}
+
+const handleResourceTypeChange = () => {
+  resourcePage.value = 1
   fetchResources()
 }
 
@@ -246,12 +276,14 @@ const fetchResources = async () => {
     const res = await getCloudResources({
       cloudAccountId: resourceAccountId.value,
       resourceType: resourceType.value,
-      page: 1,
-      pageSize: 100
+      page: resourcePage.value,
+      pageSize: resourcePageSize.value
     })
-    resourceData.value = res.data || []
+    resourceData.value = res.data?.list || res.data || []
+    resourceTotal.value = res.data?.total || res.total || resourceData.value.length
   } catch {
     resourceData.value = []
+    resourceTotal.value = 0
   } finally {
     resourceLoading.value = false
   }
@@ -276,4 +308,7 @@ onMounted(fetchData)
 .page-header h3 { margin: 0; font-size: 18px; font-weight: 500; }
 .toolbar { display: flex; gap: 12px; margin-bottom: 16px; }
 .pagination-wrap { margin-top: 16px; display: flex; justify-content: flex-end; }
+.resource-toolbar { display: flex; justify-content: flex-end; margin-bottom: 12px; }
+.resource-summary { font-size: 12px; color: #909399; }
+.resource-pagination { margin-top: 12px; }
 </style>

@@ -126,6 +126,7 @@ const handleLogin = async () => {
 
 .login-card {
   width: 420px;
+  max-width: calc(100vw - 32px);
   border-radius: var(--radius-lg);
   border: 1px solid var(--color-border-light);
   box-shadow: var(--shadow-lg);
@@ -179,5 +180,33 @@ const handleLogin = async () => {
 :deep(.el-form-item__label) {
   font-weight: 500;
   color: var(--color-text);
+}
+
+@media (max-width: 768px) {
+  /* Keep the original login visual while reducing decorative noise on small screens. */
+  .login-bg-shape {
+    opacity: 0.22;
+    filter: blur(8px);
+  }
+
+  .shape-1 {
+    width: 360px;
+    height: 360px;
+    top: -140px;
+    right: -160px;
+  }
+
+  .shape-2 {
+    width: 240px;
+    height: 240px;
+    bottom: -80px;
+    left: -100px;
+  }
+
+  .shape-3 {
+    width: 120px;
+    height: 120px;
+    left: 8%;
+  }
 }
 </style>

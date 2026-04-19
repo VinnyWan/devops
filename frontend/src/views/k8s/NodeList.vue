@@ -10,7 +10,7 @@
       </el-select>
     </div>
 
-    <el-table :data="tableData" stripe v-loading="loading" style="margin-top: 16px">
+    <el-table v-if="tableData.length || loading" :data="tableData" stripe v-loading="loading" style="margin-top: 16px">
       <el-table-column prop="name" label="节点名称" width="150"/>
       <el-table-column label="状态">
         <template #default="{ row }">
@@ -41,6 +41,7 @@
         </template>
       </el-table-column>
     </el-table>
+    <el-empty v-else description="暂无节点数据" style="margin-top: 16px" />
 
     <el-pagination
       v-model:current-page="page"
@@ -110,13 +111,58 @@ const handleLabel = (row) => {
 }
 
 const formatCPU = (val) => {
-  if (!val) return '-'
-  return String(val).replace(/\s*cores?/gi, 'C').trim()
+  if (val === null || val === undefined || val === '') return '-'
+
+  const text = String(val).trim()
+  const normalized = text.toLowerCase()
+  const match = normalized.match(/^([0-9]+(?:\.[0-9]+)?)\s*(m|millicores?|c|core|cores)?$/)
+
+  if (!match) return text
+
+  const amount = Number(match[1])
+  const unit = match[2] || 'c'
+  const cores = unit.startsWith('m') ? amount / 1000 : amount
+
+  return `${trimTrailingZeros(cores)}C`
 }
 
 const formatMemory = (val) => {
-  if (!val) return '-'
-  return String(val).replace(/Gi/g, 'G').trim()
+  if (val === null || val === undefined || val === '') return '-'
+
+  const text = String(val).trim()
+  const normalized = text.replace(/\s+/g, '')
+  const match = normalized.match(/^([0-9]+(?:\.[0-9]+)?)(Ki|Mi|Gi|Ti|Pi|K|M|G|T|P|KB|MB|GB|TB|PB|B)?$/i)
+
+  if (!match) return text
+
+  const amount = Number(match[1])
+  const unit = (match[2] || 'G').toUpperCase()
+  const unitMap = {
+    B: 1 / 1024 ** 3,
+    KI: 1 / 1024 ** 2,
+    K: 1 / 1024 ** 2,
+    KB: 1 / 1024 ** 2,
+    MI: 1 / 1024,
+    M: 1 / 1024,
+    MB: 1 / 1024,
+    GI: 1,
+    G: 1,
+    GB: 1,
+    TI: 1024,
+    T: 1024,
+    TB: 1024,
+    PI: 1024 ** 2,
+    P: 1024 ** 2,
+    PB: 1024 ** 2
+  }
+
+  const valueInG = amount * (unitMap[unit] || 1)
+  return `${trimTrailingZeros(valueInG)}G`
+}
+
+const trimTrailingZeros = (num) => {
+  if (!Number.isFinite(num)) return '-'
+  return Number(num.toFixed(num >= 100 ? 0 : num >= 10 ? 1 : 2)).toString()
 }
 
 onMounted(fetchData)

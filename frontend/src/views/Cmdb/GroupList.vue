@@ -12,9 +12,12 @@
       :data="treeData"
       node-key="id"
       default-expand-all
+      highlight-current
+      :current-node-key="currentNodeId"
       :props="{ label: 'name', children: 'children' }"
       :expand-on-click-node="false"
       class="group-tree"
+      @current-change="handleCurrentChange"
     >
       <template #default="{ data }">
         <div class="tree-node" @mouseenter="hoveredId = data.id" @mouseleave="hoveredId = null">
@@ -25,7 +28,7 @@
               {{ levelText(data.level) }}
             </el-tag>
           </div>
-          <div class="node-actions" :class="{ visible: hoveredId === data.id }">
+          <div class="node-actions" :class="{ visible: hoveredId === data.id || currentNodeId === data.id }">
             <el-button v-if="data.level < 3" link type="primary" size="small" @click.stop="showCreateDialog(data.level + 1, data.id)">
               <el-icon><Plus /></el-icon>新增下级
             </el-button>
@@ -72,6 +75,7 @@ const dialogVisible = ref(false)
 const isEdit = ref(false)
 const submitting = ref(false)
 const hoveredId = ref(null)
+const currentNodeId = ref(null)
 const formRef = ref()
 const form = ref({ name: '', level: 1, parentId: 0, sortOrder: 0 })
 const rules = { name: [required('请输入分组名称')] }
@@ -93,6 +97,10 @@ const handleEdit = (row) => {
   form.value = { id: row.id, name: row.name, level: row.level, parentId: row.parentId, sortOrder: row.sortOrder || 0 }
   dialogVisible.value = true
   formRef.value?.clearValidate()
+}
+
+const handleCurrentChange = (data) => {
+  currentNodeId.value = data?.id || null
 }
 
 const handleSubmit = async () => {

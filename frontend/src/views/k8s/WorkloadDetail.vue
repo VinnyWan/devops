@@ -135,7 +135,7 @@ import { deleteJob } from '@/api/job'
 import { updateCronJobYAML, deleteCronJob } from '@/api/cronjob'
 import { getPodLogs, deletePod } from '@/api/workload'
 import request from '@/api/request'
-import { formatTime } from '@/utils/format'
+import { formatTime, formatImages } from '@/utils/format'
 
 const route = useRoute()
 const router = useRouter()
@@ -190,12 +190,6 @@ const yamlSaving = ref(false)
 const scaleVisible = ref(false)
 const scaleReplicas = ref(1)
 const scaleSaving = ref(false)
-
-// 格式化镜像列表
-const formatImages = (containers) => {
-  if (!containers || !containers.length) return '-'
-  return containers.map(c => c.image).join(', ')
-}
 
 // 加载详情和 Pod 列表
 const loadDetail = async () => {
@@ -422,19 +416,6 @@ watch([clusterName, namespace, name], () => { loadDetail() }, { immediate: true 
 </script>
 
 <style scoped>
-.page-container {
-  background: #fff;
-  border-radius: 4px;
-  padding: 24px;
-}
-
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-}
-
 .header-left {
   display: flex;
   align-items: center;

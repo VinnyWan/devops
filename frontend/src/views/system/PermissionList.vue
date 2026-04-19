@@ -5,12 +5,12 @@
     </div>
 
     <div style="margin-bottom: 16px; display: flex; gap: 12px;">
-      <el-input v-model="keyword" placeholder="搜索权限名称" style="width: 300px;" clearable @clear="fetchData" @keyup.enter="fetchData">
+      <el-input v-model="keyword" placeholder="搜索权限名称" style="width: 300px;" clearable @clear="handleSearch" @keyup.enter="handleSearch">
         <template #append>
-          <el-button @click="fetchData"><el-icon><Search /></el-icon></el-button>
+          <el-button @click="handleSearch"><el-icon><Search /></el-icon></el-button>
         </template>
       </el-input>
-      <el-select v-model="resourceFilter" placeholder="按资源过滤" clearable @change="fetchData" style="width: 200px;">
+      <el-select v-model="resourceFilter" placeholder="按资源过滤" clearable @change="handleResourceChange" style="width: 200px;">
         <el-option v-for="r in resources" :key="r" :label="r" :value="r" />
       </el-select>
     </div>
@@ -23,7 +23,7 @@
     </el-table>
 
     <div style="margin-top: 16px; display: flex; justify-content: flex-end;">
-      <el-pagination v-model:current-page="page" v-model:page-size="pageSize" :total="total" :page-sizes="[10, 20, 50]" layout="total, sizes, prev, pager, next" @current-change="fetchData" @size-change="fetchData" />
+      <el-pagination v-model:current-page="page" v-model:page-size="pageSize" :total="total" :page-sizes="[10, 20, 50]" layout="total, sizes, prev, pager, next" @current-change="fetchData" @size-change="handlePageSizeChange" />
     </div>
   </div>
 </template>
@@ -31,7 +31,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { Search } from '@element-plus/icons-vue'
-import { getPermissionList } from '@/api/permission'
+import { getAllPermissions, getPermissionList } from '@/api/permission'
 
 const loading = ref(false)
 const tableData = ref([])
@@ -42,6 +42,17 @@ const keyword = ref('')
 const resourceFilter = ref('')
 const resources = ref([])
 
+const loadResources = async () => {
+  try {
+    const res = await getAllPermissions()
+    const permissions = res.data || []
+    const resourceSet = new Set(permissions.map(permission => permission.resource).filter(Boolean))
+    resources.value = [...resourceSet].sort()
+  } catch {
+    resources.value = []
+  }
+}
+
 const fetchData = async () => {
   loading.value = true
   try {
@@ -51,12 +62,28 @@ const fetchData = async () => {
     const res = await getPermissionList(params)
     tableData.value = res.data?.list || res.data || []
     total.value = res.data?.total || 0
-    const resSet = new Set((res.data?.list || res.data || []).map(p => p.resource))
-    resources.value = [...resSet]
   } finally { loading.value = false }
 }
 
-onMounted(fetchData)
+const handleSearch = () => {
+  page.value = 1
+  fetchData()
+}
+
+const handleResourceChange = () => {
+  page.value = 1
+  fetchData()
+}
+
+const handlePageSizeChange = () => {
+  page.value = 1
+  fetchData()
+}
+
+onMounted(() => {
+  fetchData()
+  loadResources()
+})
 </script>
 
 <style scoped>

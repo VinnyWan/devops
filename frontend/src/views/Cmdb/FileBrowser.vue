@@ -34,7 +34,7 @@
         </el-breadcrumb>
       </div>
 
-      <el-table :data="files" stripe v-loading="loading" style="width: 100%" @row-dblclick="handleDblClick">
+      <el-table v-if="loading || files.length > 0" :data="files" stripe v-loading="loading" style="width: 100%" @row-dblclick="handleDblClick">
         <el-table-column label="名称" min-width="280">
           <template #default="{ row }">
             <span class="file-name">
@@ -62,6 +62,7 @@
           </template>
         </el-table-column>
       </el-table>
+      <el-empty v-else description="当前目录暂无文件" :image-size="60" />
     </template>
 
     <!-- Upload dialog -->

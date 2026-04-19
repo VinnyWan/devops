@@ -13,7 +13,7 @@
     </el-tabs>
 
     <!-- StorageClass 表格 -->
-    <el-table v-if="activeTab === 'storageclass'" :data="tableData" stripe>
+    <el-table v-if="activeTab === 'storageclass' && (tableData.length || loading)" :data="tableData" stripe v-loading="loading">
       <el-table-column prop="name" label="名称" min-width="180">
         <template #default="{ row }">
           {{ row.name }}
@@ -37,7 +37,7 @@
     </el-table>
 
     <!-- PV 表格 -->
-    <el-table v-if="activeTab === 'pv'" :data="tableData" stripe>
+    <el-table v-if="activeTab === 'pv' && (tableData.length || loading)" :data="tableData" stripe v-loading="loading">
       <el-table-column prop="name" label="名称" min-width="140" show-overflow-tooltip />
       <el-table-column prop="capacity" label="容量" width="100" />
       <el-table-column label="访问模式" width="120">
@@ -63,7 +63,7 @@
     </el-table>
 
     <!-- PVC 表格 -->
-    <el-table v-if="activeTab === 'pvc'" :data="tableData" stripe>
+    <el-table v-if="activeTab === 'pvc' && (tableData.length || loading)" :data="tableData" stripe v-loading="loading">
       <el-table-column prop="name" label="名称" min-width="140" show-overflow-tooltip />
       <el-table-column prop="namespace" label="命名空间" width="140" v-if="!namespace" />
       <el-table-column prop="status" label="状态" width="100">
@@ -87,6 +87,12 @@
         </template>
       </el-table-column>
     </el-table>
+
+    <el-empty
+      v-if="!loading && !tableData.length"
+      :description="activeTab === 'storageclass' ? '暂无 StorageClass 数据' : activeTab === 'pv' ? '暂无 PersistentVolume 数据' : '暂无 PersistentVolumeClaim 数据'"
+      style="margin-top: 16px"
+    />
 
     <!-- YAML 编辑弹窗 -->
     <el-dialog v-model="yamlVisible" :title="yamlTitle" width="900px" destroy-on-close top="3vh">
@@ -119,6 +125,7 @@ const clusterName = ref('')
 const namespace = ref('')
 const activeTab = ref('storageclass')
 const tableData = ref([])
+const loading = ref(false)
 
 // YAML 弹窗
 const yamlVisible = ref(false)
@@ -141,7 +148,12 @@ onMounted(() => {
 })
 
 const fetchData = async () => {
-  if (!clusterName.value) return
+  if (!clusterName.value) {
+    tableData.value = []
+    return
+  }
+
+  loading.value = true
   try {
     const params = { clusterName: clusterName.value }
     if (activeTab.value === 'pvc' && namespace.value) {
@@ -162,6 +174,8 @@ const fetchData = async () => {
     tableData.value = res.data || []
   } catch {
     tableData.value = []
+  } finally {
+    loading.value = false
   }
 }
 

@@ -54,7 +54,7 @@ import { ref, reactive, onMounted, onBeforeUnmount, nextTick, computed } from 'v
 import { useRoute, useRouter } from 'vue-router'
 import Terminal from '@/components/K8s/Terminal.vue'
 import { getTerminalSessionDetail, getTerminalRecording } from '@/api/cmdb/terminal'
-import { formatTime } from '@/utils/format'
+import { formatTime, formatDuration, formatFileSize } from '@/utils/format'
 
 const route = useRoute()
 const router = useRouter()
@@ -84,23 +84,6 @@ const clearReplayTimer = () => {
     clearTimeout(replayTimer)
     replayTimer = null
   }
-}
-
-const formatDuration = (duration) => {
-  const totalSeconds = Number(duration || 0)
-  if (totalSeconds <= 0) return '0 秒'
-  if (totalSeconds < 60) return `${totalSeconds} 秒`
-  const minutes = Math.floor(totalSeconds / 60)
-  const seconds = totalSeconds % 60
-  return seconds ? `${minutes} 分 ${seconds} 秒` : `${minutes} 分`
-}
-
-const formatFileSize = (size) => {
-  const value = Number(size || 0)
-  if (value <= 0) return '0 B'
-  if (value < 1024) return `${value} B`
-  if (value < 1024 * 1024) return `${(value / 1024).toFixed(2)} KB`
-  return `${(value / 1024 / 1024).toFixed(2)} MB`
 }
 
 const statusTagType = (val) => ({
@@ -242,9 +225,6 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-.page-container { background: #fff; border-radius: 4px; padding: 24px; }
-.page-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 16px; }
-.page-header h3 { margin: 0; font-size: 18px; font-weight: 500; }
 .page-subtitle { margin: 8px 0 0; color: #909399; }
 .actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .meta-card { margin-bottom: 16px; }

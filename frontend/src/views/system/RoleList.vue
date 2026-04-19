@@ -54,7 +54,7 @@
 
     <el-dialog v-model="permDialogVisible" title="分配权限" width="600px">
       <p style="margin-bottom: 12px; color: #909399;">角色：{{ currentRole.name }}</p>
-      <el-tree ref="permTreeRef" :data="permissionTree" show-checkbox node-key="id" :default-checked-keys="currentRole.permissionIds" :props="{ label: 'name', children: 'children' }" />
+      <el-tree ref="permTreeRef" :key="currentRole.id || 'new-role-perms'" :data="permissionTree" show-checkbox node-key="id" :props="{ label: 'name', children: 'children' }" />
       <template #footer>
         <el-button @click="permDialogVisible = false">取消</el-button>
         <el-button type="primary" @click="handleAssignPermissions">确定</el-button>
@@ -64,7 +64,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search } from '@element-plus/icons-vue'
 import { getRoleList, createRole, updateRole, deleteRole, assignPermissions } from '@/api/role'
@@ -128,6 +128,8 @@ const showPermissionDialog = async (row) => {
     permissionTree.value = Object.values(grouped)
   }
   permDialogVisible.value = true
+  await nextTick()
+  permTreeRef.value?.setCheckedKeys(row.permissionIds || [])
 }
 
 const handleAssignPermissions = async () => {

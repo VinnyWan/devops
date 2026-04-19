@@ -251,8 +251,12 @@ const showCreateDialog = () => {
   createForm.userId = ''
   createForm.hostGroupId = selectedGroupId.value || ''
   createForm.permissions = []
-  groupHostCount.value = -1
   createDialogVisible.value = true
+  if (createForm.hostGroupId) {
+    handleGroupSelectChange(createForm.hostGroupId)
+  } else {
+    groupHostCount.value = -1
+  }
 }
 
 const handleGroupSelectChange = async (val) => {

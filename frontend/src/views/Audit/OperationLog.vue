@@ -54,7 +54,7 @@
         :page-sizes="[10, 20, 50]"
         layout="total, sizes, prev, pager, next"
         @current-change="fetchData"
-        @size-change="fetchData"
+        @size-change="handlePageSizeChange"
       />
     </div>
 
@@ -129,6 +129,11 @@ const fetchData = async () => {
 }
 
 const handleSearch = () => {
+  page.value = 1
+  fetchData()
+}
+
+const handlePageSizeChange = () => {
   page.value = 1
   fetchData()
 }

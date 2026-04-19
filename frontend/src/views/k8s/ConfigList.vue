@@ -8,7 +8,7 @@
       <el-button type="success" @click="handleCreate" style="margin-left: 12px">创建</el-button>
     </div>
 
-    <el-table :data="tableData" stripe style="margin-top: 16px">
+    <el-table v-if="tableData.length || loading" :data="tableData" stripe v-loading="loading" style="margin-top: 16px">
       <el-table-column prop="name" label="名称" min-width="220" show-overflow-tooltip />
       <el-table-column prop="namespace" label="命名空间" width="160" v-if="!namespace" />
       <el-table-column prop="dataCount" label="数据项数量" width="120" />
@@ -22,6 +22,7 @@
         </template>
       </el-table-column>
     </el-table>
+    <el-empty v-if="!loading && !tableData.length" description="暂无 ConfigMap 数据" style="margin-top: 16px" />
 
     <el-pagination
       v-model:current-page="page"
@@ -63,6 +64,7 @@ const tableData = ref([])
 const page = ref(1)
 const pageSize = ref(10)
 const total = ref(0)
+const loading = ref(false)
 
 // YAML 弹窗
 const yamlVisible = ref(false)
@@ -93,15 +95,29 @@ onMounted(() => {
 })
 
 const fetchData = async () => {
-  const res = await getConfigMapList({
-    clusterName: clusterName.value,
-    namespace: namespace.value,
-    keyword: keyword.value,
-    page: page.value,
-    pageSize: pageSize.value
-  })
-  tableData.value = res.data?.items || res.data || []
-  total.value = res.data?.total || res.total || 0
+  if (!clusterName.value) {
+    tableData.value = []
+    total.value = 0
+    return
+  }
+
+  loading.value = true
+  try {
+    const res = await getConfigMapList({
+      clusterName: clusterName.value,
+      namespace: namespace.value,
+      keyword: keyword.value,
+      page: page.value,
+      pageSize: pageSize.value
+    })
+    tableData.value = res.data?.items || res.data || []
+    total.value = res.data?.total || res.total || 0
+  } catch {
+    tableData.value = []
+    total.value = 0
+  } finally {
+    loading.value = false
+  }
 }
 
 // 删除
