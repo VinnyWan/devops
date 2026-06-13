@@ -4,8 +4,14 @@ import (
 	"devops-platform/config"
 	cmdbModel "devops-platform/internal/modules/cmdb/model"
 	k8sModel "devops-platform/internal/modules/k8s/model"
+	nfModel "devops-platform/internal/modules/notification/model"
+	sqlAuditModel "devops-platform/internal/modules/sqlaudit/model"
+	taskModel "devops-platform/internal/modules/task/model"
+	toolModel "devops-platform/internal/modules/tool/model"
 	userModel "devops-platform/internal/modules/user/model"
+	wfModel "devops-platform/internal/modules/workflow/model"
 	"devops-platform/internal/pkg/logger"
+	"errors"
 	"fmt"
 	"time"
 
@@ -68,6 +74,7 @@ func InitDB() error {
 		&userModel.Role{},
 		&userModel.Permission{},
 		&userModel.UserDepartment{},  // 用户-部门多对多
+		&userModel.ApiKey{},          // API Key
 		&userModel.FieldPermission{}, // 字段级权限
 		&userModel.AuditLog{},        // 审计日志
 		&userModel.LoginLog{},        // 登录日志
@@ -81,6 +88,18 @@ func InitDB() error {
 		&cmdbModel.CloudAccount{},
 		&cmdbModel.CloudResource{},
 		&cmdbModel.FileOperationLog{},
+		&taskModel.Task{},
+		&taskModel.TaskExecution{},
+		&taskModel.TaskSchedule{},
+		&nfModel.Template{},
+		&nfModel.ChannelConfig{},
+		&nfModel.SendLog{},
+		&wfModel.ChangeOrder{},
+		&wfModel.Approval{},
+		&toolModel.Tool{},
+		&toolModel.ToolInstallation{},
+		&sqlAuditModel.DbConnection{},
+		&sqlAuditModel.SqlRecord{},
 	)
 	if err != nil {
 		return err
@@ -106,6 +125,10 @@ func InitDB() error {
 
 	if err := seedPermissions(db); err != nil {
 		logger.Log.Warn("权限种子数据初始化失败（非致命）", zap.Error(err))
+	}
+
+	if err := seedRolesAndAdmin(db); err != nil {
+		logger.Log.Warn("角色与管理员种子数据初始化失败（非致命）", zap.Error(err))
 	}
 
 	return nil
@@ -170,7 +193,7 @@ func ensureKeywordIndexes(db *gorm.DB) error {
 		{
 			name:  "idx_permissions_keyword_ft",
 			table: "permissions",
-			ddl:   "CREATE FULLTEXT INDEX idx_permissions_keyword_ft ON permissions (name, resource, action, description)",
+			ddl:   "CREATE FULLTEXT INDEX idx_permissions_keyword_ft ON permissions (name, resource, action)",
 		},
 		{
 			name:  "idx_departments_keyword_ft",
@@ -185,7 +208,7 @@ func ensureKeywordIndexes(db *gorm.DB) error {
 		{
 			name:  "idx_users_dept_created_deleted",
 			table: "users",
-			ddl:   "CREATE INDEX idx_users_dept_created_deleted ON users (department_id, created_at, deleted_at)",
+			ddl:   "CREATE INDEX idx_users_dept_created_deleted ON users (primary_dept_id, created_at, deleted_at)",
 		},
 		{
 			name:  "idx_permissions_resource_deleted_action",
@@ -232,13 +255,15 @@ func ensureKeywordIndexes(db *gorm.DB) error {
 	for _, index := range indexes {
 		exists, err := mysqlIndexExists(db, index.table, index.name)
 		if err != nil {
-			return err
+			logger.Log.Warn("检查索引是否存在失败", zap.String("index", index.name), zap.Error(err))
+			continue
 		}
 		if exists {
 			continue
 		}
 		if err := db.Exec(index.ddl).Error; err != nil {
-			return fmt.Errorf("create index %s failed: %w", index.name, err)
+			logger.Log.Warn("创建索引失败（非致命）", zap.String("index", index.name), zap.String("ddl", index.ddl), zap.Error(err))
+			continue
 		}
 	}
 
@@ -458,6 +483,105 @@ func seedPermissions(db *gorm.DB) error {
 	if createdCount > 0 {
 		logger.Log.Info(fmt.Sprintf("权限种子数据初始化完成，新增 %d 条记录", createdCount))
 	}
+	return nil
+}
+
+// seedRolesAndAdmin 幂等地初始化系统角色（SYSTEM_ADMIN / READ_ONLY）并确保 admin 用户拥有管理员权限
+func seedRolesAndAdmin(db *gorm.DB) error {
+	// 1. 获取所有 API 权限
+	var apiPermissions []userModel.Permission
+	if err := db.Where("type = ?", userModel.PermissionTypeAPI).Find(&apiPermissions).Error; err != nil {
+		return fmt.Errorf("加载 API 权限失败: %w", err)
+	}
+
+	// 2. 获取仅 list 权限（用于 READ_ONLY）
+	var listPermissions []userModel.Permission
+	if err := db.Where("type = ? AND action = ?", userModel.PermissionTypeAPI, "list").Find(&listPermissions).Error; err != nil {
+		return fmt.Errorf("加载只读权限失败: %w", err)
+	}
+
+	// 3. 创建 SYSTEM_ADMIN 角色（全局角色，tenant_id IS NULL）
+	var systemAdminRole userModel.Role
+	err := db.Where("name = ? AND tenant_id IS NULL", "SYSTEM_ADMIN").First(&systemAdminRole).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		systemAdminRole = userModel.Role{
+			Name:        "SYSTEM_ADMIN",
+			DisplayName: "系统管理员",
+			Description: "系统管理员-拥有所有权限",
+			Type:        "system",
+			DataScope:   userModel.DataScopeTenant,
+		}
+		if err := db.Create(&systemAdminRole).Error; err != nil {
+			return fmt.Errorf("创建 SYSTEM_ADMIN 角色失败: %w", err)
+		}
+		if err := db.Model(&systemAdminRole).Association("Permissions").Append(apiPermissions); err != nil {
+			return fmt.Errorf("为 SYSTEM_ADMIN 分配权限失败: %w", err)
+		}
+		logger.Log.Info("已创建 SYSTEM_ADMIN 角色并分配全部 API 权限")
+	} else if err != nil {
+		return fmt.Errorf("查找 SYSTEM_ADMIN 角色失败: %w", err)
+	}
+
+	// 4. 创建 READ_ONLY 角色（全局角色，tenant_id IS NULL）
+	var readOnlyRole userModel.Role
+	err = db.Where("name = ? AND tenant_id IS NULL", "READ_ONLY").First(&readOnlyRole).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		readOnlyRole = userModel.Role{
+			Name:        "READ_ONLY",
+			DisplayName: "只读用户",
+			Description: "全局只读角色",
+			Type:        "system",
+			DataScope:   userModel.DataScopeSelfDepartment,
+		}
+		if err := db.Create(&readOnlyRole).Error; err != nil {
+			return fmt.Errorf("创建 READ_ONLY 角色失败: %w", err)
+		}
+		if err := db.Model(&readOnlyRole).Association("Permissions").Append(listPermissions); err != nil {
+			return fmt.Errorf("为 READ_ONLY 分配权限失败: %w", err)
+		}
+		logger.Log.Info("已创建 READ_ONLY 角色并分配只读权限")
+	} else if err != nil {
+		return fmt.Errorf("查找 READ_ONLY 角色失败: %w", err)
+	}
+
+	// 5. 确保 admin 用户存在且 is_admin = true
+	var adminUser userModel.User
+	err = db.Where("username = ?", "admin").First(&adminUser).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		adminUser = userModel.User{
+			Username: "admin",
+			Password: "$2a$10$D3icwPuI7rPaCxOCuuyPFecYbqGy2vJOT40vCy/Qhd6Zz2RU0ufxC",
+			Email:    "admin@example.com",
+			IsAdmin:  true,
+			Status:   "active",
+		}
+		if err := db.Create(&adminUser).Error; err != nil {
+			return fmt.Errorf("创建 admin 用户失败: %w", err)
+		}
+		logger.Log.Info("已创建默认 admin 用户")
+	} else if err != nil {
+		return fmt.Errorf("查找 admin 用户失败: %w", err)
+	} else if !adminUser.IsAdmin {
+		if err := db.Model(&adminUser).Update("is_admin", true).Error; err != nil {
+			return fmt.Errorf("更新 admin 用户 is_admin 失败: %w", err)
+		}
+		logger.Log.Info("已将 admin 用户提升为超级管理员")
+	}
+
+	// 6. 幂等地将 SYSTEM_ADMIN 角色分配给 admin 用户
+	var count int64
+	if err := db.Table("user_roles").
+		Where("user_id = ? AND role_id = ?", adminUser.ID, systemAdminRole.ID).
+		Count(&count).Error; err != nil {
+		return fmt.Errorf("检查 admin 角色分配失败: %w", err)
+	}
+	if count == 0 {
+		if err := db.Exec("INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)", adminUser.ID, systemAdminRole.ID).Error; err != nil {
+			return fmt.Errorf("为 admin 分配 SYSTEM_ADMIN 角色失败: %w", err)
+		}
+		logger.Log.Info("已为 admin 用户分配 SYSTEM_ADMIN 角色")
+	}
+
 	return nil
 }
 

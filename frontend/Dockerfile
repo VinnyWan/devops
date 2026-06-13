@@ -1,4 +1,4 @@
-FROM node:18-alpine AS builder
+FROM docker.1ms.run/library/node:22.22.3-alpine3.23  AS builder
 
 WORKDIR /app
 
@@ -8,7 +8,7 @@ RUN npm ci
 COPY . .
 RUN npm run build
 
-FROM nginx:alpine
+FROM docker.1ms.run/library/nginx:stable-alpine3.23
 
 COPY --from=builder /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf

@@ -59,8 +59,9 @@ func RequirePermission(resource, action string) gin.HandlerFunc {
 
 		// 2. Casbin 优先路径：如果 enforcer 已注入，优先使用 Casbin Enforce
 		if casbinEnforcer != nil {
-			sub := fmt.Sprintf("%d:%d", tenantID, userID)
-			allowed, err := casbinEnforcer.Enforce(sub, resource, action)
+			sub := fmt.Sprintf("%d", userID)
+			dom := fmt.Sprintf("%d", tenantID)
+			allowed, err := casbinEnforcer.Enforce(sub, dom, resource, action)
 			if err != nil {
 				c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
 					"code":    500,

@@ -30,4 +30,8 @@ func Register(r *gin.Engine) {
 	registerAuthRoutes(apiV1)
 	registerSystemRoutes(apiV1)
 	registerPlatformRoutes(apiV1)
+	registerTaskRoutes(auth)
+	registerWorkflowRoutes(auth)
+	registerToolRoutes(auth)
+	registerSqlAuditRoutes(auth)
 }

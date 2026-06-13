@@ -13,6 +13,7 @@ images/
 CLAUDE.md
 AGENTS.md
 skills-lock.json
+openspec/
 
 # Backend
 backend/CLAUDE.md

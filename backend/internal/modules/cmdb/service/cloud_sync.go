@@ -189,6 +189,29 @@ func (s *CloudAccountService) SyncAccount(tenantID, accountID uint) error {
 		return errors.New("解密 SecretKey 失败")
 	}
 
+	var syncErr error
+	switch account.Provider {
+	case "aliyun":
+		syncErr = s.syncAliyun(account, secretID, secretKey)
+	default:
+		syncErr = s.syncRegions(account, secretID, secretKey)
+	}
+
+	now := time.Now()
+	account.LastSyncAt = &now
+
+	if syncErr != nil {
+		account.Status = "error"
+		account.LastSyncError = syncErr.Error()
+	} else {
+		account.Status = "active"
+		account.LastSyncError = ""
+	}
+
+	return s.repo.UpdateAccount(account)
+}
+
+func (s *CloudAccountService) syncRegions(account *model.CloudAccount, secretID, secretKey string) error {
 	regions := getDefaultRegions()
 	var syncErrors []string
 
@@ -198,18 +221,10 @@ func (s *CloudAccountService) SyncAccount(tenantID, accountID uint) error {
 		}
 	}
 
-	now := time.Now()
-	account.LastSyncAt = &now
-
 	if len(syncErrors) > 0 {
-		account.Status = "error"
-		account.LastSyncError = strings.Join(syncErrors, "; ")
-	} else {
-		account.Status = "active"
-		account.LastSyncError = ""
+		return fmt.Errorf("部分资源同步失败: %s", strings.Join(syncErrors, "; "))
 	}
-
-	return s.repo.UpdateAccount(account)
+	return nil
 }
 
 func getDefaultRegions() []string {

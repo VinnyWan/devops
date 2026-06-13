@@ -128,6 +128,23 @@ const routes = [
         name: 'CmdbBatchCommand',
         component: () => import('../views/Cmdb/BatchCommand.vue'),
         meta: { title: '批量命令' }
+      },
+      {
+        path: 'workflow/orders',
+        component: () => import('../views/Workflow/OrderList.vue')
+      },
+      {
+        path: 'workflow/orders/:id',
+        component: () => import('../views/Workflow/OrderDetail.vue'),
+        meta: { activeMenu: '/workflow/orders' }
+      },
+      {
+        path: 'tools',
+        component: () => import('../views/Workflow/ToolMarket.vue')
+      },
+      {
+        path: 'sql-audit',
+        component: () => import('../views/Workflow/SqlAudit.vue')
       }
     ]
   }

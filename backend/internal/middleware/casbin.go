@@ -47,11 +47,12 @@ func CasbinAuthorize(enforcer *casbin.SyncedEnforcer) gin.HandlerFunc {
 		resource := extractResource(c.Request.URL.Path)
 		action := methodToAction(c.Request.Method)
 
-		// 构造 Casbin sub：使用 "tenantID:userID" 格式
-		sub := fmt.Sprintf("%d:%d", tenantID, userID)
+		// 构造 Casbin sub/dom，与 Casbin policy 格式一致
+		sub := fmt.Sprintf("%d", userID)
+		dom := fmt.Sprintf("%d", tenantID)
 		obj := resource
 
-		allowed, err := enforcer.Enforce(sub, obj, action)
+		allowed, err := enforcer.Enforce(sub, dom, obj, action)
 		if err != nil {
 			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
 				"code":    500,

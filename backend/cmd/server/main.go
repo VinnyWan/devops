@@ -12,12 +12,7 @@ import (
 
 	"devops-platform/config"
 	"devops-platform/internal/bootstrap"
-	"devops-platform/internal/middleware"
-	k8sAPI "devops-platform/internal/modules/k8s/api"
-	cmdbAPI "devops-platform/internal/modules/cmdb/api"
-	userAPI "devops-platform/internal/modules/user/api"
-	"devops-platform/internal/modules/user/repository"
-	"devops-platform/internal/modules/user/service"
+	jwtpkg "devops-platform/internal/pkg/jwt"
 	"devops-platform/internal/pkg/logger"
 	"devops-platform/internal/pkg/utils"
 	"devops-platform/routers"
@@ -27,7 +22,7 @@ import (
 
 // @title DevOps 运维平台 API
 // @version 1.0
-// @description DevOps 运维平台接口文档，登录后在 Authorize 中输入 Bearer {session_id} 即可调用接口
+// @description DevOps 运维平台接口文档，支持 Session Cookie / JWT Bearer / API Key 三种认证方式
 // @termsOfService http://swagger.io/terms/
 
 // @contact.name API Support
@@ -44,20 +39,20 @@ import (
 // @securityDefinitions.apikey BearerAuth
 // @in header
 // @name Authorization
-// @description 输入格式: Bearer {session_id}，session_id 从登录接口获取 (Swagger 暂不支持 Cookie 自动发送，请手动输入)
+// @description 支持三种格式: Bearer <jwt_token> | Bearer <session_id> | ApiKey <api_key>
 func main() {
-	// 阶段1：使用默认配置启动临时 Logger（配置加载前）
+	// Phase 1: Bootstrap logger with defaults (before config)
 	if err := logger.Init(); err != nil {
 		log.Fatal("Logger init failed:", err)
 	}
 	defer logger.Log.Sync()
 
-	// 阶段2：加载配置
+	// Phase 2: Load configuration
 	if err := bootstrap.InitConfig(); err != nil {
 		log.Fatal(err)
 	}
 
-	// 阶段3：用配置重新初始化 Logger
+	// Phase 3: Reinit logger with config values
 	if err := logger.InitWithConfig(&logger.LogConfig{
 		Level:            config.Cfg.GetString("log.level"),
 		Output:           config.Cfg.GetString("log.output"),
@@ -68,41 +63,36 @@ func main() {
 		log.Fatal("Logger reinit failed:", err)
 	}
 
+	// Phase 4: Initialize crypto and JWT
 	if err := utils.InitCrypto(); err != nil {
-		log.Fatal("加密模块初始化失败:", err)
+		log.Fatal("Crypto module init failed:", err)
 	}
+	jwtSecret := config.Cfg.GetString("crypto.secret")
+	if jwtSecret == "" {
+		jwtSecret = "devops-platform-default-jwt-secret"
+	}
+	jwtpkg.InitDefault(jwtSecret)
+	logger.Log.Info("JWT module initialized")
+
+	// Phase 5: Initialize infrastructure (DB, Redis, Casbin, K8s)
 	if err := bootstrap.InitDB(); err != nil {
 		log.Fatal(err)
 	}
 	if err := bootstrap.InitRedis(); err != nil {
 		log.Fatal("Redis init failed:", err)
 	}
-	// 设置用户 API 的 DB 实例
-	userAPI.SetDB(bootstrap.DB)
-	// 设置中间件的 DB 实例
-	middleware.SetDB(bootstrap.DB)
-
-	// 开启审计日志清理任务
-	auditRepo := repository.NewAuditRepo(bootstrap.DB)
-	auditService := service.NewAuditService(auditRepo)
-	auditService.StartAuditCleanupTask()
 	if err := bootstrap.InitCasbin(bootstrap.DB); err != nil {
 		log.Fatal(err)
 	}
 	if err := bootstrap.InitK8sFactory(); err != nil {
 		log.Fatal(err)
 	}
-	// 设置 K8s 服务的 DB 实例和客户端工厂
-	k8sAPI.SetK8sDB(bootstrap.DB, bootstrap.K8sFactory)
 
-	// 设置 CMDB 服务的 DB 实例
-	cmdbAPI.SetDB(bootstrap.DB)
+	// Phase 6: Initialize all business modules (single call, all wiring centralized)
+	bootstrap.InitModules(bootstrap.DB)
+	bootstrap.StartModuleBackgroundTasks()
 
-	// 启动定时云同步
-	cmdbAPI.StartCloudSync()
-	// 启动录像清理定时任务
-	cmdbAPI.StartRecordingCleanup()
-
+	// Phase 7: Start HTTP server
 	r := routers.InitRouter()
 	port := config.Cfg.GetString("server.port")
 	if port == "" {
@@ -117,20 +107,21 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	logger.Log.Info(fmt.Sprintf("服务启动，监听地址: %s", addr))
+	logger.Log.Info(fmt.Sprintf("Server listening on %s", addr))
 	go func() {
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatal(err)
 		}
 	}()
 
+	// Phase 8: Graceful shutdown
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
 	<-stop
 
 	if registration != nil {
 		if err := registration.Deregister(); err != nil {
-			logger.Log.Warn("Nacos 实例注销失败", zap.Error(err))
+			logger.Log.Warn("Nacos deregister failed", zap.Error(err))
 		}
 	}
 

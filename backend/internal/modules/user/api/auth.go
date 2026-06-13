@@ -6,6 +6,7 @@ import (
 
 	"devops-platform/config"
 	"devops-platform/internal/modules/user/service"
+	jwtpkg "devops-platform/internal/pkg/jwt"
 	"devops-platform/internal/pkg/logger"
 
 	"github.com/gin-gonic/gin"
@@ -90,15 +91,20 @@ func Login(c *gin.Context) {
 	}()
 
 	setSessionCookie(c, resp.SessionID, sessionCookieMaxAge())
+
+	// Generate JWT token for API access
+	jwtToken, _ := jwtpkg.Default().GenerateAccessToken(
+		resp.User.ID, resp.User.Username, asUint(resp.User.TenantID), req.TenantCode,
+	)
+
 	c.JSON(http.StatusOK, gin.H{
 		"code":    200,
 		"message": "登录成功",
 		"data": gin.H{
-			"token": resp.SessionID,
-			"tenant": gin.H{
-				"code": req.TenantCode,
-			},
-			"user":  resp.User,
+			"session_id": resp.SessionID,
+			"token":      jwtToken,
+			"tenant":     gin.H{"code": req.TenantCode},
+			"user":       resp.User,
 		},
 	})
 }
@@ -213,8 +219,16 @@ func OIDCCallback(c *gin.Context) {
 		"code":    200,
 		"message": "登录成功",
 		"data": gin.H{
-			"token": resp.SessionID,
-			"user":  resp.User,
+			"session_id": resp.SessionID,
+			"token":      resp.SessionID,
+			"user":       resp.User,
 		},
 	})
+}
+
+func asUint(p *uint) uint {
+	if p == nil {
+		return 0
+	}
+	return *p
 }
