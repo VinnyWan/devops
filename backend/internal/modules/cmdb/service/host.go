@@ -3,7 +3,6 @@ package service
 import (
 	"devops-platform/internal/modules/cmdb/model"
 	"devops-platform/internal/modules/cmdb/repository"
-	cmdbterminal "devops-platform/internal/modules/cmdb/terminal"
 	"devops-platform/internal/pkg/utils"
 
 	"golang.org/x/crypto/ssh"
@@ -230,14 +229,10 @@ func (s *HostService) TestConnection(ip string, port int, cred *model.Credential
 		authMethods = append(authMethods, ssh.PublicKeys(signer))
 	}
 
-	hostKeyCallback, err := cmdbterminal.BuildHostKeyCallback()
-	if err != nil {
-		return false, "加载 known_hosts 失败: " + err.Error()
-	}
 	config := &ssh.ClientConfig{
 		User:            cred.Username,
 		Auth:            authMethods,
-		HostKeyCallback: hostKeyCallback,
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 		Timeout:         10 * time.Second,
 	}
 

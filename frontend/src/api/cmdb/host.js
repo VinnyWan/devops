@@ -16,8 +16,8 @@ export const testHost = (data) => request.post('/cmdb/host/test', data)
 
 export function checkHostPermission(hostId, action) {
   return request({
-    url: '/cmdb/permissions/check',
+    url: '/cmdb/permission/check',
     method: 'get',
-    params: { host_id: hostId, action }
+    params: { hostId, action }
   })
 }

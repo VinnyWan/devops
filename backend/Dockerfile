@@ -1,5 +1,5 @@
 # ---- 构建阶段 ----
-FROM docker.1ms.run/library/golang:1.24-alpine AS builder
+FROM docker.1ms.run/library/golang:1.24-alpine3.23 AS builder
 
 RUN apk add --no-cache git ca-certificates tzdata
 

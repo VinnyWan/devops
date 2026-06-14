@@ -151,7 +151,7 @@ const editFormRef = ref()
 const groupHostCount = ref(-1)
 
 const createForm = reactive({
-  userId: '',
+  userId: null,
   hostGroupId: '',
   permissions: []
 })
@@ -248,7 +248,7 @@ const permTagType = (p) => {
 }
 
 const showCreateDialog = () => {
-  createForm.userId = ''
+  createForm.userId = null
   createForm.hostGroupId = selectedGroupId.value || ''
   createForm.permissions = []
   createDialogVisible.value = true
