@@ -54,6 +54,51 @@
           <el-menu-item index="/system/department">部门管理</el-menu-item>
           <el-menu-item index="/system/permission">权限管理</el-menu-item>
         </el-sub-menu>
+        <el-sub-menu index="monitor">
+          <template #title>
+            <el-icon><Odometer /></el-icon>
+            <span>监控中心</span>
+          </template>
+          <el-menu-item index="/monitor/agent">Agent 状态</el-menu-item>
+        </el-sub-menu>
+        <el-sub-menu index="cicd">
+          <template #title>
+            <el-icon><Connection /></el-icon>
+            <span>CI/CD</span>
+          </template>
+          <el-menu-item index="/cicd/jenkins">Jenkins 管理</el-menu-item>
+          <el-menu-item index="/cicd/jobs">Job 管理</el-menu-item>
+        </el-sub-menu>
+        <el-sub-menu index="harbor">
+          <template #title>
+            <el-icon><Box /></el-icon>
+            <span>镜像仓库</span>
+          </template>
+          <el-menu-item index="/harbor/registry">仓库管理</el-menu-item>
+        </el-sub-menu>
+        <el-sub-menu index="log">
+          <template #title>
+            <el-icon><Document /></el-icon>
+            <span>日志中心</span>
+          </template>
+          <el-menu-item index="/log/search">日志搜索</el-menu-item>
+        </el-sub-menu>
+        <el-sub-menu index="knowledge">
+          <template #title>
+            <el-icon><Collection /></el-icon>
+            <span>知识库</span>
+          </template>
+          <el-menu-item index="/knowledge/articles">文章管理</el-menu-item>
+        </el-sub-menu>
+        <el-sub-menu index="tools-menu">
+          <template #title>
+            <el-icon><Briefcase /></el-icon>
+            <span>运维工具</span>
+          </template>
+          <el-menu-item index="/tools">服务市场</el-menu-item>
+          <el-menu-item index="/tools/templates">工具模板</el-menu-item>
+          <el-menu-item index="/sql-audit">SQL 审计</el-menu-item>
+        </el-sub-menu>
       </el-menu>
     </el-aside>
     <el-container>
@@ -79,7 +124,7 @@
 
 <script setup>
 import { computed, ref } from 'vue'
-import { HomeFilled, Grid, Setting, Expand, Fold, Notebook, Monitor } from '@element-plus/icons-vue'
+import { HomeFilled, Grid, Setting, Expand, Fold, Notebook, Monitor, Odometer, Connection, Box, Document, Collection, Briefcase } from '@element-plus/icons-vue'
 import { useUserStore } from '../../stores/user'
 import { useRoute, useRouter } from 'vue-router'
 import Breadcrumb from './Breadcrumb.vue'

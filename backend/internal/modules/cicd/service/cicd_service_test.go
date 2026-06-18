@@ -1,82 +1,56 @@
 package service
 
-import "testing"
+import (
+	"testing"
 
-func TestCICDServiceListPipelineStatus_Filter(t *testing.T) {
-	svc := NewCICDService()
-	result := svc.ListPipelineStatus("running", "")
-	if result.Total != 1 {
-		t.Fatalf("expected 1 running pipeline, got %d", result.Total)
-	}
-	if result.Items[0].Status != "running" {
-		t.Fatalf("expected running status, got %s", result.Items[0].Status)
-	}
+	"devops-platform/internal/modules/cicd/model"
+)
 
-	shortKeyword := svc.ListPipelineStatus("", "ma")
-	if shortKeyword.Total != 3 {
-		t.Fatalf("expected short keyword ignored, got %d", shortKeyword.Total)
-	}
+func TestCICDServiceSaveConfig_NilPointer(t *testing.T) {
+	svc := NewCICDService(nil)
 
-	statusKeyword := svc.ListPipelineStatus("", "success")
-	if statusKeyword.Total != 1 || statusKeyword.Items[0].Name != "gateway-release" {
-		t.Fatalf("expected status field keyword matched gateway-release, got %d", statusKeyword.Total)
-	}
+	// Verify that nil config panics (expected behavior - caller must validate)
+	defer func() {
+		if r := recover(); r == nil {
+			t.Fatalf("expected panic for nil config")
+		}
+	}()
+	svc.SaveConfig(nil)
 }
 
-func TestCICDServiceListPipelineLogs_FilterAndLimit(t *testing.T) {
-	svc := NewCICDService()
-	result := svc.ListPipelineLogs(1, "deploy", 1)
-	if result.Total != 1 {
-		t.Fatalf("expected 1 deploy log, got %d", result.Total)
-	}
-	if result.Items[0].Stage != "deploy" {
-		t.Fatalf("expected deploy stage, got %s", result.Items[0].Stage)
-	}
-}
+func TestCICDServiceTriggerBuild_EmptyJobName(t *testing.T) {
+	svc := NewCICDService(nil)
 
-func TestCICDServiceTriggerPipeline(t *testing.T) {
-	svc := NewCICDService()
-	run, err := svc.TriggerPipeline(TriggerPipelineRequest{
-		PipelineID:  1,
-		TemplateID:  1,
-		Branch:      "release/test",
-		Environment: "prod",
-		TriggerType: "manual",
-		Operator:    "tester",
-		Parameters: map[string]string{
-			"strategy": "blue-green",
-		},
-	})
-	if err != nil {
-		t.Fatalf("trigger pipeline failed: %v", err)
-	}
-	if run.ID == 0 {
-		t.Fatalf("expected run id generated")
-	}
-	if run.Environment != "prod" {
-		t.Fatalf("expected environment prod, got %s", run.Environment)
-	}
-	if len(run.Stages) == 0 {
-		t.Fatalf("expected stages from template")
-	}
-}
-
-func TestCICDServiceSaveTemplateValidation(t *testing.T) {
-	svc := NewCICDService()
-	_, err := svc.SaveTemplate(SaveTemplateRequest{
-		Name: "empty-template",
-	})
+	err := svc.TriggerBuild(1, "")
 	if err == nil {
-		t.Fatalf("expected validation error for empty stages")
+		t.Fatalf("expected error for empty job name")
 	}
 }
 
-func TestCICDServiceSaveConfig_InvalidEndpoint(t *testing.T) {
-	svc := NewCICDService()
-	_, err := svc.SaveConfig(SaveJenkinsConfigRequest{
-		Endpoint: "http://invalid-jenkins",
-	})
+func TestCICDServiceTestConnection_EmptyURL(t *testing.T) {
+	svc := NewCICDService(nil)
+
+	err := svc.TestConnection("", "admin", "token")
 	if err == nil {
-		t.Fatalf("expected invalid endpoint error")
+		t.Fatalf("expected error for empty URL")
+	}
+}
+
+func TestCICDServiceSavePipeline_EmptyName(t *testing.T) {
+	svc := NewCICDService(nil)
+
+	err := svc.SavePipeline(&model.Pipeline{Name: ""})
+	if err == nil {
+		t.Fatalf("expected error for empty pipeline name")
+	}
+}
+
+func TestCICDServiceNewService(t *testing.T) {
+	svc := NewCICDService(nil)
+	if svc == nil {
+		t.Fatal("expected non-nil service")
+	}
+	if svc.repo == nil {
+		t.Fatal("expected non-nil repository")
 	}
 }

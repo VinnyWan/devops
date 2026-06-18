@@ -1,85 +1,191 @@
 package repository
 
 import (
-	"errors"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"net/url"
 	"strings"
-	"sync"
 	"time"
 
 	"devops-platform/internal/modules/harbor/model"
+	"devops-platform/internal/pkg/obserr"
+
+	"gorm.io/gorm"
 )
 
+const op = "harbor/repository"
+
 type HarborRepo struct {
-	mu       sync.RWMutex
-	projects []model.HarborProject
-	images   []model.RepositoryImage
-	config   model.HarborConfig
+	db         *gorm.DB
+	httpClient *http.Client
 }
 
-func NewHarborRepo() *HarborRepo {
-	now := time.Now()
+func NewHarborRepo(db *gorm.DB) *HarborRepo {
 	return &HarborRepo{
-		projects: []model.HarborProject{
-			{ID: 1, Name: "platform", Public: false, CreatedAt: now.Add(-60 * 24 * time.Hour), UpdatedAt: now.Add(-3 * time.Hour)},
-			{ID: 2, Name: "payments", Public: false, CreatedAt: now.Add(-45 * 24 * time.Hour), UpdatedAt: now.Add(-50 * time.Minute)},
-			{ID: 3, Name: "shared", Public: true, CreatedAt: now.Add(-90 * 24 * time.Hour), UpdatedAt: now.Add(-5 * time.Hour)},
-		},
-		images: []model.RepositoryImage{
-			{ID: 1001, ProjectName: "platform", Repository: "gateway", Tag: "v1.9.0", Digest: "sha256:abc001", Size: 214748364, PushedAt: now.Add(-4 * time.Hour)},
-			{ID: 1002, ProjectName: "platform", Repository: "gateway", Tag: "v1.8.9", Digest: "sha256:abc000", Size: 214000000, PushedAt: now.Add(-72 * time.Hour)},
-			{ID: 1003, ProjectName: "payments", Repository: "payments-api", Tag: "v2.3.4", Digest: "sha256:def123", Size: 198765432, PushedAt: now.Add(-55 * time.Minute)},
-			{ID: 1004, ProjectName: "shared", Repository: "busybox-tools", Tag: "1.0.0", Digest: "sha256:xyz900", Size: 73400320, PushedAt: now.Add(-12 * time.Hour)},
-		},
-		config: model.HarborConfig{
-			Endpoint:       "https://harbor.example.com",
-			Project:        "platform",
-			Username:       "admin",
-			Password:       "password",
-			TimeoutSeconds: 10,
-			UpdatedAt:      now,
-		},
+		db:         db,
+		httpClient: &http.Client{Timeout: 30 * time.Second},
 	}
 }
 
-func (r *HarborRepo) ListProjects() []model.HarborProject {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return append([]model.HarborProject(nil), r.projects...)
-}
+// --- Config CRUD ---
 
-func (r *HarborRepo) ListImages(projectName string) []model.RepositoryImage {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	items := make([]model.RepositoryImage, 0, len(r.images))
-	for _, item := range r.images {
-		if projectName != "" && item.ProjectName != projectName {
-			continue
-		}
-		items = append(items, item)
+func (r *HarborRepo) ListConfigs(page, pageSize int) ([]model.HarborConfig, int64, error) {
+	var configs []model.HarborConfig
+	var total int64
+	q := r.db.Model(&model.HarborConfig{})
+	q.Count(&total)
+	if err := q.Offset((page-1)*pageSize).Limit(pageSize).Order("created_at DESC").Find(&configs).Error; err != nil {
+		return nil, 0, obserr.Wrap("DB_ERROR", op, "list harbor configs failed", err)
 	}
-	return items
+	return configs, total, nil
 }
 
-func (r *HarborRepo) GetConfig() model.HarborConfig {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.config
-}
-
-func (r *HarborRepo) SaveConfig(cfg model.HarborConfig) model.HarborConfig {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	cfg.UpdatedAt = time.Now()
-	r.config = cfg
-	return r.config
-}
-
-func (r *HarborRepo) ValidateConfigConnection(cfg model.HarborConfig) error {
-	if strings.Contains(strings.ToLower(cfg.Endpoint), "invalid") {
-		return errors.New("harbor endpoint 不可达")
+func (r *HarborRepo) GetConfig(id uint) (*model.HarborConfig, error) {
+	var cfg model.HarborConfig
+	if err := r.db.First(&cfg, id).Error; err != nil {
+		return nil, obserr.Wrap("DB_ERROR", op, "get harbor config failed", err)
 	}
-	if strings.Contains(strings.ToLower(cfg.Endpoint), "timeout") {
-		return errors.New("harbor 请求超时")
+	return &cfg, nil
+}
+
+func (r *HarborRepo) SaveConfig(cfg *model.HarborConfig) error {
+	if err := r.db.Save(cfg).Error; err != nil {
+		return obserr.Wrap("DB_ERROR", op, "save harbor config failed", err)
 	}
 	return nil
+}
+
+func (r *HarborRepo) DeleteConfig(id uint) error {
+	if err := r.db.Delete(&model.HarborConfig{}, id).Error; err != nil {
+		return obserr.Wrap("DB_ERROR", op, "delete harbor config failed", err)
+	}
+	return nil
+}
+
+// --- Harbor API helpers ---
+
+func (r *HarborRepo) harborRequest(cfg *model.HarborConfig, method, path string, result interface{}) error {
+	u := strings.TrimRight(cfg.URL, "/") + "/api/v2.0" + path
+	req, err := http.NewRequest(method, u, nil)
+	if err != nil {
+		return obserr.Wrap("HARBOR_REQUEST_FAILED", op, "failed to build request", err)
+	}
+	req.SetBasicAuth(cfg.Username, cfg.Password)
+	req.Header.Set("Accept", "application/json")
+	resp, err := r.httpClient.Do(req)
+	if err != nil {
+		return obserr.Wrap("HARBOR_CONNECT_FAILED", op, "cannot reach harbor server", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode == 401 {
+		return obserr.New("HARBOR_AUTH_FAILED", op, "harbor authentication failed")
+	}
+	if resp.StatusCode == 404 {
+		return obserr.New("HARBOR_NOT_FOUND", op, "resource not found on harbor")
+	}
+	if resp.StatusCode >= 400 {
+		body, _ := io.ReadAll(resp.Body)
+		return obserr.New("HARBOR_REQUEST_FAILED", op, fmt.Sprintf("harbor returned %d: %s", resp.StatusCode, string(body)))
+	}
+	if result != nil {
+		if err := json.NewDecoder(resp.Body).Decode(result); err != nil {
+			return obserr.Wrap("HARBOR_PARSE_FAILED", op, "failed to parse harbor response", err)
+		}
+	}
+	return nil
+}
+
+// --- Connection test ---
+
+func (r *HarborRepo) TestConnection(url, username, password string) error {
+	cfg := &model.HarborConfig{URL: url, Username: username, Password: password}
+	var info map[string]interface{}
+	if err := r.harborRequest(cfg, "GET", "/systeminfo", &info); err != nil {
+		return err
+	}
+	return nil
+}
+
+// --- Projects ---
+
+func (r *HarborRepo) ListProjects(configID uint, keyword string, page, pageSize int) ([]model.Project, int64, error) {
+	cfg, err := r.GetConfig(configID)
+	if err != nil {
+		return nil, 0, obserr.Wrap("HARBOR_CONFIG_NOT_FOUND", op, "config not found", err)
+	}
+
+	params := url.Values{}
+	params.Set("page", fmt.Sprintf("%d", page))
+	params.Set("page_size", fmt.Sprintf("%d", pageSize))
+	if keyword != "" {
+		params.Set("name", keyword)
+	}
+
+	var projects []model.Project
+	path := "/projects?" + params.Encode()
+	if err := r.harborRequest(cfg, "GET", path, &projects); err != nil {
+		return nil, 0, err
+	}
+
+	// Harbor v2.0 API returns projects directly; total count from headers or estimate
+	return projects, int64(len(projects)), nil
+}
+
+// --- Repositories ---
+
+func (r *HarborRepo) ListRepositories(configID uint, projectName string, keyword string, page, pageSize int) ([]model.Repository, int64, error) {
+	cfg, err := r.GetConfig(configID)
+	if err != nil {
+		return nil, 0, obserr.Wrap("HARBOR_CONFIG_NOT_FOUND", op, "config not found", err)
+	}
+
+	params := url.Values{}
+	params.Set("page", fmt.Sprintf("%d", page))
+	params.Set("page_size", fmt.Sprintf("%d", pageSize))
+	if keyword != "" {
+		params.Set("q", keyword)
+	}
+
+	var repos []model.Repository
+	path := fmt.Sprintf("/projects/%s/repositories?%s", url.PathEscape(projectName), params.Encode())
+	if err := r.harborRequest(cfg, "GET", path, &repos); err != nil {
+		return nil, 0, err
+	}
+	return repos, int64(len(repos)), nil
+}
+
+// --- Artifacts (images with tags) ---
+
+func (r *HarborRepo) ListArtifacts(configID uint, projectName, repoName string, page, pageSize int) ([]model.Artifact, int64, error) {
+	cfg, err := r.GetConfig(configID)
+	if err != nil {
+		return nil, 0, obserr.Wrap("HARBOR_CONFIG_NOT_FOUND", op, "config not found", err)
+	}
+
+	params := url.Values{}
+	params.Set("page", fmt.Sprintf("%d", page))
+	params.Set("page_size", fmt.Sprintf("%d", pageSize))
+
+	var artifacts []model.Artifact
+	path := fmt.Sprintf("/projects/%s/repositories/%s/artifacts?%s",
+		url.PathEscape(projectName), url.PathEscape(repoName), params.Encode())
+	if err := r.harborRequest(cfg, "GET", path, &artifacts); err != nil {
+		return nil, 0, err
+	}
+	return artifacts, int64(len(artifacts)), nil
+}
+
+// --- Delete artifact tag ---
+
+func (r *HarborRepo) DeleteArtifact(configID uint, projectName, repoName, reference string) error {
+	cfg, err := r.GetConfig(configID)
+	if err != nil {
+		return obserr.Wrap("HARBOR_CONFIG_NOT_FOUND", op, "config not found", err)
+	}
+
+	path := fmt.Sprintf("/projects/%s/repositories/%s/artifacts/%s",
+		url.PathEscape(projectName), url.PathEscape(repoName), url.PathEscape(reference))
+	return r.harborRequest(cfg, "DELETE", path, nil)
 }

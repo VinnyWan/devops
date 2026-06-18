@@ -7,10 +7,14 @@ import (
 	"devops-platform/internal/middleware"
 	"devops-platform/internal/pkg/logger"
 	alertService "devops-platform/internal/modules/alert/service"
+	cicdAPI "devops-platform/internal/modules/cicd/api"
 	sqlAuditAPI "devops-platform/internal/modules/sqlaudit/api"
 	sqlAuditService "devops-platform/internal/modules/sqlaudit/service"
 	cmdbAPI "devops-platform/internal/modules/cmdb/api"
+	harborAPI "devops-platform/internal/modules/harbor/api"
 	k8sAPI "devops-platform/internal/modules/k8s/api"
+	logAPI "devops-platform/internal/modules/log/api"
+	monitorAPI "devops-platform/internal/modules/monitor/api"
 	notifModel "devops-platform/internal/modules/notification/model"
 	notifService "devops-platform/internal/modules/notification/service"
 	taskAPI "devops-platform/internal/modules/task/api"
@@ -19,6 +23,7 @@ import (
 	toolAPI "devops-platform/internal/modules/tool/api"
 	toolService "devops-platform/internal/modules/tool/service"
 	userAPI "devops-platform/internal/modules/user/api"
+	kbAPI "devops-platform/internal/modules/knowledge/api"
 	"devops-platform/internal/modules/user/repository"
 	"devops-platform/internal/modules/user/service"
 	workflowAPI "devops-platform/internal/modules/workflow/api"
@@ -37,6 +42,15 @@ func InitModules(db *gorm.DB) {
 
 	// K8s module (requires DB + K8sFactory)
 	k8sAPI.SetK8sDB(db, K8sFactory)
+
+	// Harbor module
+	harborAPI.SetHarborDB(db)
+
+	// Monitor module
+	monitorAPI.SetMonitorDB(db)
+
+	// CI/CD module
+	cicdAPI.SetCICDDB(db)
 
 	// CMDB module
 	cmdbAPI.SetDB(db)
@@ -114,7 +128,18 @@ func InitModules(db *gorm.DB) {
 			logger.Log.Warn("seed tool scripts failed", zap.Error(err))
 		}
 	}
+	if err := toolSvc.SeedDefaultTemplates(); err != nil {
+		if logger.Log != nil {
+			logger.Log.Warn("seed tool templates failed", zap.Error(err))
+		}
+	}
 	toolAPI.InitToolService(toolSvc)
+
+	// Log module
+	logAPI.SetLogDB(db)
+
+	// Knowledge base
+	kbAPI.SetKnowledgeDB(db)
 
 	// SQL audit: service
 	sqlAuditSvc := sqlAuditService.NewSqlAuditService(db)

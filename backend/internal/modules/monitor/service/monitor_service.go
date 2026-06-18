@@ -2,100 +2,155 @@ package service
 
 import (
 	"fmt"
-	"strings"
-	"time"
 
 	"devops-platform/internal/modules/monitor/model"
 	"devops-platform/internal/modules/monitor/repository"
 	"devops-platform/internal/pkg/obserr"
+
+	"gorm.io/gorm"
 )
 
+const op = "monitor/service"
+
+// MonitorService provides business logic for Prometheus config and metric queries
 type MonitorService struct {
 	repo *repository.MonitorRepo
+	db   *gorm.DB
 }
 
-type SavePrometheusConfigRequest struct {
-	Endpoint              string `json:"endpoint"`
-	QueryPath             string `json:"queryPath"`
-	TimeoutSeconds        int    `json:"timeoutSeconds"`
-	Username              string `json:"username"`
-	Password              string `json:"password"`
-	BearerToken           string `json:"bearerToken"`
-	TLSInsecureSkipVerify bool   `json:"tlsInsecureSkipVerify"`
+// NewMonitorService creates a new MonitorService
+func NewMonitorService(db *gorm.DB) *MonitorService {
+	return &MonitorService{repo: repository.NewMonitorRepo(db), db: db}
 }
 
-func NewMonitorService() *MonitorService {
-	return &MonitorService{repo: repository.NewMonitorRepo()}
+// --- Config management ---
+
+// ListConfigs returns paginated Prometheus configs
+func (s *MonitorService) ListConfigs(page, pageSize int) ([]model.PrometheusConfig, int64, error) {
+	if page <= 0 {
+		page = 1
+	}
+	if pageSize <= 0 || pageSize > 100 {
+		pageSize = 20
+	}
+	return s.repo.ListConfigs(page, pageSize)
 }
 
-func (s *MonitorService) Query(metric string, start, end time.Time, step string) (model.QueryResult, error) {
-	cfg := s.repo.GetConfig()
-	if err := s.repo.ValidateConfigConnection(cfg); err != nil {
-		return model.QueryResult{}, obserr.Wrap("PROMETHEUS_CONNECT_FAILED", "monitor.Query", "Prometheus 配置连接校验失败", err)
+// GetConfig returns a single Prometheus config by ID
+func (s *MonitorService) GetConfig(id uint) (*model.PrometheusConfig, error) {
+	return s.repo.GetConfig(id)
+}
+
+// SaveConfig validates and saves a Prometheus config, testing the connection first
+func (s *MonitorService) SaveConfig(cfg *model.PrometheusConfig) error {
+	if cfg.Endpoint == "" {
+		return obserr.New("INVALID_PARAM", op, "endpoint is required")
 	}
-	metric = strings.TrimSpace(metric)
-	if metric == "" {
-		metric = "cpu_usage"
+	if cfg.TimeoutSeconds <= 0 {
+		cfg.TimeoutSeconds = 15
 	}
-	if start.IsZero() {
-		start = time.Now().Add(-15 * time.Minute)
+	if err := s.repo.TestConnection(cfg.Endpoint, cfg.Username, cfg.Password); err != nil {
+		cfg.Status = "error"
+	} else {
+		cfg.Status = "connected"
 	}
-	if end.IsZero() || end.Before(start) {
-		end = start.Add(15 * time.Minute)
+	return s.repo.SaveConfig(cfg)
+}
+
+// DeleteConfig soft-deletes a Prometheus config by ID
+func (s *MonitorService) DeleteConfig(id uint) error {
+	return s.repo.DeleteConfig(id)
+}
+
+// TestConnection tests connectivity to a Prometheus endpoint
+func (s *MonitorService) TestConnection(endpoint, username, password string) error {
+	if endpoint == "" {
+		return obserr.New("INVALID_PARAM", op, "endpoint is required")
 	}
-	step = strings.TrimSpace(step)
-	if step == "" {
-		step = "1m"
+	return s.repo.TestConnection(endpoint, username, password)
+}
+
+// --- Metric queries ---
+
+// QueryHostMetrics builds a PromQL query for a given host metric and executes it
+func (s *MonitorService) QueryHostMetrics(configID uint, hostIP, metric string, startTime, endTime string) (*model.MetricQueryResponse, error) {
+	var promQL string
+	switch metric {
+	case "cpu":
+		promQL = fmt.Sprintf(`100 - (avg by(instance) (irate(node_cpu_seconds_total{mode="idle",instance=~"%s:.*"}[5m])) * 100)`, hostIP)
+	case "memory":
+		promQL = fmt.Sprintf(`(1 - (node_memory_MemAvailable_bytes{instance=~"%s:.*"} / node_memory_MemTotal_bytes{instance=~"%s:.*"})) * 100`, hostIP, hostIP)
+	case "disk":
+		promQL = fmt.Sprintf(`100 - ((node_filesystem_avail_bytes{instance=~"%s:.*",mountpoint="/"} / node_filesystem_size_bytes{instance=~"%s:.*",mountpoint="/"}) * 100)`, hostIP, hostIP)
+	case "disk_usage":
+		promQL = fmt.Sprintf(`node_filesystem_size_bytes{instance=~"%s:.*",mountpoint="/"} - node_filesystem_avail_bytes{instance=~"%s:.*",mountpoint="/"}`, hostIP, hostIP)
+	default:
+		return nil, obserr.New("INVALID_PARAM", op, fmt.Sprintf("unsupported metric: %s", metric))
 	}
-	if !strings.HasSuffix(step, "s") && !strings.HasSuffix(step, "m") && !strings.HasSuffix(step, "h") {
-		return model.QueryResult{}, obserr.New("PROMETHEUS_INVALID_STEP", "monitor.Query", fmt.Sprintf("无效的 step: %s", step))
+
+	if startTime != "" && endTime != "" {
+		step := "60s"
+		return s.repo.QueryRange(configID, promQL, startTime, endTime, step)
 	}
-	result := s.repo.Query(model.QueryRequest{
-		Metric: metric,
-		Start:  start,
-		End:    end,
-		Step:   step,
-	})
+	return s.repo.QueryInstant(configID, promQL)
+}
+
+// QueryPortStatus queries port reachability via blackbox_exporter probe_success metric
+func (s *MonitorService) QueryPortStatus(configID uint, hostIP string, ports []string) (map[string]string, error) {
+	result := make(map[string]string)
+	for _, port := range ports {
+		promQL := fmt.Sprintf(`probe_success{instance="%s:%s"}`, hostIP, port)
+		resp, err := s.repo.QueryInstant(configID, promQL)
+		if err != nil {
+			result[port] = "unknown"
+			continue
+		}
+		if len(resp.Results) > 0 && len(resp.Results[0].Values) > 0 {
+			if resp.Results[0].Values[0].Value == 1 {
+				result[port] = "up"
+			} else {
+				result[port] = "down"
+			}
+		} else {
+			result[port] = "unknown"
+		}
+	}
 	return result, nil
 }
 
-func (s *MonitorService) GetConfig() model.PrometheusConfig {
-	return s.repo.GetConfig()
+// QueryAgentStatus queries agent liveness via Prometheus up metric
+func (s *MonitorService) QueryAgentStatus(configID uint, hostIPs []string) (map[string]string, error) {
+	result := make(map[string]string)
+	for _, ip := range hostIPs {
+		promQL := fmt.Sprintf(`up{instance=~"%s:.*"}`, ip)
+		resp, err := s.repo.QueryInstant(configID, promQL)
+		if err != nil {
+			result[ip] = "unknown"
+			continue
+		}
+		if len(resp.Results) > 0 && len(resp.Results[0].Values) > 0 {
+			if resp.Results[0].Values[0].Value == 1 {
+				result[ip] = "online"
+			} else {
+				result[ip] = "offline"
+			}
+		} else {
+			result[ip] = "not_deployed"
+		}
+	}
+	return result, nil
 }
 
-func (s *MonitorService) SaveConfig(req SavePrometheusConfigRequest) (model.PrometheusConfig, error) {
-	endpoint := strings.TrimSpace(req.Endpoint)
-	if endpoint == "" {
-		return model.PrometheusConfig{}, obserr.New("PROMETHEUS_ENDPOINT_REQUIRED", "monitor.SaveConfig", "Prometheus endpoint 不能为空")
+// EnsureDefaults seeds a default Prometheus config if the table is empty
+func (s *MonitorService) EnsureDefaults() {
+	var count int64
+	s.db.Model(&model.PrometheusConfig{}).Count(&count)
+	if count == 0 {
+		s.db.Create(&model.PrometheusConfig{
+			Name:           "default",
+			Endpoint:       "http://prometheus:9090",
+			TimeoutSeconds: 15,
+			Status:         "unknown",
+		})
 	}
-	queryPath := strings.TrimSpace(req.QueryPath)
-	if queryPath == "" {
-		queryPath = "/api/v1/query_range"
-	}
-	timeout := req.TimeoutSeconds
-	if timeout <= 0 {
-		timeout = 10
-	}
-	config := model.PrometheusConfig{
-		Endpoint:              endpoint,
-		QueryPath:             queryPath,
-		TimeoutSeconds:        timeout,
-		Username:              strings.TrimSpace(req.Username),
-		Password:              req.Password,
-		BearerToken:           strings.TrimSpace(req.BearerToken),
-		TLSInsecureSkipVerify: req.TLSInsecureSkipVerify,
-	}
-	if err := s.repo.ValidateConfigConnection(config); err != nil {
-		return model.PrometheusConfig{}, obserr.Wrap("PROMETHEUS_CONNECT_FAILED", "monitor.SaveConfig", "Prometheus 配置连接失败", err)
-	}
-	saved := s.repo.SaveConfig(config)
-	return saved, nil
-}
-
-func (s *MonitorService) ValidateCurrentConfig() error {
-	config := s.repo.GetConfig()
-	if err := s.repo.ValidateConfigConnection(config); err != nil {
-		return obserr.Wrap("PROMETHEUS_CONNECT_FAILED", "monitor.ValidateCurrentConfig", "Prometheus 配置连接失败", err)
-	}
-	return nil
 }

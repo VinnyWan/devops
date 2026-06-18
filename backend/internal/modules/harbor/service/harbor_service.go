@@ -1,110 +1,89 @@
 package service
 
 import (
-	"strings"
-
 	"devops-platform/internal/modules/harbor/model"
 	"devops-platform/internal/modules/harbor/repository"
 	"devops-platform/internal/pkg/obserr"
-	queryutil "devops-platform/internal/pkg/query"
+
+	"gorm.io/gorm"
 )
+
+const op = "harbor/service"
 
 type HarborService struct {
 	repo *repository.HarborRepo
 }
 
-type ListProjectResponse struct {
-	Total int                   `json:"total"`
-	Items []model.HarborProject `json:"items"`
+func NewHarborService(db *gorm.DB) *HarborService {
+	return &HarborService{repo: repository.NewHarborRepo(db)}
 }
 
-type ListImageResponse struct {
-	Total int                     `json:"total"`
-	Items []model.RepositoryImage `json:"items"`
+func (s *HarborService) ListConfigs(page, pageSize int) ([]model.HarborConfig, int64, error) {
+	if page <= 0 {
+		page = 1
+	}
+	if pageSize <= 0 || pageSize > 100 {
+		pageSize = 20
+	}
+	return s.repo.ListConfigs(page, pageSize)
 }
 
-type SaveHarborConfigRequest struct {
-	Endpoint              string `json:"endpoint"`
-	Project               string `json:"project"`
-	Username              string `json:"username"`
-	Password              string `json:"password"`
-	RobotToken            string `json:"robotToken"`
-	TimeoutSeconds        int    `json:"timeoutSeconds"`
-	TLSInsecureSkipVerify bool   `json:"tlsInsecureSkipVerify"`
+func (s *HarborService) SaveConfig(cfg *model.HarborConfig) error {
+	if cfg.URL == "" {
+		return obserr.New("INVALID_PARAM", op, "url is required")
+	}
+	if cfg.Username == "" {
+		return obserr.New("INVALID_PARAM", op, "username is required")
+	}
+	if cfg.Password == "" {
+		return obserr.New("INVALID_PARAM", op, "password is required")
+	}
+	if err := s.repo.TestConnection(cfg.URL, cfg.Username, cfg.Password); err != nil {
+		cfg.Status = "error"
+	} else {
+		cfg.Status = "connected"
+	}
+	return s.repo.SaveConfig(cfg)
 }
 
-func NewHarborService() *HarborService {
-	return &HarborService{repo: repository.NewHarborRepo()}
+func (s *HarborService) DeleteConfig(id uint) error {
+	return s.repo.DeleteConfig(id)
 }
 
-func (s *HarborService) ListProjects(keyword string) (ListProjectResponse, error) {
-	if err := s.ValidateCurrentConfig(); err != nil {
-		return ListProjectResponse{}, err
+func (s *HarborService) TestConnection(url, username, password string) error {
+	if url == "" {
+		return obserr.New("INVALID_PARAM", op, "url is required")
 	}
-	projects := s.repo.ListProjects()
-	items := make([]model.HarborProject, 0, len(projects))
-	for _, project := range projects {
-		if !queryutil.MatchKeywordAny(keyword, project.Name) {
-			continue
-		}
-		items = append(items, project)
-	}
-	return ListProjectResponse{Total: len(items), Items: items}, nil
+	return s.repo.TestConnection(url, username, password)
 }
 
-func (s *HarborService) ListImages(projectName, keyword string) (ListImageResponse, error) {
-	if err := s.ValidateCurrentConfig(); err != nil {
-		return ListImageResponse{}, err
+func (s *HarborService) ListProjects(configID uint, keyword string, page, pageSize int) ([]model.Project, int64, error) {
+	if page <= 0 {
+		page = 1
 	}
-	projectName = strings.TrimSpace(projectName)
-	images := s.repo.ListImages(projectName)
-	items := make([]model.RepositoryImage, 0, len(images))
-	for _, image := range images {
-		if !queryutil.MatchKeywordAny(keyword, image.Repository, image.Tag, image.Digest, image.ProjectName) {
-			continue
-		}
-		items = append(items, image)
+	if pageSize <= 0 || pageSize > 100 {
+		pageSize = 20
 	}
-	return ListImageResponse{Total: len(items), Items: items}, nil
+	return s.repo.ListProjects(configID, keyword, page, pageSize)
 }
 
-func (s *HarborService) GetConfig() model.HarborConfig {
-	return s.repo.GetConfig()
+func (s *HarborService) ListRepositories(configID uint, projectName, keyword string, page, pageSize int) ([]model.Repository, int64, error) {
+	if page <= 0 {
+		page = 1
+	}
+	if pageSize <= 0 || pageSize > 100 {
+		pageSize = 20
+	}
+	return s.repo.ListRepositories(configID, projectName, keyword, page, pageSize)
 }
 
-func (s *HarborService) SaveConfig(req SaveHarborConfigRequest) (model.HarborConfig, error) {
-	endpoint := strings.TrimSpace(req.Endpoint)
-	if endpoint == "" {
-		return model.HarborConfig{}, obserr.New("HARBOR_ENDPOINT_REQUIRED", "harbor.SaveConfig", "Harbor endpoint 不能为空")
-	}
-	project := strings.TrimSpace(req.Project)
-	if project == "" {
-		project = "library"
-	}
-	timeout := req.TimeoutSeconds
-	if timeout <= 0 {
-		timeout = 10
-	}
-	config := model.HarborConfig{
-		Endpoint:              endpoint,
-		Project:               project,
-		Username:              strings.TrimSpace(req.Username),
-		Password:              req.Password,
-		RobotToken:            strings.TrimSpace(req.RobotToken),
-		TimeoutSeconds:        timeout,
-		TLSInsecureSkipVerify: req.TLSInsecureSkipVerify,
-	}
-	if err := s.repo.ValidateConfigConnection(config); err != nil {
-		return model.HarborConfig{}, obserr.Wrap("HARBOR_CONNECT_FAILED", "harbor.SaveConfig", "Harbor 配置连接失败", err)
-	}
-	saved := s.repo.SaveConfig(config)
-	return saved, nil
+func (s *HarborService) ListArtifacts(configID uint, projectName, repoName string, page, pageSize int) ([]model.Artifact, int64, error) {
+	return s.repo.ListArtifacts(configID, projectName, repoName, page, pageSize)
 }
 
-func (s *HarborService) ValidateCurrentConfig() error {
-	config := s.repo.GetConfig()
-	if err := s.repo.ValidateConfigConnection(config); err != nil {
-		return obserr.Wrap("HARBOR_CONNECT_FAILED", "harbor.ValidateCurrentConfig", "Harbor 配置连接失败", err)
+func (s *HarborService) DeleteArtifact(configID uint, projectName, repoName, reference string) error {
+	if reference == "" {
+		return obserr.New("INVALID_PARAM", op, "reference (tag or digest) is required")
 	}
-	return nil
+	return s.repo.DeleteArtifact(configID, projectName, repoName, reference)
 }

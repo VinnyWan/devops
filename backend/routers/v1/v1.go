@@ -34,4 +34,5 @@ func Register(r *gin.Engine) {
 	registerWorkflowRoutes(auth)
 	registerToolRoutes(auth)
 	registerSqlAuditRoutes(auth)
+	registerKnowledgeBase(auth)
 }

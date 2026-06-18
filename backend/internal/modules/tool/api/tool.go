@@ -4,15 +4,23 @@ import (
 	"net/http"
 	"strconv"
 
+	"devops-platform/internal/modules/tool/model"
 	"devops-platform/internal/modules/tool/service"
+	"devops-platform/internal/pkg/obserr"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 var toolService *service.ToolService
 
 func InitToolService(svc *service.ToolService) {
 	toolService = svc
+}
+
+func SetToolDB(db *gorm.DB) {
+	toolService = service.NewToolService(db)
+	toolService.SeedDefaultTemplates()
 }
 
 // ListTools returns all available tools, optionally filtered by category.
@@ -94,4 +102,92 @@ func InstallToolRoutes(r *gin.RouterGroup) {
 	r.POST("/tools/:id/install", InstallTool)
 	r.POST("/tools/:id/check", CheckToolStatus)
 	r.GET("/tools/installations", ListInstallations)
+}
+
+// Templates
+func ListTemplates(c *gin.Context) {
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("pageSize", "20"))
+	category := c.Query("category")
+	templates, total, err := toolService.ListTemplates(category, page, pageSize)
+	if err != nil {
+		writeObservableError(c, http.StatusInternalServerError, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 200, "data": templates, "total": total})
+}
+
+func GetTemplate(c *gin.Context) {
+	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	t, err := toolService.GetTemplate(uint(id))
+	if err != nil {
+		writeObservableError(c, http.StatusInternalServerError, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 200, "data": t})
+}
+
+func SaveTemplate(c *gin.Context) {
+	var t model.ToolTemplate
+	if err := c.ShouldBindJSON(&t); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "invalid request"})
+		return
+	}
+	if err := toolService.SaveTemplate(&t); err != nil {
+		writeObservableError(c, http.StatusInternalServerError, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 200, "data": t})
+}
+
+func DeleteTemplate(c *gin.Context) {
+	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err := toolService.DeleteTemplate(uint(id)); err != nil {
+		writeObservableError(c, http.StatusInternalServerError, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "deleted"})
+}
+
+// Versions
+func ListTemplateVersions(c *gin.Context) {
+	templateID, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	versions, err := toolService.ListVersions(uint(templateID))
+	if err != nil {
+		writeObservableError(c, http.StatusInternalServerError, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 200, "data": versions})
+}
+
+func SaveTemplateVersion(c *gin.Context) {
+	templateID, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	var v model.ToolTemplateVersion
+	if err := c.ShouldBindJSON(&v); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "invalid request"})
+		return
+	}
+	v.TemplateID = uint(templateID)
+	if err := toolService.SaveVersion(&v); err != nil {
+		writeObservableError(c, http.StatusInternalServerError, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 200, "data": v})
+}
+
+func DeleteTemplateVersion(c *gin.Context) {
+	versionID, _ := strconv.ParseUint(c.Param("versionId"), 10, 64)
+	if err := toolService.DeleteVersion(uint(versionID)); err != nil {
+		writeObservableError(c, http.StatusInternalServerError, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "deleted"})
+}
+
+func writeObservableError(c *gin.Context, status int, err error) {
+	if details := obserr.Details(err); details != nil {
+		c.JSON(status, gin.H{"code": 500, "message": details["message"], "error": details})
+		return
+	}
+	c.JSON(status, gin.H{"code": 500, "message": err.Error()})
 }

@@ -1,65 +1,77 @@
 package model
 
-import "time"
+import (
+	"time"
 
-type Pipeline struct {
-	ID        uint      `json:"id"`
-	Name      string    `json:"name"`
-	Status    string    `json:"status"`
-	Branch    string    `json:"branch"`
-	LastRunAt time.Time `json:"lastRunAt"`
-	CreatedAt time.Time `json:"createdAt"`
-	UpdatedAt time.Time `json:"updatedAt"`
-}
+	"gorm.io/gorm"
+)
 
-type PipelineLog struct {
-	ID         uint      `json:"id"`
-	PipelineID uint      `json:"pipelineId"`
-	Stage      string    `json:"stage"`
-	Level      string    `json:"level"`
-	Message    string    `json:"message"`
-	CreatedAt  time.Time `json:"createdAt"`
-}
-
-type TemplateStage struct {
-	Name       string            `json:"name"`
-	Kind       string            `json:"kind"`
-	Order      int               `json:"order"`
-	Parameters map[string]string `json:"parameters"`
-}
-
-type PipelineTemplate struct {
-	ID          uint            `json:"id"`
-	Name        string          `json:"name"`
-	Description string          `json:"description"`
-	Source      string          `json:"source"`
-	Stages      []TemplateStage `json:"stages"`
-	CreatedAt   time.Time       `json:"createdAt"`
-	UpdatedAt   time.Time       `json:"updatedAt"`
-}
-
-type PipelineRun struct {
-	ID          uint            `json:"id"`
-	PipelineID  uint            `json:"pipelineId"`
-	Pipeline    string          `json:"pipeline"`
-	TemplateID  uint            `json:"templateId"`
-	Template    string          `json:"template"`
-	Branch      string          `json:"branch"`
-	Environment string          `json:"environment"`
-	TriggerType string          `json:"triggerType"`
-	CommitID    string          `json:"commitId"`
-	Operator    string          `json:"operator"`
-	Status      string          `json:"status"`
-	Stages      []TemplateStage `json:"stages"`
-	CreatedAt   time.Time       `json:"createdAt"`
-}
-
+// JenkinsConfig holds Jenkins server connection info
 type JenkinsConfig struct {
-	Endpoint              string    `json:"endpoint"`
-	Username              string    `json:"username"`
-	APIToken              string    `json:"apiToken"`
-	DefaultJob            string    `json:"defaultJob"`
-	TimeoutSeconds        int       `json:"timeoutSeconds"`
-	TLSInsecureSkipVerify bool      `json:"tlsInsecureSkipVerify"`
-	UpdatedAt             time.Time `json:"updatedAt"`
+	ID        uint           `gorm:"primaryKey" json:"id"`
+	Name      string         `gorm:"size:128;not null" json:"name"`
+	URL       string         `gorm:"size:512;not null" json:"url"`
+	Username  string         `gorm:"size:128;not null" json:"username"`
+	APIToken  string         `gorm:"size:256;not null" json:"-"`
+	Status    string         `gorm:"size:20;default:'unknown'" json:"status"`
+	CreatedAt time.Time      `json:"createdAt"`
+	UpdatedAt time.Time      `json:"updatedAt"`
+	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
 }
+
+func (JenkinsConfig) TableName() string { return "cicd_jenkins_configs" }
+
+// JobInfo represents a Jenkins job
+type JobInfo struct {
+	Name        string `json:"name"`
+	DisplayName string `json:"displayName"`
+	URL         string `json:"url"`
+	Color       string `json:"color"`
+	Buildable   bool   `json:"buildable"`
+	Description string `json:"description"`
+}
+
+// BuildInfo represents a Jenkins build
+type BuildInfo struct {
+	Number    int   `json:"number"`
+	URL       string `json:"url"`
+	Result    string `json:"result"`
+	Duration  int64  `json:"duration"`
+	Timestamp int64  `json:"timestamp"`
+	Building  bool   `json:"building"`
+}
+
+// BuildLogEntry represents log output
+type BuildLogEntry struct {
+	Offset  int    `json:"offset"`
+	Text    string `json:"text"`
+	HasMore bool   `json:"hasMore"`
+}
+
+// Pipeline is a DB-backed model representing a CI/CD pipeline
+type Pipeline struct {
+	ID              uint           `gorm:"primaryKey" json:"id"`
+	Name            string         `gorm:"size:128;not null" json:"name"`
+	JenkinsConfigID uint           `gorm:"index" json:"jenkinsConfigId"`
+	JobName         string         `gorm:"size:256;not null" json:"jobName"`
+	CreatedAt       time.Time      `json:"createdAt"`
+	UpdatedAt       time.Time      `json:"updatedAt"`
+	DeletedAt       gorm.DeletedAt `gorm:"index" json:"-"`
+}
+
+func (Pipeline) TableName() string { return "cicd_pipelines" }
+
+// PipelineRun holds a pipeline execution record
+type PipelineRun struct {
+	ID          uint           `gorm:"primaryKey" json:"id"`
+	PipelineID  uint           `gorm:"index" json:"pipelineId"`
+	BuildNumber int            `json:"buildNumber"`
+	Status      string         `gorm:"size:32" json:"status"`
+	Log         string         `gorm:"type:longtext" json:"log,omitempty"`
+	StartedAt   *time.Time     `json:"startedAt"`
+	FinishedAt  *time.Time     `json:"finishedAt"`
+	CreatedAt   time.Time      `json:"createdAt"`
+	DeletedAt   gorm.DeletedAt `gorm:"index" json:"-"`
+}
+
+func (PipelineRun) TableName() string { return "cicd_pipeline_runs" }

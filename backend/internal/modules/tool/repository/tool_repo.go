@@ -2,6 +2,7 @@ package repository
 
 import (
 	"devops-platform/internal/modules/tool/model"
+	"devops-platform/internal/pkg/obserr"
 
 	"gorm.io/gorm"
 )
@@ -56,4 +57,87 @@ func (r *ToolRepo) GetInstallation(tenantID, toolID, hostID uint) (*model.ToolIn
 
 func (r *ToolRepo) UpsertInstallation(inst *model.ToolInstallation) error {
 	return r.db.Where("tenant_id = ? AND tool_id = ? AND host_id = ?", inst.TenantID, inst.ToolID, inst.HostID).Assign(inst).FirstOrCreate(inst).Error
+}
+
+// --- Template CRUD ---
+
+func (r *ToolRepo) ListTemplates(category string, page, pageSize int) ([]model.ToolTemplate, int64, error) {
+	var templates []model.ToolTemplate
+	var total int64
+	q := r.db.Model(&model.ToolTemplate{})
+	if category != "" {
+		q = q.Where("category = ?", category)
+	}
+	q.Count(&total)
+	if err := q.Offset((page-1)*pageSize).Limit(pageSize).Order("category ASC, name ASC").Find(&templates).Error; err != nil {
+		return nil, 0, obserr.Wrap("DB_ERROR", "tool/repository", "list templates failed", err)
+	}
+	return templates, total, nil
+}
+
+func (r *ToolRepo) GetTemplate(id uint) (*model.ToolTemplate, error) {
+	var t model.ToolTemplate
+	if err := r.db.First(&t, id).Error; err != nil {
+		return nil, obserr.Wrap("DB_ERROR", "tool/repository", "get template failed", err)
+	}
+	return &t, nil
+}
+
+func (r *ToolRepo) SaveTemplate(t *model.ToolTemplate) error {
+	if err := r.db.Save(t).Error; err != nil {
+		return obserr.Wrap("DB_ERROR", "tool/repository", "save template failed", err)
+	}
+	return nil
+}
+
+func (r *ToolRepo) DeleteTemplate(id uint) error {
+	if err := r.db.Delete(&model.ToolTemplate{}, id).Error; err != nil {
+		return obserr.Wrap("DB_ERROR", "tool/repository", "delete template failed", err)
+	}
+	return nil
+}
+
+// --- Version CRUD ---
+
+func (r *ToolRepo) ListVersions(templateID uint) ([]model.ToolTemplateVersion, error) {
+	var versions []model.ToolTemplateVersion
+	if err := r.db.Where("template_id = ?", templateID).Order("created_at DESC").Find(&versions).Error; err != nil {
+		return nil, obserr.Wrap("DB_ERROR", "tool/repository", "list versions failed", err)
+	}
+	return versions, nil
+}
+
+func (r *ToolRepo) SaveVersion(v *model.ToolTemplateVersion) error {
+	if err := r.db.Save(v).Error; err != nil {
+		return obserr.Wrap("DB_ERROR", "tool/repository", "save version failed", err)
+	}
+	return nil
+}
+
+func (r *ToolRepo) DeleteVersion(id uint) error {
+	if err := r.db.Delete(&model.ToolTemplateVersion{}, id).Error; err != nil {
+		return obserr.Wrap("DB_ERROR", "tool/repository", "delete version failed", err)
+	}
+	return nil
+}
+
+func (r *ToolRepo) GetVersion(id uint) (*model.ToolTemplateVersion, error) {
+	var v model.ToolTemplateVersion
+	if err := r.db.First(&v, id).Error; err != nil {
+		return nil, obserr.Wrap("DB_ERROR", "tool/repository", "get version failed", err)
+	}
+	return &v, nil
+}
+
+func (r *ToolRepo) GetRecommendedVersion(templateID uint) (*model.ToolTemplateVersion, error) {
+	var v model.ToolTemplateVersion
+	err := r.db.Where("template_id = ? AND is_recommended = ?", templateID, true).First(&v).Error
+	if err != nil {
+		// Fallback: get the latest version
+		err = r.db.Where("template_id = ?", templateID).Order("created_at DESC").First(&v).Error
+		if err != nil {
+			return nil, obserr.Wrap("DB_ERROR", "tool/repository", "no version found for template", err)
+		}
+	}
+	return &v, nil
 }

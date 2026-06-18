@@ -52,3 +52,32 @@ type ToolInstallation struct {
 }
 
 func (ToolInstallation) TableName() string { return "tool_installations" }
+
+// ToolTemplate is a reusable tool installation template
+type ToolTemplate struct {
+	ID          uint           `gorm:"primaryKey" json:"id"`
+	Name        string         `gorm:"size:128;not null;index" json:"name"`
+	Category    string         `gorm:"size:64;not null;index" json:"category"` // database, middleware, monitoring, web, cicd, logging
+	Description string         `gorm:"size:512" json:"description"`
+	Icon        string         `gorm:"size:64;default:'Monitor'" json:"icon"`
+	CreatedAt   time.Time      `json:"createdAt"`
+	UpdatedAt   time.Time      `json:"updatedAt"`
+	DeletedAt   gorm.DeletedAt `gorm:"index" json:"-"`
+}
+
+func (ToolTemplate) TableName() string { return "tool_templates" }
+
+// ToolTemplateVersion represents a specific version of a tool template
+type ToolTemplateVersion struct {
+	ID            uint           `gorm:"primaryKey" json:"id"`
+	TemplateID    uint           `gorm:"index;not null" json:"templateId"`
+	Version       string         `gorm:"size:32;not null" json:"version"`
+	InstallScript string         `gorm:"type:longtext;not null" json:"-"`
+	VerifyScript  string         `gorm:"type:longtext" json:"-"`
+	IsRecommended bool           `gorm:"default:false" json:"isRecommended"`
+	CreatedAt     time.Time      `json:"createdAt"`
+	UpdatedAt     time.Time      `json:"updatedAt"`
+	DeletedAt     gorm.DeletedAt `gorm:"index" json:"-"`
+}
+
+func (ToolTemplateVersion) TableName() string { return "tool_template_versions" }

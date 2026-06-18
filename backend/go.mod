@@ -33,6 +33,7 @@ require (
 	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common v1.3.81
 	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cvm v1.3.78
 	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vpc v1.3.80
+	github.com/yuin/goldmark v1.4.13
 	go.uber.org/zap v1.27.1
 	golang.org/x/crypto v0.47.0
 	golang.org/x/oauth2 v0.28.0

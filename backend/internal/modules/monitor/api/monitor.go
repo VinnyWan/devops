@@ -2,104 +2,147 @@ package api
 
 import (
 	"net/http"
-	"time"
+	"strconv"
 
+	"devops-platform/internal/modules/monitor/model"
 	"devops-platform/internal/modules/monitor/service"
 	"devops-platform/internal/pkg/obserr"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
-var monitorService = service.NewMonitorService()
+var monitorSvc *service.MonitorService
 
-// QueryMonitors godoc
-// @Summary 查询监控指标
-// @Description 按时间范围查询监控指标数据
-// @Tags 监控管理
-// @Produce json
-// @Security BearerAuth
-// @Param metric query string true "指标名"
-// @Param start query string false "开始时间(RFC3339)"
-// @Param end query string false "结束时间(RFC3339)"
-// @Param step query string false "步长"
-// @Success 200 {object} map[string]interface{} "成功"
-// @Failure 400 {object} map[string]interface{} "参数错误"
-// @Router /monitor/query [get]
-func QueryMonitors(c *gin.Context) {
-	start, _ := time.Parse(time.RFC3339, c.Query("start"))
-	end, _ := time.Parse(time.RFC3339, c.Query("end"))
-	result, err := monitorService.Query(
-		c.Query("metric"),
-		start,
-		end,
-		c.DefaultQuery("step", "1m"),
-	)
-	if err != nil {
-		writeObservableError(c, http.StatusBadRequest, err)
-		return
-	}
-	c.JSON(http.StatusOK, gin.H{
-		"code":    200,
-		"message": "success",
-		"data":    result,
-	})
+// SetMonitorDB initializes the monitor service with a DB connection and seeds defaults
+func SetMonitorDB(db *gorm.DB) {
+	monitorSvc = service.NewMonitorService(db)
+	monitorSvc.EnsureDefaults()
 }
 
-// GetPrometheusConfig godoc
-// @Summary 获取Prometheus配置
-// @Description 获取监控模块Prometheus配置
-// @Tags 监控管理
-// @Produce json
-// @Security BearerAuth
-// @Success 200 {object} map[string]interface{} "成功"
-// @Router /monitor/config [get]
+// ListPrometheusConfigs GET /api/v1/monitor/prometheus
+func ListPrometheusConfigs(c *gin.Context) {
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("pageSize", "20"))
+	configs, total, err := monitorSvc.ListConfigs(page, pageSize)
+	if err != nil {
+		writeObservableError(c, http.StatusInternalServerError, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 200, "data": configs, "total": total, "page": page, "pageSize": pageSize})
+}
+
+// GetPrometheusConfig GET /api/v1/monitor/prometheus/:id
 func GetPrometheusConfig(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{
-		"code":    200,
-		"message": "success",
-		"data":    monitorService.GetConfig(),
-	})
-}
-
-// SavePrometheusConfig godoc
-// @Summary 保存Prometheus配置
-// @Description 创建或更新Prometheus配置
-// @Tags 监控管理
-// @Accept json
-// @Produce json
-// @Security BearerAuth
-// @Param request body map[string]interface{} true "Prometheus配置"
-// @Success 200 {object} map[string]interface{} "成功"
-// @Failure 400 {object} map[string]interface{} "参数错误"
-// @Router /monitor/config/upsert [post]
-func SavePrometheusConfig(c *gin.Context) {
-	var req service.SavePrometheusConfigRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		writeObservableError(c, http.StatusBadRequest, obserr.Wrap("PROMETHEUS_INVALID_REQUEST", "monitor.SavePrometheusConfig", "参数错误", err))
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "invalid id"})
 		return
 	}
-	data, err := monitorService.SaveConfig(req)
+	cfg, err := monitorSvc.GetConfig(uint(id))
 	if err != nil {
+		writeObservableError(c, http.StatusInternalServerError, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 200, "data": cfg})
+}
+
+// SavePrometheusConfig POST/PUT /api/v1/monitor/prometheus
+func SavePrometheusConfig(c *gin.Context) {
+	var cfg model.PrometheusConfig
+	if err := c.ShouldBindJSON(&cfg); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "invalid request: " + err.Error()})
+		return
+	}
+	if err := monitorSvc.SaveConfig(&cfg); err != nil {
+		writeObservableError(c, http.StatusInternalServerError, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 200, "data": cfg})
+}
+
+// DeletePrometheusConfig DELETE /api/v1/monitor/prometheus/:id
+func DeletePrometheusConfig(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "invalid id"})
+		return
+	}
+	if err := monitorSvc.DeleteConfig(uint(id)); err != nil {
+		writeObservableError(c, http.StatusInternalServerError, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "deleted"})
+}
+
+// TestPrometheusConnection POST /api/v1/monitor/prometheus/test
+func TestPrometheusConnection(c *gin.Context) {
+	var req struct {
+		Endpoint string `json:"endpoint" binding:"required"`
+		Username string `json:"username"`
+		Password string `json:"password"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "invalid request"})
+		return
+	}
+	if err := monitorSvc.TestConnection(req.Endpoint, req.Username, req.Password); err != nil {
 		writeObservableError(c, http.StatusBadRequest, err)
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{
-		"code":    200,
-		"message": "success",
-		"data":    data,
-	})
+	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "connection successful"})
+}
+
+// QueryHostMetrics GET /api/v1/monitor/host/metrics
+func QueryHostMetrics(c *gin.Context) {
+	configID, _ := strconv.ParseUint(c.DefaultQuery("configId", "0"), 10, 64)
+	hostIP := c.Query("hostIp")
+	metric := c.Query("metric")
+	startTime := c.Query("startTime")
+	endTime := c.Query("endTime")
+
+	if hostIP == "" || metric == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "hostIp and metric are required"})
+		return
+	}
+	result, err := monitorSvc.QueryHostMetrics(uint(configID), hostIP, metric, startTime, endTime)
+	if err != nil {
+		writeObservableError(c, http.StatusInternalServerError, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 200, "data": result})
+}
+
+// QueryPortStatus GET /api/v1/monitor/host/ports
+func QueryPortStatus(c *gin.Context) {
+	configID, _ := strconv.ParseUint(c.DefaultQuery("configId", "0"), 10, 64)
+	hostIP := c.Query("hostIp")
+	ports := c.QueryArray("ports")
+	if hostIP == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "hostIp is required"})
+		return
+	}
+	result, err := monitorSvc.QueryPortStatus(uint(configID), hostIP, ports)
+	if err != nil {
+		writeObservableError(c, http.StatusInternalServerError, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 200, "data": result})
+}
+
+// QueryAgentStatus GET /api/v1/monitor/agent/status
+func QueryAgentStatus(c *gin.Context) {
+	configID, _ := strconv.ParseUint(c.DefaultQuery("configId", "0"), 10, 64)
+	hostIPs := c.QueryArray("hostIps")
+	result, err := monitorSvc.QueryAgentStatus(uint(configID), hostIPs)
+	if err != nil {
+		writeObservableError(c, http.StatusInternalServerError, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 200, "data": result})
 }
 
 func writeObservableError(c *gin.Context, status int, err error) {
 	details := obserr.Details(err)
-	code, _ := details["code"].(string)
-	msg, _ := details["message"].(string)
-	c.JSON(status, gin.H{
-		"code":    status,
-		"message": msg,
-		"error": gin.H{
-			"code":  code,
-			"chain": details["chain"],
-		},
-	})
+	c.JSON(status, gin.H{"code": 500, "message": details["message"], "error": details})
 }

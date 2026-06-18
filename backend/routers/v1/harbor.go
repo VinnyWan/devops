@@ -9,12 +9,29 @@ import (
 
 func registerHarbor(r *gin.RouterGroup) {
 	g := r.Group("/harbor")
-	listPermission := middleware.RequirePermission("harbor", "list")
+	queryPermission := middleware.RequirePermission("harbor", "list")
 	updatePermission := middleware.RequirePermission("harbor", "update")
-	{
-		g.GET("/list", listPermission, harborAPI.ListHarborProjects)
-		g.GET("/images", listPermission, harborAPI.ListHarborImages)
-		g.GET("/config", listPermission, harborAPI.GetHarborConfig)
-		g.POST("/config/upsert", updatePermission, middleware.SetAuditOperation("Harbor 配置更新"), harborAPI.SaveHarborConfig)
-	}
+
+	// Config
+	g.GET("/configs", queryPermission, harborAPI.ListHarborConfigs)
+	g.POST("/configs", updatePermission,
+		middleware.SetAuditOperation("Harbor 配置保存"),
+		harborAPI.SaveHarborConfig)
+	g.PUT("/configs/:id", updatePermission, harborAPI.SaveHarborConfig)
+	g.DELETE("/configs/:id", updatePermission,
+		middleware.SetAuditOperation("Harbor 配置删除"),
+		harborAPI.DeleteHarborConfig)
+	g.POST("/configs/test", queryPermission, harborAPI.TestHarborConnection)
+
+	// Projects
+	g.GET("/projects", queryPermission, harborAPI.ListProjects)
+
+	// Repositories
+	g.GET("/projects/:projectName/repos", queryPermission, harborAPI.ListRepositories)
+
+	// Artifacts
+	g.GET("/projects/:projectName/repos/:repoName/artifacts", queryPermission, harborAPI.ListArtifacts)
+	g.DELETE("/projects/:projectName/repos/:repoName/artifacts", updatePermission,
+		middleware.SetAuditOperation("删除 Harbor artifact"),
+		harborAPI.DeleteArtifact)
 }

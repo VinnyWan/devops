@@ -1,288 +1,255 @@
 package repository
 
 import (
-	"errors"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"net/url"
 	"strings"
-	"sync"
 	"time"
 
 	"devops-platform/internal/modules/cicd/model"
+	"devops-platform/internal/pkg/obserr"
+
+	"gorm.io/gorm"
 )
 
+const op = "cicd/repository"
+
 type CICDRepo struct {
-	mu        sync.RWMutex
-	pipelines []model.Pipeline
-	logs      []model.PipelineLog
-	templates []model.PipelineTemplate
-	runs      []model.PipelineRun
-	nextRunID uint
-	config    model.JenkinsConfig
+	db         *gorm.DB
+	httpClient *http.Client
 }
 
-func NewCICDRepo() *CICDRepo {
-	now := time.Now()
+func NewCICDRepo(db *gorm.DB) *CICDRepo {
 	return &CICDRepo{
-		pipelines: []model.Pipeline{
-			{
-				ID:        1,
-				Name:      "payments-release",
-				Status:    "running",
-				Branch:    "main",
-				LastRunAt: now.Add(-3 * time.Minute),
-				CreatedAt: now.Add(-14 * 24 * time.Hour),
-				UpdatedAt: now.Add(-3 * time.Minute),
-			},
-			{
-				ID:        2,
-				Name:      "gateway-release",
-				Status:    "success",
-				Branch:    "release/v2.3.0",
-				LastRunAt: now.Add(-45 * time.Minute),
-				CreatedAt: now.Add(-20 * 24 * time.Hour),
-				UpdatedAt: now.Add(-45 * time.Minute),
-			},
-			{
-				ID:        3,
-				Name:      "ops-tooling-build",
-				Status:    "failed",
-				Branch:    "feature/metrics",
-				LastRunAt: now.Add(-90 * time.Minute),
-				CreatedAt: now.Add(-30 * 24 * time.Hour),
-				UpdatedAt: now.Add(-90 * time.Minute),
-			},
-		},
-		logs: []model.PipelineLog{
-			{ID: 101, PipelineID: 1, Stage: "build", Level: "info", Message: "开始构建镜像", CreatedAt: now.Add(-3 * time.Minute)},
-			{ID: 102, PipelineID: 1, Stage: "deploy", Level: "info", Message: "发布到 staging 命名空间", CreatedAt: now.Add(-2 * time.Minute)},
-			{ID: 103, PipelineID: 2, Stage: "test", Level: "info", Message: "单元测试通过", CreatedAt: now.Add(-46 * time.Minute)},
-			{ID: 104, PipelineID: 3, Stage: "build", Level: "error", Message: "Docker build 失败: 缺少依赖", CreatedAt: now.Add(-89 * time.Minute)},
-		},
-		templates: []model.PipelineTemplate{
-			{
-				ID:          1,
-				Name:        "标准发布模板",
-				Description: "构建-测试-发布的标准编排",
-				Source:      "manual",
-				Stages: []model.TemplateStage{
-					{Name: "build", Kind: "build", Order: 1, Parameters: map[string]string{"imageRepo": "registry.example.com/devops"}},
-					{Name: "test", Kind: "test", Order: 2, Parameters: map[string]string{"suite": "unit,integration"}},
-					{Name: "deploy", Kind: "deploy", Order: 3, Parameters: map[string]string{"strategy": "rolling"}},
-				},
-				CreatedAt: now.Add(-10 * 24 * time.Hour),
-				UpdatedAt: now.Add(-2 * time.Hour),
-			},
-			{
-				ID:          2,
-				Name:        "快速热修复模板",
-				Description: "快速修复分支直达发布",
-				Source:      "git_event",
-				Stages: []model.TemplateStage{
-					{Name: "build", Kind: "build", Order: 1, Parameters: map[string]string{"cache": "true"}},
-					{Name: "smoke-test", Kind: "test", Order: 2, Parameters: map[string]string{"suite": "smoke"}},
-					{Name: "deploy", Kind: "deploy", Order: 3, Parameters: map[string]string{"strategy": "canary"}},
-				},
-				CreatedAt: now.Add(-7 * 24 * time.Hour),
-				UpdatedAt: now.Add(-4 * time.Hour),
-			},
-		},
-		runs: []model.PipelineRun{
-			{
-				ID:          1001,
-				PipelineID:  1,
-				Pipeline:    "payments-release",
-				TemplateID:  1,
-				Template:    "标准发布模板",
-				Branch:      "main",
-				Environment: "staging",
-				TriggerType: "manual",
-				CommitID:    "8b4af17",
-				Operator:    "system",
-				Status:      "running",
-				Stages: []model.TemplateStage{
-					{Name: "build", Kind: "build", Order: 1, Parameters: map[string]string{"imageRepo": "registry.example.com/devops"}},
-					{Name: "test", Kind: "test", Order: 2, Parameters: map[string]string{"suite": "unit,integration"}},
-					{Name: "deploy", Kind: "deploy", Order: 3, Parameters: map[string]string{"strategy": "rolling"}},
-				},
-				CreatedAt: now.Add(-3 * time.Minute),
-			},
-		},
-		nextRunID: 1002,
-		config: model.JenkinsConfig{
-			Endpoint:       "http://jenkins.cicd.svc:8080",
-			Username:       "admin",
-			APIToken:       "token-demo",
-			DefaultJob:     "payments-release",
-			TimeoutSeconds: 10,
-			UpdatedAt:      now,
-		},
+		db:         db,
+		httpClient: &http.Client{Timeout: 30 * time.Second},
 	}
 }
 
-func (r *CICDRepo) ListPipelines() []model.Pipeline {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return append([]model.Pipeline(nil), r.pipelines...)
+// --- Config CRUD ---
+
+func (r *CICDRepo) ListConfigs(page, pageSize int) ([]model.JenkinsConfig, int64, error) {
+	var configs []model.JenkinsConfig
+	var total int64
+	q := r.db.Model(&model.JenkinsConfig{})
+	q.Count(&total)
+	if err := q.Offset((page - 1) * pageSize).Limit(pageSize).Order("created_at DESC").Find(&configs).Error; err != nil {
+		return nil, 0, obserr.Wrap("DB_ERROR", op, "list jenkins configs failed", err)
+	}
+	return configs, total, nil
 }
 
-func (r *CICDRepo) ListLogs(pipelineID uint) []model.PipelineLog {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	items := make([]model.PipelineLog, 0, len(r.logs))
-	for _, item := range r.logs {
-		if pipelineID > 0 && item.PipelineID != pipelineID {
-			continue
-		}
-		items = append(items, item)
+func (r *CICDRepo) GetConfig(id uint) (*model.JenkinsConfig, error) {
+	var cfg model.JenkinsConfig
+	if err := r.db.First(&cfg, id).Error; err != nil {
+		return nil, obserr.Wrap("DB_ERROR", op, "get jenkins config failed", err)
 	}
-	return items
+	return &cfg, nil
 }
 
-func (r *CICDRepo) ListTemplates() []model.PipelineTemplate {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	items := make([]model.PipelineTemplate, 0, len(r.templates))
-	for _, item := range r.templates {
-		items = append(items, cloneTemplate(item))
+func (r *CICDRepo) SaveConfig(cfg *model.JenkinsConfig) error {
+	if err := r.db.Save(cfg).Error; err != nil {
+		return obserr.Wrap("DB_ERROR", op, "save jenkins config failed", err)
 	}
-	return items
+	return nil
 }
 
-func (r *CICDRepo) SaveTemplate(template model.PipelineTemplate) model.PipelineTemplate {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	now := time.Now()
-	template = cloneTemplate(template)
-	template.UpdatedAt = now
-	for i, item := range r.templates {
-		if item.ID != template.ID || template.ID == 0 {
-			continue
-		}
-		template.CreatedAt = item.CreatedAt
-		r.templates[i] = cloneTemplate(template)
-		return cloneTemplate(r.templates[i])
+func (r *CICDRepo) DeleteConfig(id uint) error {
+	if err := r.db.Delete(&model.JenkinsConfig{}, id).Error; err != nil {
+		return obserr.Wrap("DB_ERROR", op, "delete jenkins config failed", err)
 	}
-	var maxID uint
-	for _, item := range r.templates {
-		if item.ID > maxID {
-			maxID = item.ID
+	return nil
+}
+
+// --- Jenkins API helpers ---
+
+func (r *CICDRepo) jenkinsGet(cfg *model.JenkinsConfig, path string, result interface{}) error {
+	u := strings.TrimRight(cfg.URL, "/") + path
+	req, err := http.NewRequest("GET", u, nil)
+	if err != nil {
+		return obserr.Wrap("JENKINS_REQUEST_FAILED", op, "failed to build request", err)
+	}
+	req.SetBasicAuth(cfg.Username, cfg.APIToken)
+	resp, err := r.httpClient.Do(req)
+	if err != nil {
+		return obserr.Wrap("JENKINS_CONNECT_FAILED", op, "cannot reach jenkins server", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode == 404 {
+		return obserr.New("JENKINS_NOT_FOUND", op, "resource not found on jenkins")
+	}
+	if resp.StatusCode >= 400 {
+		body, _ := io.ReadAll(resp.Body)
+		return obserr.New("JENKINS_REQUEST_FAILED", op, fmt.Sprintf("jenkins returned %d: %s", resp.StatusCode, string(body)))
+	}
+	if result != nil {
+		if err := json.NewDecoder(resp.Body).Decode(result); err != nil {
+			return obserr.Wrap("JENKINS_PARSE_FAILED", op, "failed to parse jenkins response", err)
 		}
 	}
-	template.ID = maxID + 1
-	template.CreatedAt = now
-	r.templates = append(r.templates, cloneTemplate(template))
-	return cloneTemplate(template)
+	return nil
 }
 
-func (r *CICDRepo) GetPipelineByID(id uint) (model.Pipeline, bool) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	for _, item := range r.pipelines {
-		if item.ID == id {
-			return item, true
-		}
+func (r *CICDRepo) jenkinsPost(cfg *model.JenkinsConfig, path string) error {
+	u := strings.TrimRight(cfg.URL, "/") + path
+	req, err := http.NewRequest("POST", u, nil)
+	if err != nil {
+		return obserr.Wrap("JENKINS_REQUEST_FAILED", op, "failed to build request", err)
 	}
-	return model.Pipeline{}, false
+	req.SetBasicAuth(cfg.Username, cfg.APIToken)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	resp, err := r.httpClient.Do(req)
+	if err != nil {
+		return obserr.Wrap("JENKINS_CONNECT_FAILED", op, "cannot reach jenkins server", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 400 {
+		body, _ := io.ReadAll(resp.Body)
+		return obserr.New("JENKINS_REQUEST_FAILED", op, fmt.Sprintf("jenkins returned %d: %s", resp.StatusCode, string(body)))
+	}
+	return nil
 }
 
-func (r *CICDRepo) GetTemplateByID(id uint) (model.PipelineTemplate, bool) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	for _, item := range r.templates {
-		if item.ID == id {
-			return cloneTemplate(item), true
-		}
+// --- Connection test ---
+
+func (r *CICDRepo) TestConnection(urlStr, username, apiToken string) error {
+	cfg := &model.JenkinsConfig{URL: urlStr, Username: username, APIToken: apiToken}
+	var result map[string]interface{}
+	if err := r.jenkinsGet(cfg, "/api/json", &result); err != nil {
+		return err
 	}
-	return model.PipelineTemplate{}, false
+	return nil
 }
 
-func (r *CICDRepo) CreateRun(run model.PipelineRun) model.PipelineRun {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	run = cloneRun(run)
-	if run.ID == 0 {
-		run.ID = r.nextRunID
-		r.nextRunID++
-	}
-	if run.CreatedAt.IsZero() {
-		run.CreatedAt = time.Now()
-	}
-	r.runs = append([]model.PipelineRun{run}, r.runs...)
-	return cloneRun(run)
+// --- Job browsing ---
+
+type jenkinsJob struct {
+	Name  string       `json:"name"`
+	URL   string       `json:"url"`
+	Color string       `json:"color"`
+	Jobs  []jenkinsJob `json:"jobs,omitempty"`
 }
 
-func (r *CICDRepo) ListRuns(pipelineID uint, status string) []model.PipelineRun {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	items := make([]model.PipelineRun, 0, len(r.runs))
-	status = strings.TrimSpace(strings.ToLower(status))
-	for _, item := range r.runs {
-		if pipelineID > 0 && item.PipelineID != pipelineID {
-			continue
-		}
-		if status != "" && strings.ToLower(item.Status) != status {
-			continue
-		}
-		items = append(items, cloneRun(item))
+func (r *CICDRepo) ListJobs(configID uint, keyword string) ([]model.JobInfo, error) {
+	cfg, err := r.GetConfig(configID)
+	if err != nil {
+		return nil, obserr.Wrap("JENKINS_CONFIG_NOT_FOUND", op, "config not found", err)
 	}
-	return items
+
+	var rootJobs []jenkinsJob
+	if err := r.jenkinsGet(cfg, "/api/json?tree=jobs[name,url,color,jobs[name,url,color]]", &struct {
+		Jobs *[]jenkinsJob `json:"jobs"`
+	}{Jobs: &rootJobs}); err != nil {
+		return nil, err
+	}
+
+	var result []model.JobInfo
+	keyword = strings.ToLower(keyword)
+	for _, j := range rootJobs {
+		if keyword == "" || strings.Contains(strings.ToLower(j.Name), keyword) || strings.Contains(strings.ToLower(j.URL), keyword) {
+			result = append(result, model.JobInfo{
+				Name: j.Name, DisplayName: j.Name, URL: j.URL, Color: j.Color, Buildable: j.Color != "disabled",
+			})
+		}
+	}
+	return result, nil
 }
 
-func cloneTemplate(in model.PipelineTemplate) model.PipelineTemplate {
-	stages := make([]model.TemplateStage, 0, len(in.Stages))
-	for _, stage := range in.Stages {
-		params := make(map[string]string, len(stage.Parameters))
-		for k, v := range stage.Parameters {
-			params[k] = v
-		}
-		stages = append(stages, model.TemplateStage{
-			Name:       stage.Name,
-			Kind:       stage.Kind,
-			Order:      stage.Order,
-			Parameters: params,
+// --- Build management ---
+
+func (r *CICDRepo) TriggerBuild(configID uint, jobName string) error {
+	cfg, err := r.GetConfig(configID)
+	if err != nil {
+		return obserr.Wrap("JENKINS_CONFIG_NOT_FOUND", op, "config not found", err)
+	}
+	path := fmt.Sprintf("/job/%s/build", url.PathEscape(jobName))
+	return r.jenkinsPost(cfg, path)
+}
+
+func (r *CICDRepo) ListBuilds(configID uint, jobName string) ([]model.BuildInfo, error) {
+	cfg, err := r.GetConfig(configID)
+	if err != nil {
+		return nil, obserr.Wrap("JENKINS_CONFIG_NOT_FOUND", op, "config not found", err)
+	}
+
+	path := fmt.Sprintf("/job/%s/api/json?tree=builds[number,url,result,duration,timestamp,building]", url.PathEscape(jobName))
+	var resp struct {
+		Builds []struct {
+			Number    int    `json:"number"`
+			URL       string `json:"url"`
+			Result    string `json:"result"`
+			Duration  int64  `json:"duration"`
+			Timestamp int64  `json:"timestamp"`
+			Building  bool   `json:"building"`
+		} `json:"builds"`
+	}
+	if err := r.jenkinsGet(cfg, path, &resp); err != nil {
+		return nil, err
+	}
+
+	var builds []model.BuildInfo
+	for _, b := range resp.Builds {
+		builds = append(builds, model.BuildInfo{
+			Number: b.Number, URL: b.URL, Result: b.Result,
+			Duration: b.Duration, Timestamp: b.Timestamp, Building: b.Building,
 		})
 	}
-	in.Stages = stages
-	return in
+	return builds, nil
 }
 
-func cloneRun(in model.PipelineRun) model.PipelineRun {
-	stages := make([]model.TemplateStage, 0, len(in.Stages))
-	for _, stage := range in.Stages {
-		params := make(map[string]string, len(stage.Parameters))
-		for k, v := range stage.Parameters {
-			params[k] = v
-		}
-		stages = append(stages, model.TemplateStage{
-			Name:       stage.Name,
-			Kind:       stage.Kind,
-			Order:      stage.Order,
-			Parameters: params,
-		})
+func (r *CICDRepo) GetBuildLog(configID uint, jobName string, buildNumber int) (*model.BuildLogEntry, error) {
+	cfg, err := r.GetConfig(configID)
+	if err != nil {
+		return nil, obserr.Wrap("JENKINS_CONFIG_NOT_FOUND", op, "config not found", err)
 	}
-	in.Stages = stages
-	return in
-}
 
-func (r *CICDRepo) GetConfig() model.JenkinsConfig {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.config
-}
-
-func (r *CICDRepo) SaveConfig(cfg model.JenkinsConfig) model.JenkinsConfig {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	cfg.UpdatedAt = time.Now()
-	r.config = cfg
-	return r.config
-}
-
-func (r *CICDRepo) ValidateConfigConnection(cfg model.JenkinsConfig) error {
-	if strings.Contains(strings.ToLower(cfg.Endpoint), "invalid") {
-		return errors.New("jenkins endpoint 不可达")
+	path := fmt.Sprintf("/job/%s/%d/consoleText", url.PathEscape(jobName), buildNumber)
+	u := strings.TrimRight(cfg.URL, "/") + path
+	req, err := http.NewRequest("GET", u, nil)
+	if err != nil {
+		return nil, obserr.Wrap("JENKINS_REQUEST_FAILED", op, "failed to build request", err)
 	}
-	if strings.Contains(strings.ToLower(cfg.Endpoint), "timeout") {
-		return errors.New("jenkins 请求超时")
+	req.SetBasicAuth(cfg.Username, cfg.APIToken)
+	resp, err := r.httpClient.Do(req)
+	if err != nil {
+		return nil, obserr.Wrap("JENKINS_CONNECT_FAILED", op, "cannot reach jenkins", err)
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20)) // limit to 1MB
+	if err != nil {
+		return nil, obserr.Wrap("JENKINS_LOG_FAILED", op, "failed to read build log", err)
+	}
+
+	text := string(body)
+	hasMore := len(text) >= 1<<20
+	return &model.BuildLogEntry{Text: text, HasMore: hasMore}, nil
+}
+
+// Pipeline CRUD (DB-backed)
+func (r *CICDRepo) ListPipelines(page, pageSize int) ([]model.Pipeline, int64, error) {
+	var pipelines []model.Pipeline
+	var total int64
+	q := r.db.Model(&model.Pipeline{})
+	q.Count(&total)
+	if err := q.Offset((page-1)*pageSize).Limit(pageSize).Order("created_at DESC").Find(&pipelines).Error; err != nil {
+		return nil, 0, obserr.Wrap("DB_ERROR", op, "list pipelines failed", err)
+	}
+	return pipelines, total, nil
+}
+
+func (r *CICDRepo) SavePipeline(p *model.Pipeline) error {
+	if err := r.db.Save(p).Error; err != nil {
+		return obserr.Wrap("DB_ERROR", op, "save pipeline failed", err)
+	}
+	return nil
+}
+
+func (r *CICDRepo) DeletePipeline(id uint) error {
+	if err := r.db.Delete(&model.Pipeline{}, id).Error; err != nil {
+		return obserr.Wrap("DB_ERROR", op, "delete pipeline failed", err)
 	}
 	return nil
 }

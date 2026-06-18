@@ -2,8 +2,13 @@ package bootstrap
 
 import (
 	"devops-platform/config"
+	cicdModel "devops-platform/internal/modules/cicd/model"
 	cmdbModel "devops-platform/internal/modules/cmdb/model"
+	harborModel "devops-platform/internal/modules/harbor/model"
 	k8sModel "devops-platform/internal/modules/k8s/model"
+	kbModel "devops-platform/internal/modules/knowledge/model"
+	logModel "devops-platform/internal/modules/log/model"
+	monitorModel "devops-platform/internal/modules/monitor/model"
 	nfModel "devops-platform/internal/modules/notification/model"
 	sqlAuditModel "devops-platform/internal/modules/sqlaudit/model"
 	taskModel "devops-platform/internal/modules/task/model"
@@ -98,8 +103,18 @@ func InitDB() error {
 		&wfModel.Approval{},
 		&toolModel.Tool{},
 		&toolModel.ToolInstallation{},
+		&toolModel.ToolTemplate{},
+		&toolModel.ToolTemplateVersion{},
 		&sqlAuditModel.DbConnection{},
 		&sqlAuditModel.SqlRecord{},
+		&harborModel.HarborConfig{},
+		&monitorModel.PrometheusConfig{},
+		&cicdModel.JenkinsConfig{},
+		&cicdModel.Pipeline{},
+		&cicdModel.PipelineRun{},
+		&logModel.LogSource{},
+		&kbModel.Category{},
+		&kbModel.Article{},
 	)
 	if err != nil {
 		return err
@@ -352,6 +367,7 @@ func seedPermissions(db *gorm.DB) error {
 		{Name: "查看日志", Type: userModel.PermissionTypeAPI, Resource: "log", Action: "list"},
 		// 监控管理权限
 		{Name: "查看监控", Type: userModel.PermissionTypeAPI, Resource: "monitor", Action: "list"},
+		{Name: "管理监控配置", Type: userModel.PermissionTypeAPI, Resource: "monitor", Action: "update"},
 		// Harbor 管理权限
 		{Name: "查看Harbor", Type: userModel.PermissionTypeAPI, Resource: "harbor", Action: "list"},
 		// CI/CD 管理权限

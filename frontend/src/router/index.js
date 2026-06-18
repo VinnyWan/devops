@@ -143,8 +143,44 @@ const routes = [
         component: () => import('../views/Workflow/ToolMarket.vue')
       },
       {
+        path: 'tools/templates',
+        component: () => import('../views/Workflow/ToolTemplates.vue')
+      },
+      {
         path: 'sql-audit',
         component: () => import('../views/Workflow/SqlAudit.vue')
+      },
+      {
+        path: 'monitor/prometheus',
+        component: () => import('../views/Monitor/PrometheusConfig.vue')
+      },
+      {
+        path: 'monitor/metrics',
+        component: () => import('../views/Monitor/HostMetrics.vue')
+      },
+      {
+        path: 'monitor/agent',
+        component: () => import('../views/Monitor/AgentStatus.vue')
+      },
+      {
+        path: 'cicd/jenkins',
+        component: () => import('../views/Cicd/JenkinsConfig.vue')
+      },
+      {
+        path: 'cicd/jobs',
+        component: () => import('../views/Cicd/JobList.vue')
+      },
+      {
+        path: 'harbor/registry',
+        component: () => import('../views/Harbor/RegistryList.vue')
+      },
+      {
+        path: 'log/search',
+        component: () => import('../views/Log/LogSearch.vue')
+      },
+      {
+        path: 'knowledge/articles',
+        component: () => import('../views/Knowledge/ArticleList.vue')
       }
     ]
   }
